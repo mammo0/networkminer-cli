@@ -1,0 +1,69 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.27130.2036
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NetworkMiner", "NetworkMiner\NetworkMiner.csproj", "{9467C3ED-E582-4D33-84BA-4A6380384084}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NetworkWrapper", "WinPCapWrapper\NetworkWrapper.csproj", "{2E55D097-37D8-42C4-9BD4-664EA0CF9CF9}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PacketParser", "PacketParser\PacketParser.csproj", "{6076F9F3-F975-469E-9E0C-CACCCFF9629F}"
+EndProject
+Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "NetresecShared", "NetresecShared\NetresecShared.shproj", "{C11C6BA2-4AE3-4F40-85A0-D998957FA9F5}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SharedUtils", "SharedUtils\SharedUtils.csproj", "{AC038CD9-F50A-436F-8FE3-A194275C4362}"
+EndProject
+Global
+	GlobalSection(SharedMSBuildProjectFiles) = preSolution
+		NetresecShared\NetresecShared.projitems*{6076f9f3-f975-469e-9e0c-cacccff9629f}*SharedItemsImports = 4
+		NetresecShared\NetresecShared.projitems*{c11c6ba2-4ae3-4f40-85a0-d998957fa9f5}*SharedItemsImports = 13
+	EndGlobalSection
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|x86 = Debug|x86
+		Release|Any CPU = Release|Any CPU
+		Release|x86 = Release|x86
+		Description = NetworkMiner - The Open Source Network Forensic Analysis Tool (NFAT)
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{9467C3ED-E582-4D33-84BA-4A6380384084}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9467C3ED-E582-4D33-84BA-4A6380384084}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9467C3ED-E582-4D33-84BA-4A6380384084}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{9467C3ED-E582-4D33-84BA-4A6380384084}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9467C3ED-E582-4D33-84BA-4A6380384084}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9467C3ED-E582-4D33-84BA-4A6380384084}.Release|x86.ActiveCfg = Release|Any CPU
+		{9467C3ED-E582-4D33-84BA-4A6380384084}.Release|x86.Build.0 = Release|Any CPU
+		{2E55D097-37D8-42C4-9BD4-664EA0CF9CF9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2E55D097-37D8-42C4-9BD4-664EA0CF9CF9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2E55D097-37D8-42C4-9BD4-664EA0CF9CF9}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{2E55D097-37D8-42C4-9BD4-664EA0CF9CF9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2E55D097-37D8-42C4-9BD4-664EA0CF9CF9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2E55D097-37D8-42C4-9BD4-664EA0CF9CF9}.Release|x86.ActiveCfg = Release|x86
+		{2E55D097-37D8-42C4-9BD4-664EA0CF9CF9}.Release|x86.Build.0 = Release|x86
+		{6076F9F3-F975-469E-9E0C-CACCCFF9629F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6076F9F3-F975-469E-9E0C-CACCCFF9629F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6076F9F3-F975-469E-9E0C-CACCCFF9629F}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{6076F9F3-F975-469E-9E0C-CACCCFF9629F}.Debug|x86.Build.0 = Debug|Any CPU
+		{6076F9F3-F975-469E-9E0C-CACCCFF9629F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6076F9F3-F975-469E-9E0C-CACCCFF9629F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6076F9F3-F975-469E-9E0C-CACCCFF9629F}.Release|x86.ActiveCfg = Release|Any CPU
+		{6076F9F3-F975-469E-9E0C-CACCCFF9629F}.Release|x86.Build.0 = Release|Any CPU
+		{AC038CD9-F50A-436F-8FE3-A194275C4362}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AC038CD9-F50A-436F-8FE3-A194275C4362}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AC038CD9-F50A-436F-8FE3-A194275C4362}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{AC038CD9-F50A-436F-8FE3-A194275C4362}.Debug|x86.Build.0 = Debug|Any CPU
+		{AC038CD9-F50A-436F-8FE3-A194275C4362}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AC038CD9-F50A-436F-8FE3-A194275C4362}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AC038CD9-F50A-436F-8FE3-A194275C4362}.Release|x86.ActiveCfg = Release|Any CPU
+		{AC038CD9-F50A-436F-8FE3-A194275C4362}.Release|x86.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {5C7C4390-85EA-42F7-894B-B8F1771A67F1}
+	EndGlobalSection
+	GlobalSection(Performance) = preSolution
+		HasPerformanceSessions = true
+	EndGlobalSection
+EndGlobal
