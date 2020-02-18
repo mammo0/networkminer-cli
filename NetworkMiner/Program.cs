@@ -91,8 +91,7 @@ namespace NetworkMiner {
 
         private static void PrintError(string errorMsg, int exitCode = 1) {
             Logger.Log(errorMsg, Logger.EventLogEntryType.Error);
-            Console.WriteLine(errorMsg);
-            System.Environment.Exit(1);
+            System.Environment.Exit(exitCode);
         }
 
         private static void ParsePCAPFile(String filePath) {
