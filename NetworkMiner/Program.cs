@@ -4,7 +4,10 @@
 //  under the terms of the GNU General Public License
 //
 
+using PacketParser;
+using PacketParser.FileTransfer;
 using SharedUtils;
+using SharedUtils.Pcap;
 using System;
 using System.IO;
 using System.Reflection;
@@ -40,6 +43,11 @@ namespace NetworkMiner {
             string basePath = Path.GetDirectoryName(EXE_PATH);
             Directory.CreateDirectory(Path.Combine(basePath, FileStreamAssembler.ASSMEBLED_FILES_DIRECTORY, "cache"));
 
+
+            ParsePCAPFile(filename);
+
+            // don't know why the application doesn't exit automatically after reaching the end of the main method...
+            System.Environment.Exit(0);
         }
 
 
@@ -85,6 +93,50 @@ namespace NetworkMiner {
             Logger.Log(errorMsg, Logger.EventLogEntryType.Error);
             Console.WriteLine(errorMsg);
             System.Environment.Exit(1);
+        }
+
+        private static void ParsePCAPFile(String filePath) {
+            int percentRead = 0;
+
+            using (PcapFileReader pcapReader = new PcapFileReader(filePath)) {
+                DateTime parsingStartTime = DateTime.Now;
+                Logger.Log(filePath + " start parsing " + parsingStartTime.ToString(), Logger.EventLogEntryType.Information);
+                Console.WriteLine("Start parsing " + filePath);
+
+                int enqueuedFramesSinceLastWait = 0;
+
+                PacketHandler packetHandler = new PacketHandler(EXE_PATH, System.Environment.CurrentDirectory, null, true, new Func<DateTime, string>((DateTime dateTime) => { return dateTime.ToUniversalTime().ToString("u"); }), false);
+                packetHandler.StartBackgroundThreads();
+
+                foreach (PcapFrame pcapPacket in pcapReader.PacketEnumerator()) {
+                    Frame frame = packetHandler.GetFrame(pcapPacket.Timestamp, pcapPacket.Data, pcapPacket.DataLinkType);
+                    packetHandler.AddFrameToFrameParsingQueue(frame);
+                    enqueuedFramesSinceLastWait++;
+                    int newPercentRead = pcapReader.GetPercentRead(packetHandler.FramesToParseQueuedByteCount);
+                    if (newPercentRead != percentRead) {
+                        percentRead = newPercentRead;
+
+                        // output percent
+                        Console.WriteLine("Progress: " + percentRead + "%");
+                    }
+                }
+                Logger.Log(enqueuedFramesSinceLastWait + " frames read in " + DateTime.Now.Subtract(parsingStartTime).ToString(), Logger.EventLogEntryType.Information);
+
+                while (packetHandler.FramesInQueue > 0) {//just to make sure we dont finish too early
+                    System.Threading.Thread.Sleep(200);
+
+                    int newPercentRead = pcapReader.GetPercentRead(packetHandler.FramesToParseQueuedByteCount);
+                    if (newPercentRead != percentRead) {
+                        percentRead = newPercentRead;
+
+                        // output percent
+                        Console.WriteLine("Progress: " + percentRead + "%");
+                    }
+                }
+                TimeSpan parsingTimeTotal = DateTime.Now.Subtract(parsingStartTime);
+                Logger.Log(filePath + " parsed in " + parsingTimeTotal.ToString(), Logger.EventLogEntryType.Information);
+                Console.WriteLine("Finished parsing " + filePath);
+            }
         }
     }
 }
