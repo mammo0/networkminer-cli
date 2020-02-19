@@ -10,6 +10,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Project_Files", "Project_Files", "{38AAB075-6E2E-4522-B01D-1F49DBEB6F51}"
 	ProjectSection(SolutionItems) = preProject
 		.github\workflows\release_workflow.yml = .github\workflows\release_workflow.yml
+		ChangeLog = ChangeLog
 	EndProjectSection
 EndProject
 Global

@@ -22,7 +22,7 @@ jobs:
         zip -r $RELEASE_ZIP ./
         popd
         mv NetworkMiner/bin/Release/$RELEASE_ZIP ./
-        zip $RELEASE_ZIP README.md LICENSE.txt  # add README and LICENSE
+        zip $RELEASE_ZIP README.md ChangeLog LICENSE.txt  # add README, ChangeLog and LICENSE
     - name: Create GH Release
       id: create_release
       uses: actions/create-release@v1
