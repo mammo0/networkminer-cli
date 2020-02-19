@@ -1,0 +1,49 @@
+name: .NET Core
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Create Release
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_ZIP: networkminer-cli.zip
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Setup .NET Core
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: '3.1.100'
+    - name: Build application
+      run: dotnet build --configuration Release
+    - name: ZIP binaries
+      run: |
+        pushd NetworkMiner/bin/Release
+        zip -r $RELEASE_ZIP ./
+        popd
+        mv NetworkMiner/bin/Release/$RELEASE_ZIP ./
+        zip $RELEASE_ZIP README.md LICENSE.txt  # add README and LICENSE
+    - name: Create GH Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: networkminer-cli ${{ github.ref }}
+        draft: false
+        prerelease: false
+    - name: Upload GH Release Asset
+      id: upload_release_asset 
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./$RELEASE_ZIP
+        asset_name: $RELEASE_ZIP
+        asset_content_type: application/zip
