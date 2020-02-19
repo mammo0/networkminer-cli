@@ -41,10 +41,15 @@ namespace NetworkMiner {
             // create 'AssembledFiles/cache" directory if it doesn't exist
             // this directory is required!
             string basePath = Path.GetDirectoryName(EXE_PATH);
-            Directory.CreateDirectory(Path.Combine(basePath, FileStreamAssembler.ASSMEBLED_FILES_DIRECTORY, "cache"));
+            string cacheDirectory = Path.Combine(basePath, FileStreamAssembler.ASSMEBLED_FILES_DIRECTORY, "cache");
+            Directory.CreateDirectory(cacheDirectory);
 
 
             ParsePCAPFile(filename);
+
+
+            // remove the cache directory again
+            Directory.Delete(cacheDirectory, true);
 
             // don't know why the application doesn't exit automatically after reaching the end of the main method...
             System.Environment.Exit(0);
