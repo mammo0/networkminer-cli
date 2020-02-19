@@ -7,7 +7,7 @@
     <OutputType>Exe</OutputType>
     <RootNamespace>NetworkMiner</RootNamespace>
     <AssemblyName>NetworkMiner</AssemblyName>
-    <TargetFrameworkVersion>v4.7</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <StartupObject>NetworkMiner.Program</StartupObject>
     <ApplicationIcon>networkminericon.ico</ApplicationIcon>
   </PropertyGroup>
