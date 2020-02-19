@@ -7,6 +7,11 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PacketParser", "PacketParse
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharedUtils", "SharedUtils\SharedUtils.csproj", "{06690200-D2DA-49F5-A687-068163BBEEC4}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Project_Files", "Project_Files", "{38AAB075-6E2E-4522-B01D-1F49DBEB6F51}"
+	ProjectSection(SolutionItems) = preProject
+		.github\workflows\release_workflow.yml = .github\workflows\release_workflow.yml
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x86 = Debug|x86
