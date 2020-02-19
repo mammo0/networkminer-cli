@@ -15,7 +15,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Build application
-      run: msbuild -p:Configuration=Release NetworkMiner.sln
+      run: msbuild -restore -p:Configuration=Release NetworkMiner.sln
     - name: ZIP binaries
       run: |
         pushd NetworkMiner/bin/Release
