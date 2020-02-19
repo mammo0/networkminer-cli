@@ -13,7 +13,7 @@ namespace PacketParser.Packets {
             
             //skip tag number
             byte length=parentFrame.Data[PacketStartIndex+1];
-            this.requestedSsid=new String(parentFrame.Data, PacketStartIndex+2, length);
+            this.requestedSsid=Encoding.Default.GetString(parentFrame.Data, PacketStartIndex + 2, length);
 
             //2 Supported rates
             //skip rates...

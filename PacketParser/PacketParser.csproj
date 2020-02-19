@@ -1,86 +1,271 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-    <!--<TargetFramework>netstandard2.0</TargetFramework>-->
-    <TargetFramework>net472</TargetFramework>
-    <Company>NETRESEC</Company>
-    <Authors>Erik Hjelmvik</Authors>
-    <AssemblyVersion>2.5.0.0</AssemblyVersion>
-    <FileVersion>2.5.0.0</FileVersion>
-    <Version>2.5</Version>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{5BA74456-631B-4F99-AB49-AED79DF091E8}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <RootNamespace>PacketParser</RootNamespace>
+    <AssemblyName>PacketParser</AssemblyName>
+    <TargetFrameworkVersion>v4.7</TargetFrameworkVersion>
   </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-    <DebugType>none</DebugType>
-    <DebugSymbols>false</DebugSymbols>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug</OutputPath>
+    <DefineConstants>DEBUG;</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <ConsolePause>false</ConsolePause>
   </PropertyGroup>
-
-  <ItemGroup>
-    <Compile Remove="IMemoryMonitor.cs" />
-    <Compile Remove="Packets\IEEE_802_11ProbeRequestBodyPacket.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Remove="CleartextTools\all-words.txt" />
-    <None Remove="Fingerprints\dhcp.xml" />
-    <None Remove="Fingerprints\etter.finger.os" />
-    <None Remove="Fingerprints\ja3fingerprint.json" />
-    <None Remove="Fingerprints\mac-ages.csv" />
-    <None Remove="Fingerprints\mac-ages_LICENSE" />
-    <None Remove="Fingerprints\nmap-mac-prefixes" />
-    <None Remove="Fingerprints\oui.txt" />
-    <None Remove="Fingerprints\p0f.fp" />
-    <None Remove="Fingerprints\p0f.fp.netsa" />
-    <None Remove="Fingerprints\p0fa.fp" />
-    <None Remove="Fingerprints\tcp.xml" />
-    <None Remove="PacketParser.csproj.old" />
-    <None Remove="Packets\SmbPacket.cs.backup-161123" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Content Include="CleartextTools\all-words.txt">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Fingerprints\dhcp.xml">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Fingerprints\etter.finger.os">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Fingerprints\ja3fingerprint.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Fingerprints\mac-ages.csv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Fingerprints\mac-ages_LICENSE">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Fingerprints\oui.txt">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Fingerprints\p0f.fp">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Fingerprints\p0f.fp.netsa">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Fingerprints\p0fa.fp">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Fingerprints\tcp.xml">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\SharedUtils\SharedUtils.csproj" />
-  </ItemGroup>
-
-<!--System.Web is required when targeting net472, but not for netstandard2.0-->
-
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release</OutputPath>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <ConsolePause>false</ConsolePause>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="System.Web" />
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Net" />
+    <Reference Include="System" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Runtime.Serialization" />
   </ItemGroup>
-
+  <ItemGroup>
+    <Compile Include="Events\AnomalyEventArgs.cs" />
+    <Compile Include="Events\BufferUsageEventArgs.cs" />
+    <Compile Include="Events\CleartextWordsEventArgs.cs" />
+    <Compile Include="Events\CredentialEventArgs.cs" />
+    <Compile Include="Events\DnsRecordEventArgs.cs" />
+    <Compile Include="Events\FileEventArgs.cs" />
+    <Compile Include="Events\FrameEventArgs.cs" />
+    <Compile Include="Events\HttpClientEventArgs.cs" />
+    <Compile Include="Events\KeywordEventArgs.cs" />
+    <Compile Include="Events\MessageEventArgs.cs" />
+    <Compile Include="Events\NetworkHostEventArgs.cs" />
+    <Compile Include="Events\ParametersEventArgs.cs" />
+    <Compile Include="Events\SessionEventArgs.cs" />
+    <Compile Include="AudioStream.cs" />
+    <Compile Include="FiveTuple.cs" />
+    <Compile Include="Frame.cs" />
+    <Compile Include="IMemoryMonitor.cs" />
+    <Compile Include="IPacketFilter.cs" />
+    <Compile Include="IPopularityList.cs" />
+    <Compile Include="IPortProtocolFinder.cs" />
+    <Compile Include="ISessionProtocolFinder.cs" />
+    <Compile Include="ISessionProtocolFinderFactory.cs" />
+    <Compile Include="IUdpPayloadProtocolFinder.cs" />
+    <Compile Include="LatestFramesQueue.cs" />
+    <Compile Include="NetworkCredential.cs" />
+    <Compile Include="NetworkFlow.cs" />
+    <Compile Include="NetworkHost.cs" />
+    <Compile Include="NetworkHostList.cs" />
+    <Compile Include="NetworkPacket.cs" />
+    <Compile Include="NetworkPacketList.cs" />
+    <Compile Include="NetworkServiceMetadata.cs" />
+    <Compile Include="NetworkTcpSession.cs" />
+    <Compile Include="PacketHandler.cs" />
+    <Compile Include="PopularityList.cs" />
+    <Compile Include="PortProtocolFinderFactory.cs" />
+    <Compile Include="SimpleParser.cs" />
+    <Compile Include="TcpPortProtocolFinder.cs" />
+    <Compile Include="UdpPortProtocolFinder.cs" />
+    <Compile Include="CleartextTools\BloomFilter.cs" />
+    <Compile Include="CleartextTools\WordDictionary.cs" />
+    <Compile Include="FileTransfer\AuFileAssembler.cs" />
+    <Compile Include="FileTransfer\ContentRange.cs" />
+    <Compile Include="FileTransfer\FileSegmentAssembler.cs" />
+    <Compile Include="FileTransfer\FileStreamAssembler.cs" />
+    <Compile Include="FileTransfer\FileStreamAssemblerList.cs" />
+    <Compile Include="FileTransfer\FileStreamTypes.cs" />
+    <Compile Include="FileTransfer\PartialFileAssembler.cs" />
+    <Compile Include="FileTransfer\ReconstructedFile.cs" />
+    <Compile Include="FileTransfer\WavFileAssembler.cs" />
+    <Compile Include="Fingerprints\AbstractTtlDistanceCalculator.cs" />
+    <Compile Include="Fingerprints\DeviceFingerprint.cs" />
+    <Compile Include="Fingerprints\EttarcapOsFingerprintCollection.cs" />
+    <Compile Include="Fingerprints\IOsFingerprinter.cs" />
+    <Compile Include="Fingerprints\ITtlDistanceCalculator.cs" />
+    <Compile Include="Fingerprints\Ja3FingerprintDictionaryFactory.cs" />
+    <Compile Include="Fingerprints\MacAges.cs" />
+    <Compile Include="Fingerprints\MacCollection.cs" />
+    <Compile Include="Fingerprints\P0fOsFingerprintCollection.cs" />
+    <Compile Include="Fingerprints\SatoriDhcpOsFingerprinter.cs" />
+    <Compile Include="Fingerprints\SatoriTcpOsFingerprinter.cs" />
+    <Compile Include="Mime\ByteArrayStream.cs" />
+    <Compile Include="Mime\Email.cs" />
+    <Compile Include="Mime\MultipartPart.cs" />
+    <Compile Include="Mime\PartBuilder.cs" />
+    <Compile Include="Mime\Rfc2047Parser.cs" />
+    <Compile Include="Mime\UnbufferedReader.cs" />
+    <Compile Include="PacketHandlers\AbstractPacketHandler.cs" />
+    <Compile Include="PacketHandlers\CifsBrowserPacketHandler.cs" />
+    <Compile Include="PacketHandlers\DhcpPacketHandler.cs" />
+    <Compile Include="PacketHandlers\DnsPacketHandler.cs" />
+    <Compile Include="PacketHandlers\FtpPacketHandler.cs" />
+    <Compile Include="PacketHandlers\GenericShimPacketHandler.cs" />
+    <Compile Include="PacketHandlers\HpSwitchProtocolPacketHandler.cs" />
+    <Compile Include="PacketHandlers\Http2PacketHandler.cs" />
+    <Compile Include="PacketHandlers\HttpPacketHandler.cs" />
+    <Compile Include="PacketHandlers\ICanParse.cs" />
+    <Compile Include="PacketHandlers\IEC-104_PacketHandler.cs" />
+    <Compile Include="PacketHandlers\IHttpPacketHandler.cs" />
+    <Compile Include="PacketHandlers\IPacketHandler.cs" />
+    <Compile Include="PacketHandlers\ITcpSessionPacketHandler.cs" />
+    <Compile Include="PacketHandlers\ImapPacketHandler.cs" />
+    <Compile Include="PacketHandlers\IrcPacketHandler.cs" />
+    <Compile Include="PacketHandlers\KerberosPacketHandler.cs" />
+    <Compile Include="PacketHandlers\ModbusTcpPacketHandler.cs" />
+    <Compile Include="PacketHandlers\NetBiosDatagramServicePacketHandler.cs" />
+    <Compile Include="PacketHandlers\NetBiosNameServicePacketHandler.cs" />
+    <Compile Include="PacketHandlers\NetBiosSessionServicePacketHandler.cs" />
+    <Compile Include="PacketHandlers\NtlmSspPacketHandler.cs" />
+    <Compile Include="PacketHandlers\OscarFileTransferPacketHandler.cs" />
+    <Compile Include="PacketHandlers\OscarPacketHandler.cs" />
+    <Compile Include="PacketHandlers\Pop3PacketHandler.cs" />
+    <Compile Include="PacketHandlers\RdpPacketHandler.cs" />
+    <Compile Include="PacketHandlers\RtpPacketHandler.cs" />
+    <Compile Include="PacketHandlers\SipPacketHandler.cs" />
+    <Compile Include="PacketHandlers\Smb2PacketHandler.cs" />
+    <Compile Include="PacketHandlers\SmbCommandPacketHandler.cs" />
+    <Compile Include="PacketHandlers\SmtpPacketHandler.cs" />
+    <Compile Include="PacketHandlers\SnmpPacketHandler.cs" />
+    <Compile Include="PacketHandlers\SocksPacketHandler.cs" />
+    <Compile Include="PacketHandlers\SpotifyKeyExchangePacketHandler.cs" />
+    <Compile Include="PacketHandlers\SshPacketHandler.cs" />
+    <Compile Include="PacketHandlers\SyslogPacketHandler.cs" />
+    <Compile Include="PacketHandlers\TabularDataStreamPacketHandler.cs" />
+    <Compile Include="PacketHandlers\TftpPacketHandler.cs" />
+    <Compile Include="PacketHandlers\TlsRecordPacketHandler.cs" />
+    <Compile Include="PacketHandlers\UnusedTcpSessionProtocolsHandler.cs" />
+    <Compile Include="PacketHandlers\UpnpPacketHandler.cs" />
+    <Compile Include="Packets\AbstractPacket.cs" />
+    <Compile Include="Packets\ArpPacket.cs" />
+    <Compile Include="Packets\CifsBrowserPacket.cs" />
+    <Compile Include="Packets\CiscoHdlcPacket.cs" />
+    <Compile Include="Packets\CotpPacket.cs" />
+    <Compile Include="Packets\DhcpPacket.cs" />
+    <Compile Include="Packets\DnsPacket.cs" />
+    <Compile Include="Packets\ErfFrame.cs" />
+    <Compile Include="Packets\Ethernet2Packet.cs" />
+    <Compile Include="Packets\FtpPacket.cs" />
+    <Compile Include="Packets\GrePacket.cs" />
+    <Compile Include="Packets\HpSwitchProtocolPacket.cs" />
+    <Compile Include="Packets\Http2Packet.cs" />
+    <Compile Include="Packets\HttpPacket.cs" />
+    <Compile Include="Packets\IEC_60870-5-104Packet.cs" />
+    <Compile Include="Packets\IEEE_802_11Packet.cs" />
+    <Compile Include="Packets\IEEE_802_11ProbeRequestBodyPacket.cs" />
+    <Compile Include="Packets\IEEE_802_11RadiotapPacket.cs" />
+    <Compile Include="Packets\IEEE_802_1Q_VlanPacket.cs" />
+    <Compile Include="Packets\IIPPacket.cs" />
+    <Compile Include="Packets\IPacket.cs" />
+    <Compile Include="Packets\IPv4Packet.cs" />
+    <Compile Include="Packets\IPv6Packet.cs" />
+    <Compile Include="Packets\ISessionPacket.cs" />
+    <Compile Include="Packets\ITransportLayerPacket.cs" />
+    <Compile Include="Packets\IcmpPacket.cs" />
+    <Compile Include="Packets\ImapPacket.cs" />
+    <Compile Include="Packets\IrcPacket.cs" />
+    <Compile Include="Packets\KerberosPacket.cs" />
+    <Compile Include="Packets\LinuxCookedCapture.cs" />
+    <Compile Include="Packets\LogicalLinkControlPacket.cs" />
+    <Compile Include="Packets\ModbusTcpPacket.cs" />
+    <Compile Include="Packets\Mpls.cs" />
+    <Compile Include="Packets\NetBiosDatagramServicePacket.cs" />
+    <Compile Include="Packets\NetBiosNameServicePacket.cs" />
+    <Compile Include="Packets\NetBiosPacket.cs" />
+    <Compile Include="Packets\NetBiosSessionService.cs" />
+    <Compile Include="Packets\NtlmSspPacket.cs" />
+    <Compile Include="Packets\NullLoopbackPacket.cs" />
+    <Compile Include="Packets\OpenFlowPacket.cs" />
+    <Compile Include="Packets\OscarFileTransferPacket.cs" />
+    <Compile Include="Packets\OscarPacket.cs" />
+    <Compile Include="Packets\PacketFactory.cs" />
+    <Compile Include="Packets\PointToPointOverEthernetPacket.cs" />
+    <Compile Include="Packets\PointToPointPacket.cs" />
+    <Compile Include="Packets\Pop3Packet.cs" />
+    <Compile Include="Packets\PpiPacket.cs" />
+    <Compile Include="Packets\PrismCaptureHeaderPacket.cs" />
+    <Compile Include="Packets\RawPacket.cs" />
+    <Compile Include="Packets\RdpPacket.cs" />
+    <Compile Include="Packets\RtpPacket.cs" />
+    <Compile Include="Packets\SctpPacket.cs" />
+    <Compile Include="Packets\SipPacket.cs" />
+    <Compile Include="Packets\Smb2Packet.cs" />
+    <Compile Include="Packets\SmbPacket.cs" />
+    <Compile Include="Packets\SmtpPacket.cs" />
+    <Compile Include="Packets\SnmpPacket.cs" />
+    <Compile Include="Packets\SocksPacket.cs" />
+    <Compile Include="Packets\SpotifyKeyExchangePacket.cs" />
+    <Compile Include="Packets\SshPacket.cs" />
+    <Compile Include="Packets\SslPacket.cs" />
+    <Compile Include="Packets\SyslogPacket.cs" />
+    <Compile Include="Packets\TabularDataStreamPacket.cs" />
+    <Compile Include="Packets\TcpPacket.cs" />
+    <Compile Include="Packets\TftpPacket.cs" />
+    <Compile Include="Packets\TlsRecordPacket.cs" />
+    <Compile Include="Packets\TpktPaket.cs" />
+    <Compile Include="Packets\UdpPacket.cs" />
+    <Compile Include="Packets\UpnpPacket.cs" />
+    <Compile Include="Packets\VxlanPacket.cs" />
+    <Compile Include="Utils\BoyerMoore.cs" />
+    <Compile Include="Utils\ByteConverter.cs" />
+    <Compile Include="Utils\CuckooFilter.cs" />
+    <Compile Include="Utils\HuffmanDecoder.cs" />
+    <Compile Include="Utils\IpAddressUtil.cs" />
+    <Compile Include="Utils\KnuthMorrisPratt.cs" />
+    <Compile Include="Utils\QueueThresholdSignaller.cs" />
+    <Compile Include="Utils\StreamReassembler.cs" />
+    <Compile Include="Utils\StringManglerUtil.cs" />
+    <Compile Include="Utils\SystemHelper.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="CleartextTools\all-words.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Fingerprints\dhcp.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Fingerprints\etter.finger.os">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Fingerprints\ja3fingerprint.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Fingerprints\mac-ages.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Fingerprints\mac-ages_LICENSE">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Fingerprints\nmap-mac-prefixes">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Fingerprints\oui.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Fingerprints\p0f.fp">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Fingerprints\p0f.fp.netsa">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Fingerprints\p0fa.fp">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Fingerprints\tcp.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SharedUtils\SharedUtils.csproj">
+      <Project>{06690200-D2DA-49F5-A687-068163BBEEC4}</Project>
+      <Name>SharedUtils</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
 </Project>
