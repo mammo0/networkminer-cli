@@ -6,7 +6,7 @@ Minimal version of https://www.netresec.com/?page=NetworkMiner
 
 In this version the GUI is removed and replaced by a CLI interface.
 
-The purpose of this fork is to extract only the files from a network data stream. Nothing more ore less...
+The purpose of this fork is to extract only the files from a network data stream. Nothing more or less...
 
 
 ### Usage
