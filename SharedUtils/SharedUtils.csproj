@@ -52,6 +52,7 @@
     <Compile Include="Pcap\PcapParserFactory.cs" />
     <Compile Include="Pcap\PcapStreamReader.cs" />
     <Compile Include="Pcap\Tools.cs" />
+    <Compile Include="FileUtils.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
 </Project>

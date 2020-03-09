@@ -13,6 +13,7 @@ using System.IO;
 using System.Reflection;
 using System.Diagnostics;
 using System.Globalization;
+using System.Threading.Tasks;
 
 namespace NetworkMiner {
     public static class Program {
@@ -22,7 +23,7 @@ namespace NetworkMiner {
         /// <summary>
         /// The main entry point for the application.
         /// </summary>
-        static void Main(string[] args) {
+        static async Task Main(string[] args) {
             // first set up the logger
             SetupLogger("NetworkMiner");
 
@@ -49,7 +50,7 @@ namespace NetworkMiner {
 
 
             // remove the cache directory again
-            Directory.Delete(cacheDirectory, true);
+            await FileUtils.DeleteDirectory(cacheDirectory);
 
             // don't know why the application doesn't exit automatically after reaching the end of the main method...
             System.Environment.Exit(0);
