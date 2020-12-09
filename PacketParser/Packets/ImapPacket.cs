@@ -138,6 +138,7 @@ namespace PacketParser.Packets {
         private ServerResult? serverResult = null;
         //private byte[] body;
         private int bodyLength;
+        private uint messageSequenceNumber;
 
         //An opened parenthesis gives +1, a closed gives -1
         private int parenthesesDiff = 0;
@@ -147,18 +148,20 @@ namespace PacketParser.Packets {
 
         public bool PacketHeaderIsComplete { get { return this.parsedBytesCount > 0; } }
 
-        public int ParsedBytesCount
-        {
-            get
-            {
+        public int ParsedBytesCount {
+            get {
                 return this.parsedBytesCount;
             }
-            set
-            {
+            set {
                 this.parsedBytesCount = value;
             }
         }
         public string Tag { get; }
+        public uint? MessageSequenceNumber { get {
+                if (this.messageSequenceNumber == 0)//rfc3501: seq-number = nz-number / "*"
+                    return null;
+                return this.messageSequenceNumber;
+            } }
         public ClientCommand? Command { get { return this.clientCommand; } }
         public ServerResult? Result { get { return this.serverResult; } }
 
@@ -188,7 +191,8 @@ namespace PacketParser.Packets {
                     if (Enum.IsDefined(typeof(ClientCommand), command.ToUpper())) {
                         this.clientCommand = (ClientCommand)Enum.Parse(typeof(ClientCommand), command, true);//allow lowercase
                         if(this.clientCommand == ClientCommand.APPEND) {
-                            this.tryParseLiteral(this.fullRequestOrResponseLine, out this.bodyLength);
+                            if(!this.tryParseLiteral(this.fullRequestOrResponseLine, out this.bodyLength))
+                                SharedUtils.Logger.Log("No body length literal found in client-to-server IMAP request of " + parentFrame.ToString(), SharedUtils.Logger.EventLogEntryType.Information);
                         }
                         this.Tag = parts[0];
                     }
@@ -200,6 +204,7 @@ namespace PacketParser.Packets {
                 if (this.fullRequestOrResponseLine != null) {
                     if (this.fullRequestOrResponseLine.StartsWith("* ")) {
                         this.parsedBytesCount = index - packetStartIndex;
+                        
                         //TODO parse respose field to see if we have a FETCH response
 
                         /**
@@ -209,37 +214,21 @@ namespace PacketParser.Packets {
                          * [...]
                          **/
                         string[] requestFields = this.fullRequestOrResponseLine.Split(new char[] { ' ' });
+
+                        if (requestFields.Length > 1)
+                            UInt32.TryParse(requestFields[1], out this.messageSequenceNumber);
+
                         if (requestFields.Length > 2 && Enum.IsDefined(typeof(ClientCommand), requestFields[2])) {
                             this.clientCommand = (ClientCommand)Enum.Parse(typeof(ClientCommand), requestFields[2]);
                             if (this.clientCommand == ClientCommand.FETCH) {
                                 //FETCH response
                                 //int bodyLength;
                                 if (this.tryParseLiteral(this.fullRequestOrResponseLine, out this.bodyLength)) {
-                                    //int openingParenthesesCount = this.fullRequestOrResponseLine.Split('(').Length - 1;
-                                    //int closingParenthesesCount = this.fullRequestOrResponseLine.Split(')').Length - 1;
                                     this.parenthesesDiff += this.fullRequestOrResponseLine.Split('(').Length - 1;
                                     this.parenthesesDiff -= this.fullRequestOrResponseLine.Split(')').Length - 1;
-
-                                    /*
-                                    if (index + bodyLength <= packetEndIndex + 1) {
-                                        this.body = new byte[bodyLength];
-                                        Array.Copy(parentFrame.Data, index, this.body, 0, bodyLength);
-                                        index += bodyLength;
-                                        if (openingParenthesesCount > closingParenthesesCount) {
-                                            string trailinLine = Utils.ByteConverter.ReadLine(parentFrame.Data, ref index);
-                                            if(trailinLine != null) {
-                                                openingParenthesesCount += trailinLine.Split('(').Length - 1;
-                                                closingParenthesesCount += trailinLine.Split(')').Length - 1;
-                                            }
-                                        }
-                                        if (openingParenthesesCount == closingParenthesesCount)
-                                            this.parsedBytesCount = index - packetStartIndex;
-                                        else
-                                            this.parsedBytesCount = 0;
-                                    }
-                                    else
-                                        this.parsedBytesCount = 0;//wait untill we have the whole response? What if the email contains a big attachment?
-                                        */
+                                }
+                                else {
+                                    SharedUtils.Logger.Log("No body length literal found in server-to-client IMAP response of " + parentFrame.ToString(), SharedUtils.Logger.EventLogEntryType.Information);
                                 }
 
                             }

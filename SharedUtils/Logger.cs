@@ -109,11 +109,15 @@ namespace SharedUtils {
         private static bool logToEventLog = false;
         public static bool LogToFile = false;
         public static string ApplicationName = null;
+
+        private static string logStartTimestampString = DateTime.Now.ToString("yyMMdd-HHmmss");
+
         //private static object logFileLock = new object();
         private static readonly System.Threading.SemaphoreSlim logFileLock = new System.Threading.SemaphoreSlim(1, 1);
         private static int debugLogEventCount = 0;
         //private static System.Diagnostics.EventLog applicationEventLog = null;
         private static Action<string, EventLogEntryType> eventLogWriteEntryAction = null;
+        public static string LogFilePath = String.Empty;
 
         public static IsolatedStorageFile GetIsolatedStorageFile() {
             return IsolatedStorageFile.GetStore(IsolatedStorageScope.Assembly | IsolatedStorageScope.User, null, null);
@@ -266,16 +270,17 @@ namespace SharedUtils {
                     logFileLock.Wait();
                     try {
                         //IsolatedStorage will be something like: C:\WINDOWS\system32\config\systemprofile\AppData\Local\IsolatedStorage\arpzpldm.neh\4hq14imw.y2b\Publisher.5yo4swcgiijiq5te00ddqtmrsgfhvrp4\AssemFiles\
-                        using (IsolatedStorageFileStream stream = new IsolatedStorageFileStream(ApplicationName + ".log", System.IO.FileMode.Append, System.IO.FileAccess.Write, System.IO.FileShare.Read, isoFile)) {
+                        
+                        using (IsolatedStorageFileStream stream = new IsolatedStorageFileStream(ApplicationName + "_" + logStartTimestampString + ".log", System.IO.FileMode.Append, System.IO.FileAccess.Write, System.IO.FileShare.Read, isoFile)) {
                             //stream.Seek(0, System.IO.SeekOrigin.End);
 
                             if (debugLogEventCount == 0) {
                                 try {
-                                    string path = stream.GetType().GetField("m_FullPath", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).GetValue(stream).ToString();
+                                    LogFilePath = stream.GetType().GetField("m_FullPath", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).GetValue(stream).ToString();
                                     if (logToEventLog && eventLogWriteEntryAction != null)
-                                        eventLogWriteEntryAction("Saving debug log to " + path, EventLogEntryType.Information);
+                                        eventLogWriteEntryAction("Saving debug log to " + LogFilePath, EventLogEntryType.Information);
                                     else
-                                        ConsoleLog("Saving debug log to " + path);
+                                        ConsoleLog("Saving debug log to " + LogFilePath);
                                 }
                                 catch { }
                             }
@@ -309,7 +314,7 @@ namespace SharedUtils {
                     await logFileLock.WaitAsync();
                     try {
                         //IsolatedStorage will be something like: C:\WINDOWS\system32\config\systemprofile\AppData\Local\IsolatedStorage\arpzpldm.neh\4hq14imw.y2b\Publisher.5yo4swcgiijiq5te00ddqtmrsgfhvrp4\AssemFiles\
-                        using (IsolatedStorageFileStream stream = new IsolatedStorageFileStream(ApplicationName + ".log", System.IO.FileMode.Append, System.IO.FileAccess.Write, System.IO.FileShare.Read, isoFile)) {
+                        using (IsolatedStorageFileStream stream = new IsolatedStorageFileStream(ApplicationName + "_" + logStartTimestampString + ".log", System.IO.FileMode.Append, System.IO.FileAccess.Write, System.IO.FileShare.Read, isoFile)) {
                             //stream.Seek(0, System.IO.SeekOrigin.End);
 
                             if (debugLogEventCount == 0) {

@@ -113,7 +113,8 @@ namespace PacketParser.Fingerprints {
                 }
             }
             catch(Exception e){
-                System.Diagnostics.Debug.Print(e.ToString());
+                SharedUtils.Logger.Log("Satori DHCP exception. " + e.ToString(), SharedUtils.Logger.EventLogEntryType.Warning);
+                //System.Diagnostics.Debug.Print(e.ToString());
             }
             osList=null;
             return false;

@@ -84,8 +84,9 @@ namespace PacketParser.Packets {
                         packet=new RawPacket(ParentFrame, PacketStartIndex+40, PacketEndIndex);
                     }
                 }
-                catch(Exception) {
-                    packet=new RawPacket(ParentFrame, PacketStartIndex+40, PacketEndIndex);
+                catch(Exception e) {
+                    SharedUtils.Logger.Log("Error parsing packet in IPv6 payload in " + this.ParentFrame.ToString() + ". " + e.ToString(), SharedUtils.Logger.EventLogEntryType.Warning);
+                    packet = new RawPacket(ParentFrame, PacketStartIndex+40, PacketEndIndex);
                 }
                 yield return packet;
                 foreach(AbstractPacket subPacket in packet.GetSubPackets(false))

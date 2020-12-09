@@ -16,6 +16,7 @@ namespace PacketParser.Packets {
 
         //http://en.wikipedia.org/wiki/List_of_IP_protocol_numbers
         //http://www.faqs.org/rfcs/rfc1700.html
+        //https://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml (more and newer protocols than rfc 1700)
         public enum RFC1700Protocols : byte {
             HOPOPT =0x00,//IPv6 Hop-by-Hop Option
             ICMP =0x01,
@@ -243,8 +244,9 @@ namespace PacketParser.Packets {
                         packet=new RawPacket(ParentFrame, PacketStartIndex+headerLength, PacketEndIndex);
                     }
                 }
-                catch(Exception) {
-                    packet=new RawPacket(ParentFrame, PacketStartIndex+headerLength, PacketEndIndex);
+                catch(Exception e) {
+                    SharedUtils.Logger.Log("Error parsing packet in IPv4 payload in " + this.ParentFrame.ToString() + ". " + e.ToString(), SharedUtils.Logger.EventLogEntryType.Warning);
+                    packet = new RawPacket(ParentFrame, PacketStartIndex+headerLength, PacketEndIndex);
                 }
                 yield return packet;
                 foreach(AbstractPacket subPacket in packet.GetSubPackets(false))

@@ -6,8 +6,10 @@ using PacketParser.Packets;
 namespace PacketParser.PacketHandlers {
     class ImapPacketHandler : AbstractPacketHandler, ITcpSessionPacketHandler {
 
-        private PopularityList<NetworkTcpSession, (string tag, ImapPacket.ClientCommand command)> lastCommand;
-        private PopularityList<NetworkTcpSession, System.IO.MemoryStream> serverToClientEmailReassemblers, clientToServerEmailReassemblers;
+        private PopularityList<NetworkTcpSession, (string tag, ImapPacket.ClientCommand command, string fullRequestOrResponseLine)> lastCommand;
+        private PopularityList<NetworkTcpSession, (System.IO.MemoryStream emailStream, uint? messageSequenceNumber)> serverToClientEmailReassemblers, clientToServerEmailReassemblers;
+
+        //private PopularityList<(NetworkTcpSession session, uint messageSequenceNumber), Mime.Email> sessionMessages;
 
 
         public override Type ParsedType { get { return typeof(Packets.ImapPacket); } }
@@ -24,10 +26,11 @@ namespace PacketParser.PacketHandlers {
         }
 
         public ImapPacketHandler(PacketHandler mainPacketHandler) : base(mainPacketHandler) {
-            this.lastCommand = new PopularityList<NetworkTcpSession, (string tag, ImapPacket.ClientCommand command)>(100);
+            this.lastCommand = new PopularityList<NetworkTcpSession, (string tag, ImapPacket.ClientCommand command, string fullRequestOrResponseLine)>(100);
             //this.lastCommand = new PopularityList<NetworkTcpSession, ImapPacket.ClientCommand>(100);
-            this.serverToClientEmailReassemblers = new PopularityList<NetworkTcpSession, System.IO.MemoryStream>(100);
-            this.clientToServerEmailReassemblers = new PopularityList<NetworkTcpSession, System.IO.MemoryStream>(100);
+            this.serverToClientEmailReassemblers = new PopularityList<NetworkTcpSession, (System.IO.MemoryStream emailStream, uint? messageSequenceNumber)>(100);
+            this.clientToServerEmailReassemblers = new PopularityList<NetworkTcpSession, (System.IO.MemoryStream emailStream, uint? messageSequenceNumber)>(100);
+            //this.sessionMessages = new PopularityList<(NetworkTcpSession session, uint messageSequenceNumber), Mime.Email>(1000);
         }
 
         //public int ExtractData(NetworkTcpSession tcpSession, NetworkHost sourceHost, NetworkHost destinationHost, IEnumerable<AbstractPacket> packetList) {
@@ -56,9 +59,9 @@ namespace PacketParser.PacketHandlers {
                 if (imapPacket.ClientToServer) {
                     if (imapPacket.Command != null) {
                         if (lastCommand.ContainsKey(tcpSession))
-                            lastCommand[tcpSession] = (imapPacket.Tag, imapPacket.Command.Value);
+                            lastCommand[tcpSession] = (imapPacket.Tag, imapPacket.Command.Value, imapPacket.FullRequestOrResponseLine);
                         else
-                            lastCommand.Add(tcpSession, (imapPacket.Tag, imapPacket.Command.Value));
+                            lastCommand.Add(tcpSession, (imapPacket.Tag, imapPacket.Command.Value, imapPacket.FullRequestOrResponseLine));
 
                         if (imapPacket.FullRequestOrResponseLine != null && imapPacket.FullRequestOrResponseLine.Length > 0) {
                             System.Collections.Specialized.NameValueCollection parameters = new System.Collections.Specialized.NameValueCollection();
@@ -68,14 +71,14 @@ namespace PacketParser.PacketHandlers {
 
                         //remove any old email reassemblers since we have now received a new command
                         if (this.serverToClientEmailReassemblers.ContainsKey(tcpSession)) {
-                            this.serverToClientEmailReassemblers[tcpSession].Close();
+                            this.serverToClientEmailReassemblers[tcpSession].emailStream.Close();
                             this.serverToClientEmailReassemblers.Remove(tcpSession);//we will need to create a new reassembler
                         }
 
                         if (imapPacket.Command == ImapPacket.ClientCommand.APPEND) {
                             //an email is being uploaded to the server
                             if (imapPacket.BodyLength > 0) {
-                                int emailBytes = this.ExtractEmail(tcpSession, tcpPacket, imapPacket.PacketStartIndex + imapPacket.ParsedBytesCount, imapPacket.PacketLength - imapPacket.ParsedBytesCount, imapPacket.BodyLength, true);
+                                int emailBytes = this.ExtractEmail(tcpSession, tcpPacket, imapPacket.PacketStartIndex + imapPacket.ParsedBytesCount, imapPacket.PacketLength - imapPacket.ParsedBytesCount, imapPacket.BodyLength, imapPacket.MessageSequenceNumber, true);
                                 imapPacket.ParsedBytesCount += emailBytes;
                             }
                         }
@@ -138,19 +141,43 @@ namespace PacketParser.PacketHandlers {
                         }
                         //the server might push an email here
                         if (imapPacket.BodyLength > 0) {
-                            int emailBytes = this.ExtractEmail(tcpSession, tcpPacket, imapPacket.PacketStartIndex + imapPacket.ParsedBytesCount, imapPacket.PacketLength - imapPacket.ParsedBytesCount, imapPacket.BodyLength, false);
-                            if (imapPacket.ParenthesesDiff > 0 && imapPacket.ParsedBytesCount + emailBytes < imapPacket.PacketLength) {
-                                //we might have a trailing line that closes the parenthesis, let's read that one too
-                                int index = imapPacket.PacketStartIndex + imapPacket.ParsedBytesCount + emailBytes;
-                                string trailingLine = Utils.ByteConverter.ReadLine(imapPacket.ParentFrame.Data, ref index);
-                                int trailingParenthesesDiff = trailingLine.Split('(').Length - trailingLine.Split(')').Length;
-                                if (imapPacket.ParenthesesDiff + trailingParenthesesDiff == 0)
-                                    return index - imapPacket.PacketStartIndex;
-                                else
-                                    return imapPacket.ParsedBytesCount + emailBytes;
+                            if (this.lastCommand[tcpSession].fullRequestOrResponseLine != null) {
+
+                                string lastCommandLine = this.lastCommand[tcpSession].fullRequestOrResponseLine;
+
+                                if (!lastCommandLine.Contains("BODY.PEEK") || imapPacket.FullRequestOrResponseLine.Contains("HEADER")) {
+                                    int emailBytes = this.ExtractEmail(tcpSession, tcpPacket, imapPacket.PacketStartIndex + imapPacket.ParsedBytesCount, imapPacket.PacketLength - imapPacket.ParsedBytesCount, imapPacket.BodyLength, imapPacket.MessageSequenceNumber, false);
+                                    if (imapPacket.ParenthesesDiff > 0 && imapPacket.ParsedBytesCount + emailBytes < imapPacket.PacketLength) {
+                                        //we might have a trailing line that closes the parenthesis, let's read that one too
+                                        int index = imapPacket.PacketStartIndex + imapPacket.ParsedBytesCount + emailBytes;
+                                        string trailingLine = Utils.ByteConverter.ReadLine(imapPacket.ParentFrame.Data, ref index);
+                                        int trailingParenthesesDiff = trailingLine.Split('(').Length - trailingLine.Split(')').Length;
+                                        if (imapPacket.ParenthesesDiff + trailingParenthesesDiff == 0)
+                                            return index - imapPacket.PacketStartIndex;
+                                        else
+                                            return imapPacket.ParsedBytesCount + emailBytes;
+                                    }
+                                    else
+                                        return imapPacket.ParsedBytesCount + emailBytes;
+                                }
+                                /*
+                                else if(imapPacket.FullRequestOrResponseLine.Contains("BODY[TEXT]") && imapPacket.MessageSequenceNumber != null && imapPacket.BodyLength > 0) {
+                                    //email body (ASCII?)
+                                    var key = (tcpSession, imapPacket.MessageSequenceNumber.Value);
+                                    lock (this.sessionMessages) {
+                                        if (this.sessionMessages.ContainsKey(key)) {
+                                            var email = this.sessionMessages[key];
+                                            string messageId = email.MessageID;
+                                            if (messageId == null && email.RootAttributes != null)
+                                                messageId = Mime.Email.GetMessageId(email.RootAttributes);
+                                        }
+                                    }
+                                }
+                                else if(imapPacket.FullRequestOrResponseLine.Contains("BODY[2]")) {
+                                    //HTML formated email, treat as attachment
+                                }
+                                */
                             }
-                            else
-                                return imapPacket.ParsedBytesCount + emailBytes;
                         }
                     }
                     else if (lastCommand.ContainsKey(tcpSession) && (lastCommand[tcpSession].command == ImapPacket.ClientCommand.STARTTLS)) {
@@ -174,23 +201,24 @@ namespace PacketParser.PacketHandlers {
             this.clientToServerEmailReassemblers.Clear();
         }
 
-        private int ExtractEmail(NetworkTcpSession tcpSession, TcpPacket tcpPacket, int emailStartIndex, int length, int totalLength = 0, bool clientToServer = false) {
+        private int ExtractEmail(NetworkTcpSession tcpSession, TcpPacket tcpPacket, int emailStartIndex, int length, int totalLength = 0, uint? messageSequenceNumber = null, bool clientToServer = false) {
+            SharedUtils.Logger.Log("Extracting IMAP email from " + tcpPacket.ParentFrame.ToString(), SharedUtils.Logger.EventLogEntryType.Information);
             System.IO.MemoryStream reassembler;
             if (this.serverToClientEmailReassemblers.ContainsKey(tcpSession)) {
-                reassembler = this.serverToClientEmailReassemblers[tcpSession];
+                (reassembler, messageSequenceNumber) = this.serverToClientEmailReassemblers[tcpSession];
                 clientToServer = false;
             }
             else if (this.clientToServerEmailReassemblers.ContainsKey(tcpSession)) {
-                reassembler = this.clientToServerEmailReassemblers[tcpSession];
+                (reassembler, messageSequenceNumber) = this.clientToServerEmailReassemblers[tcpSession];
                 clientToServer = true;
             }
             else if (totalLength > 0) {
                 //reassembler = new Utils.StreamReassembler(Pop3Packet.MULTILINE_RESPONSE_TERMINATOR, 2);//include the first 2 bytes of the terminator to get a CR-LF at the end of the extracted data
                 reassembler = new System.IO.MemoryStream(totalLength);
                 if (clientToServer)
-                    this.clientToServerEmailReassemblers.Add(tcpSession, reassembler);
+                    this.clientToServerEmailReassemblers.Add(tcpSession, (reassembler, messageSequenceNumber));
                 else
-                    this.serverToClientEmailReassemblers.Add(tcpSession, reassembler);
+                    this.serverToClientEmailReassemblers.Add(tcpSession, (reassembler, messageSequenceNumber));
             }
             else
                 return 0;
@@ -217,18 +245,24 @@ namespace PacketParser.PacketHandlers {
 
                 Mime.Email email = new Mime.Email(reassembler, base.MainPacketHandler, tcpPacket, clientToServer, tcpSession, ApplicationLayerProtocol.Imap, assemblyLocation);
                 /*
-                if (clientToServer) {
-                    email = new Mime.Email(reassembler, base.MainPacketHandler, tcpPacket, tcpSession.ClientHost, tcpSession.ServerHost, tcpSession, ApplicationLayerProtocol.Imap, !clientToServer);
-                    this.clientToServerEmailReassemblers.Remove(tcpSession);
-                }
-                else {
-                    email = new Mime.Email(reassembler, base.MainPacketHandler, tcpPacket, tcpSession.ServerHost, tcpSession.ClientHost, tcpSession, ApplicationLayerProtocol.Imap, !clientToServer);
-                    this.serverToClientEmailReassemblers.Remove(tcpSession);
-                    //remove the last command since we don't wanna reassemble any more for this command
-                    if (this.lastCommand.ContainsKey(tcpSession))
-                        this.lastCommand.Remove(tcpSession);
-                }
-                */
+                if(messageSequenceNumber.HasValue) {
+                    string messageId = email.MessageID;
+                    if (messageId == null && email.RootAttributes != null)
+                        messageId = Mime.Email.GetMessageId(email.RootAttributes);
+                    lock (this.sessionMessages) {
+                        var key = (tcpSession, messageSequenceNumber.Value);
+                        if (!this.sessionMessages.ContainsKey(key)) {
+                            this.sessionMessages.Add(key, email);
+                        }
+                        else {
+                            SharedUtils.Logger.Log("Multiple emails extracted with message sequence number " + messageSequenceNumber.Value + " in session " + tcpSession.GetFlowID(), SharedUtils.Logger.EventLogEntryType.Information);
+                        }
+                        //look for attachments and other MIME parts beloning to the same email
+                        //assembler.FileReconstructed += MainPacketHandler.OnMessageAttachmentDetected;
+                        //assembler.FileReconstructed += Assembler_FileReconstructed;
+                    }
+                }*/
+
                 
 
             }

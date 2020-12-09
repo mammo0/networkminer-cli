@@ -74,7 +74,7 @@ namespace PacketParser.Fingerprints {
                         ipPacket=(Packets.IPv4Packet)p;
                 }
 
-                if(tcpPacket!=null) {//It is OK if the ipPacket is null (which is unlikely)
+                if(tcpPacket!=null && ipPacket != null) {
 
                     //osList=new List<string>();
                     osList = new List<DeviceFingerprint>();
@@ -100,7 +100,8 @@ namespace PacketParser.Fingerprints {
                 }
             }
             catch(Exception e){
-                System.Diagnostics.Debug.Print(e.ToString());
+                //System.Diagnostics.Debug.Print(e.ToString());
+                SharedUtils.Logger.Log("Satori TCP exception. " + e.ToString(), SharedUtils.Logger.EventLogEntryType.Warning);
             }
             osList=null;
             return false;

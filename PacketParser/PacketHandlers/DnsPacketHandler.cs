@@ -11,7 +11,7 @@ using System.Text;
 using PacketParser.Packets;
 
 namespace PacketParser.PacketHandlers {
-    class DnsPacketHandler : AbstractPacketHandler, IPacketHandler, ITcpSessionPacketHandler {
+    public class DnsPacketHandler : AbstractPacketHandler, IPacketHandler, ITcpSessionPacketHandler {
 
 
         public override Type ParsedType { get { return typeof(Packets.DnsPacket); } }
@@ -73,16 +73,16 @@ namespace PacketParser.PacketHandlers {
                             if (r.IP != null) {
                                 if (!base.MainPacketHandler.NetworkHostList.ContainsIP(r.IP)) {
                                     NetworkHost host = new NetworkHost(r.IP);
-                                    host.AddHostName(r.DNS);
+                                    host.AddHostName(r.DNS, dnsPacket.PacketTypeDescription);
                                     lock(base.MainPacketHandler.NetworkHostList)
                                         base.MainPacketHandler.NetworkHostList.Add(host);
                                     MainPacketHandler.OnNetworkHostDetected(new Events.NetworkHostEventArgs(host));
                                     //base.MainPacketHandler.ParentForm.ShowDetectedHost(host);
                                 }
                                 else
-                                    base.MainPacketHandler.NetworkHostList.GetNetworkHost(r.IP).AddHostName(r.DNS);
+                                    base.MainPacketHandler.NetworkHostList.GetNetworkHost(r.IP).AddHostName(r.DNS, dnsPacket.PacketTypeDescription);
                                 if (cNamePointers[r.DNS] != null)
-                                    base.MainPacketHandler.NetworkHostList.GetNetworkHost(r.IP).AddHostName(cNamePointers[r.DNS]);
+                                    base.MainPacketHandler.NetworkHostList.GetNetworkHost(r.IP).AddHostName(cNamePointers[r.DNS], dnsPacket.PacketTypeDescription);
 
                             }
                             else if (r.Type == (ushort)Packets.DnsPacket.RRTypes.CNAME) {

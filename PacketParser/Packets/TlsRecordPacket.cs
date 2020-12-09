@@ -33,6 +33,8 @@ namespace PacketParser.Packets {
             Application = 0x17,
         };
 
+        
+
         private ContentTypes contentType;
         internal byte VersionMajor { get; }//MSB
         internal byte VersionMinor { get; }//LSB
@@ -92,6 +94,8 @@ namespace PacketParser.Packets {
         }
 
         public class HandshakePacket : AbstractPacket {
+
+            public const string PACKET_TYPE_DESCRIPTION = "TLS Handshake Protocol";
 
             public enum MessageTypes : byte {
                 HelloRequest = 0x00,
@@ -172,7 +176,7 @@ namespace PacketParser.Packets {
             }
 
             internal HandshakePacket(Frame parentFrame, int packetStartIndex, int packetEndIndex)
-                : base(parentFrame, packetStartIndex, packetEndIndex, "TLS Handshake Protocol") {
+                : base(parentFrame, packetStartIndex, packetEndIndex, PACKET_TYPE_DESCRIPTION) {
                 this.CertificateList = new List<byte[]>();
                 this.supportedSslVersions = new List<Tuple<byte, byte>>();
                 this.ApplicationLayerProtocolNegotiationStrings = new List<string>();
@@ -281,7 +285,7 @@ namespace PacketParser.Packets {
             }
             //Server Certificate: http://tools.ietf.org/html/rfc2246 7.4.2
 
-            internal string GetJA3FingerprintFull() {
+            public string GetJA3FingerprintFull() {
                 /**
                  * https://engineering.salesforce.com/open-sourcing-ja3-92c9e53c3c41
                  * The field order is as follows:
@@ -307,7 +311,7 @@ namespace PacketParser.Packets {
                 return sb.ToString();
             }
 
-            internal string GetJA3FingerprintHash() {
+            public string GetJA3FingerprintHash() {
                 return Utils.ByteConverter.ToMd5HashString(this.GetJA3FingerprintFull());
             }
 

@@ -355,10 +355,10 @@ namespace PacketParser.Packets {
                 return Utils.ByteConverter.ReadString(ParentFrame.Data, ref dataIndex, this.byteCount, this.Flags2UnicodeStrings, true, true);
         }
         */
-        
+
 
         public override IEnumerable<AbstractPacket> GetSubPackets(bool includeSelfReference) {
-            if(includeSelfReference)
+            if (includeSelfReference)
                 yield return this;
 
             AbstractSmbCommand cmd = GetNextPipelinedCommand(this);
@@ -366,66 +366,6 @@ namespace PacketParser.Packets {
                 foreach (AbstractPacket p in cmd.GetSubPackets(true))
                     yield return p;
             }
-
-            /*
-            AbstractPacket packet=null;
-            try {
-                CommandTypes commandType=(CommandTypes)this.firstCommand;
-                if(commandType==CommandTypes.SMB_COM_TREE_CONNECT_ANDX) {
-                    if (!this.FlagsResponse)
-                        packet = new TreeConnectAndXRequest(this);
-                }
-                if(commandType==CommandTypes.SMB_COM_NT_CREATE_ANDX) {
-                    if(!this.FlagsResponse)
-                        packet=new NTCreateAndXRequest(this);
-                    else
-                        packet=new NTCreateAndXResponse(this);
-                }
-                else if(commandType==CommandTypes.SMB_COM_READ_ANDX) {
-                    if(this.FlagsResponse)
-                        packet=new ReadAndXResponse(this);
-                    else
-                        packet=new ReadAndXRequest(this);
-                }
-                else if (commandType == CommandTypes.SMB_COM_WRITE_ANDX) {
-                    if(this.FlagsResponse) {
-                        //do we really need to parse the read response?
-                    }
-                    else {
-                        packet = new WriteAndXRequest(this);
-                    }
-                }
-                else if(commandType==CommandTypes.SMB_COM_CLOSE) {
-                    if(!this.FlagsResponse)
-                        packet=new CloseRequest(this);
-                }
-                else if(commandType==CommandTypes.SMB_COM_NEGOTIATE) {
-                    if(!this.FlagsResponse)
-                        packet=new NegotiateProtocolRequest(this);
-                    else
-                        packet=new NegotiateProtocolResponse(this);
-                }
-                else if(commandType==CommandTypes.SMB_COM_SESSION_SETUP_ANDX) {
-                    if(!this.FlagsResponse)
-                        packet=new SetupAndXRequest(this);
-                    else
-                        packet=new SetupAndXResponse(this);
-                }
-                
-                    
-            }
-            catch(Exception e) {
-                yield break;//no sub packets
-            }
-            
-            if(packet!=null) {
-                yield return packet;
-                foreach(AbstractPacket subPacket in packet.GetSubPackets(false))
-                    yield return subPacket;
-            }
-            else
-                yield break;
-                */
         }
 
         
@@ -1065,8 +1005,8 @@ namespace PacketParser.Packets {
                     else if(this.ntlmsspIndex!=null)
                         packet=new Packets.NtlmSspPacket(ParentFrame, ntlmsspIndex.Value, PacketEndIndex);
                 }
-                catch(Exception){
-                    //do nothing...
+                catch(Exception e){
+                    SharedUtils.Logger.Log("Error parsing packet in SMB payload in " + this.ParentFrame.ToString() + ". " + e.ToString(), SharedUtils.Logger.EventLogEntryType.Information);
                 }
                 if(packet!=null) {
                     yield return packet;
@@ -1169,6 +1109,7 @@ namespace PacketParser.Packets {
                          ntlmSspPacket=new Packets.NtlmSspPacket(this.ParentFrame, this.ntlmsspIndex.Value, this.ntlmsspIndex.Value+ this.ntlmsspLength -1);
                     }
                     catch(Exception ex) {
+                        SharedUtils.Logger.Log("Error parsing NtlmSspPacket packet in SMB payload in " + this.ParentFrame.ToString() + ". " + ex.ToString(), SharedUtils.Logger.EventLogEntryType.Information);
                         if (!this.ParentFrame.QuickParse)
                             ParentFrame.Errors.Add(new Frame.Error(this.ParentFrame, this.ntlmsspIndex.Value, this.ntlmsspIndex.Value+ this.ntlmsspLength -1, ex.Message));
                         yield break;

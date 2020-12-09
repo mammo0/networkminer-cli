@@ -8,19 +8,66 @@ namespace PacketParser.Mime {
         private System.Collections.Specialized.NameValueCollection attributes;
         //private System.Collections.Generic.List<byte> data;
         private byte[] data;
+        public const int MAX_LINE_LENGTH = 200;
 
         public System.Collections.Specialized.NameValueCollection Attributes { get { return this.attributes; } }
         public byte[] Data { get { return data; } }
+
+        private static string ReadUnfoldedLine(UnbufferedReader streamReader, Encoding customEncoding) {
+            string line = streamReader.ReadLine(MAX_LINE_LENGTH, customEncoding);
+            if (!string.IsNullOrEmpty(line) && !streamReader.EndOfStream && streamReader.BaseStream.CanSeek) {
+                /**
+                 * RFC 822, 3.1.1.  LONG HEADER FIELDS
+            Each header field can be viewed as a single, logical  line  of
+            ASCII  characters,  comprising  a field-name and a field-body.
+            For convenience, the field-body  portion  of  this  conceptual
+            entity  can be split into a multiple-line representation; this
+            is called "folding".  The general rule is that wherever  there
+            may  be  linear-white-space  (NOT  simply  LWSP-chars), a CRLF
+            immediately followed by AT LEAST one LWSP-char may instead  be
+            inserted.
+                [...]
+            The process of moving  from  this  folded   multiple-line
+            representation  of a header field to its single line represen-
+            tation is called "unfolding".  Unfolding  is  accomplished  by
+            regarding   CRLF   immediately  followed  by  a  LWSP-char  as
+            equivalent to the LWSP-char.
+                **/
+                long previousStreamPosition = streamReader.BaseStream.Position;
+                //check if next line is folded
+                string nextLine = streamReader.ReadLine(MAX_LINE_LENGTH, customEncoding);
+                while (!string.IsNullOrEmpty(nextLine) && Char.IsWhiteSpace(nextLine[0])) {
+                    //unfold the stream according to RFC 822
+                    line = line.TrimEnd((char)0x0d, (char)0x0a) + nextLine.TrimStart();
+                    previousStreamPosition = streamReader.BaseStream.Position;
+                    nextLine = streamReader.ReadLine(MAX_LINE_LENGTH, customEncoding);
+                }
+                streamReader.BaseStream.Seek(previousStreamPosition, SeekOrigin.Begin);
+            }
+            return line;
+        }
 
         internal static void ReadHeaderAttributes(System.IO.Stream stream, long partStartIndex, out System.Collections.Specialized.NameValueCollection attributes, bool useOnlyASCII, Encoding customEncoding = null) {
             stream.Position=partStartIndex;
             UnbufferedReader streamReader=new UnbufferedReader(stream);
             attributes=new System.Collections.Specialized.NameValueCollection();
 
-            string line=streamReader.ReadLine(200, customEncoding);
+            //string line=streamReader.ReadLine(MAX_LINE_LENGTH, customEncoding);
+            string line = ReadUnfoldedLine(streamReader, customEncoding);
+
+            if (line == null)
+                SharedUtils.Logger.Log("Warning: Null MIME header found at index " + partStartIndex, SharedUtils.Logger.EventLogEntryType.Warning);
+            else if (line.Length == 0)
+                SharedUtils.Logger.Log("Warning: Zero MIME header lenght found at index " + partStartIndex, SharedUtils.Logger.EventLogEntryType.Warning);
+            else if (line.Length == MAX_LINE_LENGTH)
+                SharedUtils.Logger.Log("Warning: Max MIME header lenght found at index " + partStartIndex + ", data is probably truncated", SharedUtils.Logger.EventLogEntryType.Warning);
+
             char[] headerParameterSeparators={ ';' };
             //TODO: parse attribute headers properly, i.e. the stuff BEFORE ";"
-            while(line!=null && line.Length>0 && stream.Position < stream.Length) {//read the part headers
+
+            
+
+            while (line!=null && line.Length>0) {//read the part headers, removed " && stream.Position < stream.Length" 200903
                 string[] headerDataCollection=line.Split(headerParameterSeparators);
                 bool skipNextLine = false;
 
@@ -74,41 +121,88 @@ namespace PacketParser.Mime {
                  *  ==SMTP example==
                  *  Content-Type: application/octet-stream; name="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                  *  Content-Transfer-Encoding: base64
-                 * 
+                 *  
+                 *  ==IMAP BODY.PEEK example==
+                 *  11 UID FETCH 37 (UID BODY.PEEK[2])
+                 *  * 37 FETCH (UID 37 BODY[2] {5336}
+                 *  <!DOCTYPE html>
+                 *  <html>
+                 *  <head>
+	             *      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+	             *      <title></title>
+	             *  </head>
+                 *  <style media="all" type="text/css">
+	             *      td, p, h1, h3, a {
+		         *      font-family: Helvetica, Arial, sans-serif;
+	             *      }
+                 *  </style>
+                 *  <body bgcolor="" LINK="#6d93b8" ALINK="#9DB7D0" VLINK="#6d93b8" TEXT="#d7d7d7" style="font-family: Helvetica, Arial, sans-serif; font-size: 14px; color: #d7d7d7;">
+                 *      ...
+                 *  </body>
+                 *
                  */
 
-                for (int i=0; i<headerDataCollection.Length; i++) {
+            for (int i=0; i<headerDataCollection.Length; i++) {
                     try {
 
                         if (headerDataCollection[i].Contains("=\"") && headerDataCollection[i].Length > headerDataCollection[i].IndexOf('\"') + 1) {
                             string parameterName = headerDataCollection[i].Substring(0, headerDataCollection[i].IndexOf('=')).Trim();
-                            int length = headerDataCollection[i].LastIndexOf('\"') - headerDataCollection[i].IndexOf('\"') - 1;
-                            while(length < 0 && line != null && line.Length > 0 && stream.Position < stream.Length) {
+                            if (parameterName.Contains(": ")) 
+                                parameterName = parameterName.Substring(0, parameterName.IndexOf(':')).Trim();
+
+#if DEBUG
+                            SharedUtils.Logger.Log("Reading MIME header attribute \"" + parameterName + "\" (1)", SharedUtils.Logger.EventLogEntryType.Information);
+#endif
+                            int quotedLength = headerDataCollection[i].LastIndexOf('\"') - headerDataCollection[i].IndexOf('\"') - 1;
+
+                            if(quotedLength < 0 && line != null && line.Length > 0 && stream.Position < stream.Length) {
+                                //we have a start quote but no end quote
                                 if (i == headerDataCollection.Length - 1) {
                                     //try reading the next line.
-                                    line = streamReader.ReadLine(200, customEncoding);
+                                    SharedUtils.Logger.Log("Reading MIME header at offset " + stream.Position, SharedUtils.Logger.EventLogEntryType.Information);
+                                    //line = streamReader.ReadLine(MAX_LINE_LENGTH, customEncoding);
+                                    line = ReadUnfoldedLine(streamReader, customEncoding);
+                                    if (line == null)
+                                        SharedUtils.Logger.Log("Warning: Null MIME header lenght found", SharedUtils.Logger.EventLogEntryType.Warning);
+                                    else if (line.Length == 0)
+                                        SharedUtils.Logger.Log("Warning: Zero MIME header lenght found", SharedUtils.Logger.EventLogEntryType.Warning);
+                                    else if (line.Length == MAX_LINE_LENGTH)
+                                        SharedUtils.Logger.Log("Warning: Max MIME header lenght found, data is probably truncated", SharedUtils.Logger.EventLogEntryType.Warning);
+#if DEBUG
+                                    else
+                                        SharedUtils.Logger.Log(line.ToString() + " byte MIME header read", SharedUtils.Logger.EventLogEntryType.Information);
+#endif
                                     char quote = '\"';
-                                    if (line.Contains("" + quote) && line.IndexOf(quote) == line.LastIndexOf(quote) && line.EndsWith("" + quote)) {
+                                    if (line != null && line.Contains("" + quote) && line.IndexOf(quote) == line.LastIndexOf(quote) && line.EndsWith("" + quote)) {
                                         headerDataCollection[i] += line;//append next line to value
-                                        length = headerDataCollection[i].LastIndexOf('\"') - headerDataCollection[i].IndexOf('\"') - 1;
+                                        quotedLength = headerDataCollection[i].LastIndexOf('\"') - headerDataCollection[i].IndexOf('\"') - 1;
                                     }
                                     else {
                                         skipNextLine = true;
                                         break;
-                                    }
+                                    } 
                                 }
                                 else
                                     continue;//go to next parameter
                             }
-                            string parameterValue = headerDataCollection[i].Substring(headerDataCollection[i].IndexOf('\"') + 1, length).Trim();
-                            parameterValue = Rfc2047Parser.DecodeRfc2047Parts(parameterValue);
+                            List<string> parameterValues = new List<string>();
+                            int startIndex = headerDataCollection[i].IndexOf('\"') + 1;
+                            while (quotedLength > 0) {
+                                string valuePart = headerDataCollection[i].Substring(startIndex, quotedLength).Trim();
+                                parameterValues.Add(Rfc2047Parser.DecodeRfc2047Parts(valuePart));
+                                startIndex = startIndex + quotedLength + 1;
+                                quotedLength = headerDataCollection[i].Length - startIndex;
+                            }
                             if (useOnlyASCII)
-                                attributes.Add(Utils.StringManglerUtil.ConvertToAsciiIfUnicode(parameterName), Utils.StringManglerUtil.ConvertToAsciiIfUnicode(parameterValue));
+                                attributes.Add(Utils.StringManglerUtil.ConvertToAsciiIfUnicode(parameterName), Utils.StringManglerUtil.ConvertToAsciiIfUnicode(String.Join(" ", parameterValues)));
                             else
-                                attributes.Add(parameterName, parameterValue);
+                                attributes.Add(parameterName, String.Join(" ", parameterValues));
                         }
                         else if (headerDataCollection[i].Contains("name=") || headerDataCollection[i].Contains("charset=") || headerDataCollection[i].Contains("format=")) {
                             string parameterName = headerDataCollection[i].Substring(0, headerDataCollection[i].IndexOf('=')).Trim();
+#if DEBUG
+                            SharedUtils.Logger.Log("Reading MIME header attribute \"" + parameterName + "\" (2)", SharedUtils.Logger.EventLogEntryType.Information);
+#endif
                             string parameterValue = headerDataCollection[i].Substring(headerDataCollection[i].IndexOf('=') + 1).Trim();
                             parameterValue = Rfc2047Parser.DecodeRfc2047Parts(parameterValue);
                             if (useOnlyASCII)
@@ -118,6 +212,9 @@ namespace PacketParser.Mime {
                         }
                         else if (headerDataCollection[i].Contains(": ")) {
                             string parameterName = headerDataCollection[i].Substring(0, headerDataCollection[i].IndexOf(':')).Trim();
+#if DEBUG
+                            SharedUtils.Logger.Log("Reading MIME header attribute \"" + parameterName + "\" (3)", SharedUtils.Logger.EventLogEntryType.Information);
+#endif
                             string parameterValue = headerDataCollection[i].Substring(headerDataCollection[i].IndexOf(':') + 1).Trim();
                             parameterValue = Rfc2047Parser.DecodeRfc2047Parts(parameterValue);
                             if (useOnlyASCII)
@@ -127,13 +224,24 @@ namespace PacketParser.Mime {
                         }
                     }
                     catch (Exception e) {
-                        SharedUtils.Logger.Log("Exception when parsing MIME data: " + e.Message, SharedUtils.Logger.EventLogEntryType.Error);
+                        SharedUtils.Logger.Log("Exception when parsing MIME data: " + e.GetType().ToString() + e.Message, SharedUtils.Logger.EventLogEntryType.Error);
+                        if(e.InnerException != null)
+                            SharedUtils.Logger.Log("Inner exception when parsing MIME data: " + e.InnerException.GetType().ToString() + e.InnerException.Message, SharedUtils.Logger.EventLogEntryType.Error);
                     }
                 }
                 if (skipNextLine)
                     skipNextLine = false;
-                else
-                    line = streamReader.ReadLine(200, customEncoding);
+                else {
+                    //line = streamReader.ReadLine(MAX_LINE_LENGTH, customEncoding);
+                    line = ReadUnfoldedLine(streamReader, customEncoding);
+                    if (line == null)
+                        SharedUtils.Logger.Log("Null MIME header found for NOSKIP", SharedUtils.Logger.EventLogEntryType.Information);
+                    else if (line.Length == 0)
+                        SharedUtils.Logger.Log("Zero MIME header lenght found for NOSKIP", SharedUtils.Logger.EventLogEntryType.Information);
+                    else if (line.Length == MAX_LINE_LENGTH)
+                        SharedUtils.Logger.Log("Max MIME header lenght found for NOSKIP, data is probably truncated", SharedUtils.Logger.EventLogEntryType.Information);
+
+                }
             }
       
         }
@@ -152,7 +260,8 @@ namespace PacketParser.Mime {
             ReadHeaderAttributes(stream, partStartIndex, out this.attributes, useOnlyASCII, customEncoding);
             //read the part data
            this.data=new byte[partLength+partStartIndex-stream.Position];
-           stream.Read(data, 0, data.Length);
+            SharedUtils.Logger.Log("Reading MIME Multipart part of " + this.data.Length + " bytes", SharedUtils.Logger.EventLogEntryType.Information);
+            stream.Read(this.data, 0, this.data.Length);
         }
 
     }

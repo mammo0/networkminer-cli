@@ -56,11 +56,18 @@ namespace PacketParser {
                     if (password == null)
                         password = "N/A (unknown Facebook password)";
                 }
+                else if(key.Equals("loginfmt")) {//login.live.com
+                    username = parameters[key];
+                }
 
                 /** WILDCARD MATCHES **/
                 else if (key.ToLower().Contains("accountname"))//used by Moxa (Moxa EDS-508A)
                     usernameGuessList.Add(parameters[key]);
+                else if (key.ToLower().Equals("login"))//used by login.live.com
+                    usernameGuessList.Add(parameters[key]);
                 else if (key.ToLower().Contains("username"))
+                    usernameGuessList.Add(parameters[key]);
+                else if (key.Equals("identifier"))
                     usernameGuessList.Add(parameters[key]);
                 else if (key.ToLower().Contains("password"))
                     passwordGuessList.Add(parameters[key]);
@@ -68,6 +75,8 @@ namespace PacketParser {
                 else if (key.ToLower().Contains("user") || key.ToLower().Contains("usr"))
                     usernameGuessList.Add(parameters[key]);
                 else if (key.ToLower().Contains("pass") || key.ToLower().Contains("pw"))
+                    passwordGuessList.Add(parameters[key]);
+                else if (key.ToLower().Contains("secret") || key.ToLower().Contains("key"))
                     passwordGuessList.Add(parameters[key]);
 
                 else if (usernameGuessList.Count == 0 && key.ToLower().Contains("mail"))
@@ -94,7 +103,7 @@ namespace PacketParser {
                     bestOption = w;
                 else if (bestOption.Length == 0 && w?.Length > 0)
                     bestOption = w;
-                else if (w?.Length > 0 && w?.Length < bestOption.Length)//prefer short passwords
+                else if (w?.Length > 0 && w?.Length > 4 && w?.Length < bestOption.Length)//prefer short passwords (min 5+ chars)
                     bestOption = w;
             }
             return bestOption;

@@ -119,9 +119,10 @@ namespace PacketParser.PacketHandlers {
                     fileStreamAssemblerList.Add(assembler);
                 }
                 catch(Exception e) {
+                    SharedUtils.Logger.Log("Error creating assembler for TFTP file transfer in " + tftpPacket.ParentFrame.ToString() + ". " + e.ToString(), SharedUtils.Logger.EventLogEntryType.Information);
                     //throw new Exception("Error creating assembler for TFTP file transfer", e);
                     //this.parentForm.ShowError("Error creating assembler for TFTP file transfer: "+e.Message);
-                    if(assembler!=null) {
+                    if (assembler!=null) {
                         assembler.Clear();
                         assembler=null;
                     }
@@ -136,9 +137,10 @@ namespace PacketParser.PacketHandlers {
                     fileStreamAssemblerList.Add(assembler);
                 }
                 catch(Exception e) {
+                    SharedUtils.Logger.Log("Error creating assembler for TFTP file transfer in " + tftpPacket.ParentFrame.ToString() + ". " + e.ToString(), SharedUtils.Logger.EventLogEntryType.Information);
                     //throw new Exception("Error creating assembler for TFTP file transfer", e);
                     //this.parentForm.ShowError("Error creating assembler for TFTP file transfer: "+e.Message);
-                    if(assembler!=null) {
+                    if (assembler!=null) {
                         assembler.Clear();
                         assembler=null;
                     }
@@ -177,6 +179,7 @@ namespace PacketParser.PacketHandlers {
                 }
 
                 if(assembler.SourceHost==sourceHost && assembler.SourcePort==sourcePort && assembler.DestinationHost==destinationHost && assembler.DestinationPort==destinationPort) {
+                    //TODO, check if the tftpPacket.DataBlockNumber has wrapped around to 0 again.
                     assembler.AddData(tftpPacket.DataBlock, tftpPacket.DataBlockNumber);
                     if(tftpPacket.DataBlockIsLast)
                         assembler.FinishAssembling();//we now have the complete file
@@ -184,65 +187,6 @@ namespace PacketParser.PacketHandlers {
             }
         }
 
-        /*
-        private void ExtractTftpData(NetworkHost sourceHost, NetworkHost destinationHost, Packets.UdpPacket udpPacket, Packets.TftpPacket tftpPacket) {
-            FileTransfer.FileStreamAssembler assembler=null;
-
-
-            if(assembler==null && tftpPacket!=null) {//create a new assembler
-                //create new assembler if it is a RRQ or WRQ
-                if(tftpPacket.OpCode==Packets.TftpPacket.OpCodes.ReadRequest) {
-                    try {
-                        assembler=new NetworkMiner.FileTransfer.FileStreamAssembler(fileStreamAssemblerList, destinationHost, Packets.TftpPacket.DefaultUdpPortNumber, sourceHost, udpPacket.SourcePort, false, NetworkMiner.FileTransfer.FileStreamTypes.TFTP, tftpPacket.Filename, "", tftpPacket.OpCode.ToString()+" "+tftpPacket.Mode.ToString()+" "+tftpPacket.Filename);
-                        fileStreamAssemblerList.Add(assembler);
-                    }
-                    catch(Exception e) {
-                        this.parentForm.ShowError("Error creating assembler for TFTP file transfer: "+e.Message);
-                    }
-                }
-                else if(tftpPacket.OpCode==Packets.TftpPacket.OpCodes.WriteRequest) {
-                    try {
-                        assembler=new NetworkMiner.FileTransfer.FileStreamAssembler(fileStreamAssemblerList, sourceHost, udpPacket.SourcePort, destinationHost, Packets.TftpPacket.DefaultUdpPortNumber, false, NetworkMiner.FileTransfer.FileStreamTypes.TFTP, tftpPacket.Filename, "", tftpPacket.OpCode.ToString()+" "+tftpPacket.Mode.ToString()+" "+tftpPacket.Filename);
-                        fileStreamAssemblerList.Add(assembler);
-                    }
-                    catch(Exception e) {
-                        this.parentForm.ShowError("Error creating assembler for TFTP file transfer: "+e.Message);
-                    }
-                }
-            }
-            else if(tftpPacket==null) {
-                try {
-                    tftpPacket=new NetworkMiner.Packets.TftpPacket(udpPacket.ParentFrame, udpPacket.PacketStartIndex+8, udpPacket.PacketEndIndex);//this is not very pretty since the UDP header length is hardcoded to be 8.
-                }
-                catch(Exception e) {
-                    if(assembler!=null)
-                        this.ParentForm.ShowError("Error parsing TFTP packet: "+e.Message);
-                }
-            }
-
-            //write data to assembler
-            if(assembler!=null && tftpPacket!=null) {
-                if(tftpPacket.OpCode==Packets.TftpPacket.OpCodes.Data) {
-                    if(!assembler.IsActive) {
-                        //create a new active assembler if ports need to be changed!
-                        if(assembler.SourcePort!=udpPacket.SourcePort || assembler.DestinationPort!=udpPacket.DestinationPort) {
-                            fileStreamAssemblerList.Remove(assembler, true);
-                            //now change the port number in the AssemblerPool
-                            assembler=new FileTransfer.FileStreamAssembler(fileStreamAssemblerList, sourceHost, udpPacket.SourcePort, destinationHost, udpPacket.DestinationPort, false, NetworkMiner.FileTransfer.FileStreamTypes.TFTP, assembler.Filename, assembler.FileLocation, assembler.Details);
-                            fileStreamAssemblerList.Add(assembler);
-                        }
-                        //activate the assembler
-                        assembler.Activate();
-                    }
-
-                    if(assembler.SourceHost==sourceHost && assembler.SourcePort==udpPacket.SourcePort && assembler.DestinationHost==destinationHost && assembler.DestinationPort==udpPacket.DestinationPort) {
-                        assembler.AddData(tftpPacket.DataBlock, tftpPacket.DataBlockNumber);
-                        if(tftpPacket.DataBlockIsLast)
-                            assembler.FinishAssembling();//we now have the complete file
-                    }
-                }
-            }
-        }*/
 
 
     }

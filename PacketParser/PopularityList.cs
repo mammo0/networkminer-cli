@@ -84,8 +84,8 @@ namespace PacketParser {
         /// <param name="key"></param>
         public void Remove(TKey key) {
             LinkedListNode<KeyValuePair<TKey, TValue>> llNode=sortedList[key];//O(log(n))
-            linkedList.Remove(llNode);//O(1)
-            sortedList.Remove(key);//O(log(n))
+            this.linkedList.Remove(llNode);//O(1)
+            this.sortedList.Remove(key);//O(log(n))
         }
 
 
@@ -96,15 +96,15 @@ namespace PacketParser {
         /// <returns></returns>
         public TValue this[TKey key] {
             get {
-                LinkedListNode<KeyValuePair<TKey, TValue>> llNode=sortedList[key];//O(log(n))
-                linkedList.Remove(llNode);//O(1)
-                linkedList.AddFirst(llNode);//O(1)
+                LinkedListNode<KeyValuePair<TKey, TValue>> llNode = this.sortedList[key];//O(log(n))
+                this.linkedList.Remove(llNode);//O(1)
+                this.linkedList.AddFirst(llNode);//O(1)
                 return llNode.Value.Value;
             }
             set {
-                LinkedListNode<KeyValuePair<TKey, TValue>> llNode=sortedList[key];//O(log(n))
-                linkedList.Remove(llNode);//O(1)
-                linkedList.AddFirst(llNode);//O(1)
+                LinkedListNode<KeyValuePair<TKey, TValue>> llNode = this.sortedList[key];//O(log(n))
+                this.linkedList.Remove(llNode);//O(1)
+                this.linkedList.AddFirst(llNode);//O(1)
                 llNode.Value=new KeyValuePair<TKey, TValue>(key, value);
                 //llNode.Value.Value=value;
             }
@@ -118,17 +118,17 @@ namespace PacketParser {
         public void Add(TKey key, TValue value) {
             KeyValuePair<TKey, TValue> kvp=new KeyValuePair<TKey, TValue>(key, value);
             LinkedListNode<KeyValuePair<TKey, TValue>> llNode=new LinkedListNode<KeyValuePair<TKey, TValue>>(kvp);
-            if(sortedList.ContainsKey(key)) {
-                Remove(key);
+            if(this.sortedList.ContainsKey(key)) {
+                this.Remove(key);
             }
-            linkedList.AddFirst(llNode);//O(1)
-            sortedList.Add(key, llNode);//O(log(n))
+            this.linkedList.AddFirst(llNode);//O(1)
+            this.sortedList.Add(key, llNode);//O(log(n))
                                         //see if there are too many values, if it is: remove one or several...
 
-            if (lastValueHasExpired != null)
-                while (linkedList.Last != null && lastValueHasExpired(linkedList.Last.Value.Value, value))
-                    LastNodePopularityLost();
-            while (sortedList.Count > this.currentPoolSize) {
+            if (this.lastValueHasExpired != null)
+                while (this.linkedList.Last != null && this.lastValueHasExpired(linkedList.Last.Value.Value, value))
+                    this.LastNodePopularityLost();
+            while (this.sortedList.Count > this.currentPoolSize) {
                 if (this.currentPoolSize < this.maxPoolSize && this.listCanExpandDelegate(this)) {
                     //extend list size
                     this.currentPoolSize = Math.Min(sortedList.Count, this.maxPoolSize);
@@ -141,11 +141,10 @@ namespace PacketParser {
 
         private void LastNodePopularityLost() {
             LinkedListNode<KeyValuePair<TKey, TValue>> lastNode = linkedList.Last;//O(1)
-            sortedList.Remove(lastNode.Value.Key);//O(log(n))
-            linkedList.Remove(lastNode);//O(1)
-                                        //trigger an event to inform those who are interested that the node has become impopular
-            if (this.PopularityLost != null)
-                this.PopularityLost(lastNode.Value.Key, lastNode.Value.Value);
+            this.sortedList.Remove(lastNode.Value.Key);//O(log(n))
+            this.linkedList.Remove(lastNode);//O(1)
+            //trigger an event to inform those who are interested that the node has become impopular
+            this.PopularityLost?.Invoke(lastNode.Value.Key, lastNode.Value.Value);
         }
 
         public IEnumerable<TValue> GetValueEnumerator() {

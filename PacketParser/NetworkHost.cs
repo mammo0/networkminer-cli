@@ -19,6 +19,7 @@ namespace PacketParser {
     public class NetworkHost : IComparable, System.Xml.Serialization.IXmlSerializable {
         
         public enum OperatingSystemID { Windows, Linux, UNIX, FreeBSD, NetBSD, Solaris, MacOS, Apple_iOS, Cisco, Android, BlackBerry, PlayStation, Nintendo, ICS_device, ABB, Siemens, Other, Unknown }
+        public static Func<string, string, IEnumerable<(string name, string value)>> HostnameExtraDetailsFunc = null;
 
         #region Comparators for extended sorting
         public class MacAddressComparer : System.Collections.Generic.IComparer<NetworkHost> {
@@ -335,6 +336,8 @@ namespace PacketParser {
                 return Utils.IpAddressUtil.IsIanaReserved(this.ipAddress);
             }
         }
+
+
         
         public string DeviceCategory {
             get {
@@ -518,6 +521,8 @@ namespace PacketParser {
             }
         }
 
+
+
         /// <summary>
         /// 
         /// </summary>
@@ -605,6 +610,10 @@ namespace PacketParser {
         public List<string> AcceptedSmbDialectsList { get { return this.acceptedSmbDialectsList; } set { this.acceptedSmbDialectsList=value; } }
         [Browsable(false)]
         public string PreferredSmbDialect { get { return this.preferredSmbDialect; } set { this.preferredSmbDialect=value; } }
+
+        /// <summary>
+        /// Use AddNumberedExtraDetail to add info to this list
+        /// </summary>
         [Browsable(false)]
         public SortedList<string, string> ExtraDetailsList { get { return this.extraDetailsList; } }
 
@@ -772,10 +781,14 @@ namespace PacketParser {
         /// Adds a host name of some form
         /// </summary>
         /// <param name="hostname">DNS address, NetBIOS name or simiar</param>
-        internal void AddHostName(string hostname) {
+        internal void AddHostName(string hostname, string packetTypeDescription) {
             lock (this.hostNameList)
-                if (!this.hostNameList.Contains(hostname))
+                if (!this.hostNameList.Contains(hostname)) {
                     this.hostNameList.Add(hostname);
+                    if(HostnameExtraDetailsFunc != null)
+                        foreach ((string name, string value) in HostnameExtraDetailsFunc.Invoke(hostname, packetTypeDescription))
+                            this.AddNumberedExtraDetail(name, value);
+                }
         }
         internal void AddDomainName(string domainName) {
             lock (this.domainNameList) {

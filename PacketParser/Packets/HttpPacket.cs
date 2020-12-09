@@ -6,6 +6,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace PacketParser.Packets {
@@ -14,7 +15,8 @@ namespace PacketParser.Packets {
     //http://tools.ietf.org/html/rfc2616
     //http://tools.ietf.org/html/rfc2617 (HTTP Authentication)
     public class HttpPacket : AbstractPacket, ISessionPacket{
-        public enum RequestMethods { GET, HEAD, POST, PUT, DELETE, TRACE, OPTIONS, CONNECT, none }
+        //200818: Added WebDAV methods COPY, LOCK, MKCOL, MOVE, PROPFIND, PROPPATCH and UNLOCK
+        public enum RequestMethods { GET, HEAD, POST, PUT, DELETE, TRACE, OPTIONS, CONNECT, COPY, LOCK, MKCOL, MOVE, PROPFIND, PROPPATCH, UNLOCK, none }
         internal enum ContentEncodings { Gzip, Compress, Deflate, Identity }//Identity is default
 
         //general variables
@@ -34,7 +36,7 @@ namespace PacketParser.Packets {
         private string statusMessage;//A string like "OK" or "Found"
         private string serverBanner;//server or reply web server. See: http://www.blackhat.com/presentations/bh-asia-02/bh-asia-02-grossman.pdf or http://www.blackhat.com/presentations/bh-usa-03/bh-us-03-shah/bh-us-03-shah.ppt
         private string contentType;
-        private int contentLength;//defined in # bytes for "Content-Lenght" as in RFC2616
+        private long contentLength;//defined in # bytes for "Content-Lenght" as in RFC2616
         private string contentEncoding;//this could be for example GZIP, see: http://www.faqs.org/rfcs/rfc1952.html
         private string contentDisposition;
         private string cookie;
@@ -49,6 +51,7 @@ namespace PacketParser.Packets {
         private bool packetHeaderIsComplete;//the main reason for using this variable is because HTTP POST's often are splitted into two packets right at the start of Content-Type definition
         private FileTransfer.ContentRange contentRange;
 
+        public string AcceptLanguage { get; set; } = null;
         public bool MessageTypeIsRequest { get { return this.messageTypeIsRequest; } }
         public RequestMethods RequestMethod { get { return this.requestMethod; } }
         internal string RequestedHost { get { return requestedHost; } }
@@ -58,7 +61,7 @@ namespace PacketParser.Packets {
         public string StatusMessage { get { return this.statusMessage; } }
         public string ServerBanner { get { return this.serverBanner; } }
         public string ContentType { get { return this.contentType; } }
-        public int ContentLength { get { return this.contentLength; } }
+        public long ContentLength { get { return this.contentLength; } }
         public string ContentEncoding { get { return this.contentEncoding; } }
         public string ContentDisposition { get { return this.contentDisposition; } }
         public string Cookie { get { return this.cookie; } }
@@ -78,20 +81,24 @@ namespace PacketParser.Packets {
         GÖR SJÄLVA KONSTRUKTORN PRIVAT!
         */
         new public static bool TryParse(Frame parentFrame, int packetStartIndex, int packetEndIndex, out AbstractPacket result) {
-            result=null;
+            result = null;
 
             //start testing
-            int dataIndex=packetStartIndex;
+            int dataIndex = packetStartIndex;
             string startLine = Utils.ByteConverter.ReadLine(parentFrame.Data, ref dataIndex);
 
-            if(startLine==null)
+            if (startLine == null)
                 return false;
-            else if(startLine.Length>2048)
+            else if (startLine.Length > 2048)
                 return false;
-            else if(!(startLine.StartsWith("GET") || startLine.StartsWith("HEAD") || startLine.StartsWith("POST") || startLine.StartsWith("PUT") || startLine.StartsWith("DELETE") || startLine.StartsWith("TRACE") || startLine.StartsWith("OPTIONS") || startLine.StartsWith("CONNECT") || startLine.StartsWith("HTTP"))) {
+            //else if (!Enum.IsDefined(typeof(RequestMethods), startLine.Split(' ').First()?.ToUpper()) &&
+            else if (!Enum.IsDefined(typeof(RequestMethods), Utils.StringManglerUtil.GetFirstPart(startLine, ' ')?.ToUpper()) &&
+                !(startLine.StartsWith("GET") || startLine.StartsWith("HEAD") || startLine.StartsWith("POST") || startLine.StartsWith("PUT") || startLine.StartsWith("DELETE") || startLine.StartsWith("TRACE") || startLine.StartsWith("OPTIONS") || startLine.StartsWith("CONNECT") || startLine.StartsWith("HTTP")))
                 return false;
-            }
-
+            /*
+            else if (!(startLine.StartsWith("GET") || startLine.StartsWith("HEAD") || startLine.StartsWith("POST") || startLine.StartsWith("PUT") || startLine.StartsWith("DELETE") || startLine.StartsWith("TRACE") || startLine.StartsWith("OPTIONS") || startLine.StartsWith("CONNECT") || startLine.StartsWith("HTTP"))) {
+                return false;
+                */
 
             try {
                 result=new HttpPacket(parentFrame, packetStartIndex, packetEndIndex);
@@ -120,75 +127,80 @@ namespace PacketParser.Packets {
              * 
              * */
             this.subPackets = new List<AbstractPacket>();
-            this.headerFields=new List<string>();
-            this.requestedHost=null;
-            this.requestedFileName=null;
-            this.userAgentBanner=null;
-            this.statusCode=null;
+            this.headerFields = new List<string>();
+            this.requestedHost = null;
+            this.requestedFileName = null;
+            this.userAgentBanner = null;
+            this.statusCode = null;
             this.statusMessage = null;
-            this.serverBanner=null;
-            this.contentType=null;
-            this.contentLength=-1;//instead of null
-            this.contentEncoding=null;
-            this.cookie=null;
-            this.transferEncoding=null;
-            this.wwwAuthenticateRealm=null;
-            this.authorizationCredentialsUsername=null;
-            this.authorizationCredentailsPassword=null;
-            this.packetHeaderIsComplete=false;
-            this.contentDispositionFilename=null;
+            this.serverBanner = null;
+            this.contentType = null;
+            this.contentLength = -1;//instead of null
+            this.contentEncoding = null;
+            this.cookie = null;
+            this.transferEncoding = null;
+            this.wwwAuthenticateRealm = null;
+            this.authorizationCredentialsUsername = null;
+            this.authorizationCredentailsPassword = null;
+            this.packetHeaderIsComplete = false;
+            this.contentDispositionFilename = null;
             this.contentRange = null;
 
-            int dataIndex=packetStartIndex;
+            int dataIndex = packetStartIndex;
 
             //a start-line
             string startLine = Utils.ByteConverter.ReadLine(parentFrame.Data, ref dataIndex);
-            if(startLine==null)
+            if (startLine == null)
                 throw new Exception("HTTP packet does not contain a valid start line. Probably a false HTTP positive");
-            if(startLine.Length>2048)
-                throw new Exception("HTTP start line is longer than 255 bytes. Probably a false HTTP positive");
+            if (startLine.Length > 2048)
+                throw new Exception("HTTP start line is longer than 2048 bytes. Probably a false HTTP positive");
 
-            if(dataIndex>packetEndIndex)
+            if (dataIndex > packetEndIndex)
                 throw new Exception("HTTP start line ends after packet end...");
 
-            if(startLine.StartsWith("GET")) {
-                this.messageTypeIsRequest=true;
-                this.requestMethod=RequestMethods.GET;
+            //if (Enum.TryParse<RequestMethods>(startLine.Split(' ').First()?.ToUpper(), out this.requestMethod)) {
+            if (Enum.TryParse<RequestMethods>(Utils.StringManglerUtil.GetFirstPart(startLine, ' ')?.ToUpper(), out this.requestMethod)) {
+                this.messageTypeIsRequest = true;
             }
-            else if(startLine.StartsWith("HEAD")) {
-                this.messageTypeIsRequest=true;
-                this.requestMethod=RequestMethods.HEAD;
+            else if (startLine.StartsWith("GET")) {
+                this.messageTypeIsRequest = true;
+                this.requestMethod = RequestMethods.GET;
             }
-            else if(startLine.StartsWith("POST")) {
-                this.messageTypeIsRequest=true;
-                this.requestMethod=RequestMethods.POST;
+            else if (startLine.StartsWith("HEAD")) {
+                this.messageTypeIsRequest = true;
+                this.requestMethod = RequestMethods.HEAD;
             }
-            else if(startLine.StartsWith("PUT")) {
-                this.messageTypeIsRequest=true;
-                this.requestMethod=RequestMethods.PUT;
+            else if (startLine.StartsWith("POST")) {
+                this.messageTypeIsRequest = true;
+                this.requestMethod = RequestMethods.POST;
             }
-            else if(startLine.StartsWith("DELETE")) {
-                this.messageTypeIsRequest=true;
-                this.requestMethod=RequestMethods.DELETE;
+            else if (startLine.StartsWith("PUT")) {
+                this.messageTypeIsRequest = true;
+                this.requestMethod = RequestMethods.PUT;
             }
-            else if(startLine.StartsWith("TRACE")) {
-                this.messageTypeIsRequest=true;
-                this.requestMethod=RequestMethods.TRACE;
+            else if (startLine.StartsWith("DELETE")) {
+                this.messageTypeIsRequest = true;
+                this.requestMethod = RequestMethods.DELETE;
             }
-            else if(startLine.StartsWith("OPTIONS")) {
-                this.messageTypeIsRequest=true;
-                this.requestMethod=RequestMethods.OPTIONS;
+            else if (startLine.StartsWith("TRACE")) {
+                this.messageTypeIsRequest = true;
+                this.requestMethod = RequestMethods.TRACE;
             }
-            else if(startLine.StartsWith("CONNECT")) {
-                this.messageTypeIsRequest=true;
-                this.requestMethod=RequestMethods.CONNECT;
+            else if (startLine.StartsWith("OPTIONS")) {
+                this.messageTypeIsRequest = true;
+                this.requestMethod = RequestMethods.OPTIONS;
             }
-            else if(startLine.StartsWith("HTTP")) {
-                this.messageTypeIsRequest=false;
-                this.requestMethod=RequestMethods.none;
+            else if (startLine.StartsWith("CONNECT")) {
+                this.messageTypeIsRequest = true;
+                this.requestMethod = RequestMethods.CONNECT;
+            }
+            else if (startLine.StartsWith("HTTP")) {
+                this.messageTypeIsRequest = false;
+                this.requestMethod = RequestMethods.none;
             }
             else
                 throw new Exception("Incorrect HTTP Message Type or Request Method");
+        
          
             //zero or more header fields (also known as "headers")
             while(true){
@@ -214,7 +226,7 @@ namespace PacketParser.Packets {
             else if(this.packetHeaderIsComplete && dataIndex<=packetEndIndex) {//we have a body!
                 if (this.contentLength > 0 && this.contentLength < packetEndIndex - dataIndex + 1) {
                     this.messageBody = new byte[this.contentLength];
-                    this.PacketEndIndex = dataIndex + this.contentLength - 1;
+                    this.PacketEndIndex = (int)(dataIndex + this.contentLength - 1);
                 }
                 else {
                     this.messageBody = new byte[packetEndIndex - dataIndex + 1];
@@ -233,18 +245,20 @@ namespace PacketParser.Packets {
 
             //now extract some interresting information from the packet
             if(this.messageTypeIsRequest) {//REQUEST
-                if (this.requestMethod == RequestMethods.GET || this.requestMethod == RequestMethods.POST || this.requestMethod == RequestMethods.HEAD || this.requestMethod == RequestMethods.OPTIONS) {
-                    int requestUriOffset = this.requestMethod.ToString().Length + 1;
-                    string fileURI = startLine.Substring(requestUriOffset, startLine.Length - requestUriOffset);
-                    if(fileURI.Contains(" HTTP")) {
-                        fileURI=fileURI.Substring(0, fileURI.IndexOf(" HTTP"));
-                    }
-                    if(fileURI.Length>0) {//If it is the index-file the URI will be just "/"
-                        this.requestedFileName=fileURI;
-                    }
-                    else
-                        this.requestedFileName=null;
-                }/*
+                //if clause commented out 200818
+                //if (this.requestMethod == RequestMethods.GET || this.requestMethod == RequestMethods.POST || this.requestMethod == RequestMethods.HEAD || this.requestMethod == RequestMethods.OPTIONS) {
+                int requestUriOffset = this.requestMethod.ToString().Length + 1;
+                string fileURI = startLine.Substring(requestUriOffset, startLine.Length - requestUriOffset);
+                if(fileURI?.Contains(" HTTP") == true) {
+                    fileURI=fileURI.Substring(0, fileURI.IndexOf(" HTTP"));
+                }
+                if(fileURI?.Length>0) {//If it is the index-file the URI will be just "/"
+                    this.requestedFileName=fileURI;
+                }
+                else
+                    this.requestedFileName=null;
+                //}
+                /*
                 else if(this.requestMethod==RequestMethods.POST) {
                     string fileURI=startLine.Substring(5, startLine.Length-5);
                     if(fileURI.Contains(" HTTP")) {
@@ -297,7 +311,7 @@ namespace PacketParser.Packets {
             else if (headerField.StartsWith("Content-Type: ", StringComparison.OrdinalIgnoreCase))
                 this.contentType = headerField.Substring(14).Trim();
             else if (headerField.StartsWith("Content-Length: ", StringComparison.OrdinalIgnoreCase))
-                this.contentLength = Convert.ToInt32(headerField.Substring(16).Trim());
+                this.contentLength = Convert.ToInt64(headerField.Substring(16).Trim());
             else if (headerField.StartsWith("Content-Encoding: ", StringComparison.OrdinalIgnoreCase))
                 this.contentEncoding = headerField.Substring(18).Trim();
             else if (headerField.StartsWith("Transfer-Encoding: ", StringComparison.OrdinalIgnoreCase))
@@ -318,6 +332,7 @@ namespace PacketParser.Packets {
                     this.subPackets.Add(securityBlob);
                 }
                 catch (Exception e) {
+                    SharedUtils.Logger.Log("Error parsing HTTP \"WWW-Authenticate: Negotiate\" in " + this.ParentFrame.ToString() + ". " + e.ToString(), SharedUtils.Logger.EventLogEntryType.Warning);
                     if (!this.ParentFrame.QuickParse)
                         this.ParentFrame.Errors.Add(new Frame.Error(this.ParentFrame, PacketStartIndex, this.PacketEndIndex, "Cannot parse credentials in HTTP Authorization: Negotiate (" + e.Message + ")"));
                 }
@@ -342,6 +357,7 @@ namespace PacketParser.Packets {
                     }
                 }
                 catch (Exception e) {
+                    SharedUtils.Logger.Log("Error parsing HTTP \"Authorization: Basic\" in " + this.ParentFrame.ToString() + ". " + e.ToString(), SharedUtils.Logger.EventLogEntryType.Warning);
                     if (!this.ParentFrame.QuickParse)
                         this.ParentFrame.Errors.Add(new Frame.Error(this.ParentFrame, PacketStartIndex, this.PacketEndIndex, "Cannot parse credentials in HTTP Authorization (" + e.Message + ")"));
                 }
@@ -371,6 +387,7 @@ namespace PacketParser.Packets {
                     }
                 }
                 catch (Exception e) {
+                    SharedUtils.Logger.Log("Error parsing HTTP \"Authorization: Digest\" in " + this.ParentFrame.ToString() + ". " + e.ToString(), SharedUtils.Logger.EventLogEntryType.Warning);
                     if (!this.ParentFrame.QuickParse)
                         this.ParentFrame.Errors.Add(new Frame.Error(this.ParentFrame, PacketStartIndex, this.PacketEndIndex, "Cannot parse credentials in HTTP Authorization (" + e.Message + ")"));
                 }
@@ -385,6 +402,7 @@ namespace PacketParser.Packets {
                     this.subPackets.Add(securityBlob);
                 }
                 catch (Exception e) {
+                    SharedUtils.Logger.Log("Error parsing HTTP \"Authorization: Negotiate\" in " + this.ParentFrame.ToString() + ". " + e.ToString(), SharedUtils.Logger.EventLogEntryType.Warning);
                     if (!this.ParentFrame.QuickParse)
                         this.ParentFrame.Errors.Add(new Frame.Error(this.ParentFrame, PacketStartIndex, this.PacketEndIndex, "Cannot parse credentials in HTTP Authorization: Negotiate (" + e.Message + ")"));
                 }
@@ -407,18 +425,22 @@ namespace PacketParser.Packets {
                     int quoteIndex = headerField.IndexOf('\'', charsetIndex);
                     if (charsetIndex > 0 && quoteIndex > 0) {
                         string charset = headerField.Substring(charsetIndex, quoteIndex - charsetIndex);
-                        try {
-                            Encoding encoding = System.Text.Encoding.GetEncoding(charset);
-                            int extValueIndex = headerField.IndexOf('\'', quoteIndex + 1) + 1;
-                            byte[] extValueBytes = System.Text.Encoding.Default.GetBytes(headerField.Substring(extValueIndex));
-                            string filename = encoding.GetString(extValueBytes);
-                            filename = filename.Trim();
-                            if (filename.StartsWith("\"") && filename.IndexOf('\"', 1) > 0)//get the string inside the quotations
-                                filename = filename.Substring(1, filename.IndexOf('\"', 1) - 1);
-                            if (filename.Length > 0)
-                                this.contentDispositionFilename = filename;
+                        if (charset != null && charset.Length > 0) {
+                            try {
+                                Encoding encoding = System.Text.Encoding.GetEncoding(charset);
+                                int extValueIndex = headerField.IndexOf('\'', quoteIndex + 1) + 1;
+                                byte[] extValueBytes = System.Text.Encoding.Default.GetBytes(headerField.Substring(extValueIndex));
+                                string filename = encoding.GetString(extValueBytes);
+                                filename = filename.Trim();
+                                if (filename.StartsWith("\"") && filename.IndexOf('\"', 1) > 0)//get the string inside the quotations
+                                    filename = filename.Substring(1, filename.IndexOf('\"', 1) - 1);
+                                if (filename.Length > 0)
+                                    this.contentDispositionFilename = filename;
+                            }
+                            catch (Exception e) {
+                                SharedUtils.Logger.Log("Error parsing file name with charset \"" + charset + "\" in " + this.ParentFrame.ToString() + ". " + e.ToString(), SharedUtils.Logger.EventLogEntryType.Warning);
+                            }
                         }
-                        catch { }
                     }
                 }
             }
@@ -433,6 +455,10 @@ namespace PacketParser.Packets {
                         this.contentRange = new FileTransfer.ContentRange() { Start = start, End = end, Total = total };
                     }
                 }
+            }
+            else if(headerField.StartsWith("Accept-Language: ", StringComparison.OrdinalIgnoreCase)) {
+                this.AcceptLanguage = headerField.Substring(17).Trim();
+
             }
         }
 

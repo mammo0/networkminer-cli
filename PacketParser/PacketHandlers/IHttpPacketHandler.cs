@@ -15,6 +15,7 @@ namespace PacketParser.PacketHandlers {
         /// <param name="mainPacketHandler"></param>
         /// <returns>True if the data was successfully parsed. False if the data need to be parsed again with more data</returns>
         bool ExtractHttpData(Packets.HttpPacket httpPacket, Packets.TcpPacket tcpPacket, FiveTuple fiveTuple, bool transferIsClientToServer, PacketHandler mainPacketHandler);
+        bool ExtractHttpData(Packets.Http2Packet http2Packet, Dictionary<string, string> headers, Packets.TcpPacket tcpPacket, FiveTuple fiveTuple, bool transferIsClientToServer, PacketHandler mainPacketHandler);
         void Reset();//resets all captured data
     }
 }

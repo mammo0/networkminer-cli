@@ -148,8 +148,9 @@ namespace PacketParser.Packets {
                     else
                         packet = new RawPacket(ParentFrame, PacketStartIndex + 4, PacketEndIndex);
                 }
-                catch {
-                    packet=new RawPacket(ParentFrame, PacketStartIndex+4, PacketEndIndex);
+                catch (Exception e) {
+                    SharedUtils.Logger.Log("Error parsing packet in NetBIOS SS payload in " + this.ParentFrame.ToString() + ". " + e.ToString(), SharedUtils.Logger.EventLogEntryType.Warning);
+                    packet = new RawPacket(ParentFrame, PacketStartIndex+4, PacketEndIndex);
                 }
 
                 yield return packet;

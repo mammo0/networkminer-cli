@@ -135,7 +135,8 @@ namespace PacketParser.Packets {
             //additional commands outside of the RFC
             "FEAT",
             "SIZE",
-            "OPTS"
+            "OPTS",
+            "EPSV"//extended passive
         };
 
         private bool clientToServer;

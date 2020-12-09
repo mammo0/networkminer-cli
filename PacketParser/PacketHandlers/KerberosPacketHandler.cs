@@ -284,7 +284,7 @@ namespace PacketParser.PacketHandlers {
             if (kerberosPacket.MsgType == KerberosPacket.MessageType.krb_error) {//30
                 foreach (var item in kerberosPacket.AsnData.Where(item => item.Item2 == Utils.ByteConverter.Asn1TypeTag.OctetString)) {
                     foreach (var errorItem in Utils.ByteConverter.GetAsn1Data(item.Item3).Where(ei => ei.Item2 == Utils.ByteConverter.Asn1TypeTag.OctetString && ei.Item1 == "30.30.a2")) {
-                        foreach (var entry in Utils.ByteConverter.GetAsn1Data(errorItem.Item3).Where(ei => ei.Item2 == Utils.ByteConverter.Asn1TypeTag.OctetString && ei.Item1 == "30.30.a1")) {
+                        foreach (var entry in Utils.ByteConverter.GetAsn1Data(errorItem.Item3).Where(ei => (ei.Item2 == Utils.ByteConverter.Asn1TypeTag.OctetString || ei.Item2 == Utils.ByteConverter.Asn1TypeTag.GeneralString)  && ei.Item1 == "30.30.a1")) {
                             string salt;
                             try {
                                 salt = Utils.ByteConverter.ReadString(entry.Item3);
@@ -298,7 +298,6 @@ namespace PacketParser.PacketHandlers {
                             //backup is to save salt as hex
                             return Utils.ByteConverter.ReadHexString(entry.Item3, entry.Item3.Length, true);
                         }
-
                     }
                 }
             }
@@ -338,51 +337,75 @@ namespace PacketParser.PacketHandlers {
             string username = "";
             string realm = "";
             List<string> spnParts = new List<string>();
-            foreach (var item in kerberosPacket.AsnData.Where(item => stringTypes.Contains(item.Item2))) {
-                string itemString = Utils.ByteConverter.ReadString(item.Item3);
-
-
-                if (item.Item2 == Utils.ByteConverter.Asn1TypeTag.GeneralString && hostnameRequestPaths.Contains(item.Item1) && itemString.EndsWith("$")) {
-                    string hostname = itemString.TrimEnd(new[] { '$' });
-                    sourceHost.AddHostName(hostname);
-                    //parameters.Add("Hostname (" + item.Item1 + ")", hostname);
-                    realm = hostname;
-                }
-                else if (item.Item2 == Utils.ByteConverter.Asn1TypeTag.GeneralString && hostnameResponsePaths.Contains(item.Item1) && itemString.EndsWith("$")) {
-                    string hostname = itemString.TrimEnd(new[] { '$' });
-                    destinationHost.AddHostName(hostname);
-                    //parameters.Add("Hostname (" + item.Item1 + ")", hostname);
-                    realm = hostname;
-                }
-                else if (item.Item2 == Utils.ByteConverter.Asn1TypeTag.GeneralString && (usernameRequestPaths.Contains(item.Item1) || usernameResponsePaths.Contains(item.Item1)) && !itemString.EndsWith("$")) {
-                    if (usernameRequestPaths.Contains(item.Item1)) {
-                        base.MainPacketHandler.AddCredential(new NetworkCredential(sourceHost, destinationHost, "Kerberos", itemString, kerberosPacket.ParentFrame.Timestamp));
-                        sourceHost.AddNumberedExtraDetail("Kerberos Username", itemString);
-                        username = itemString;
+            int lastInt = 0;
+            foreach (var item in kerberosPacket.AsnData) {
+                if (item.Item2 == Utils.ByteConverter.Asn1TypeTag.Integer)//Utils.ByteConverter.Asn1TypeTag.Integer
+                    lastInt = (int)Utils.ByteConverter.ToUInt32(item.Item3);
+                else if (stringTypes.Contains(item.Item2)) {
+                    string itemString = Utils.ByteConverter.ReadString(item.Item3);
+                    
+                    //if(kerberosPacket.MsgType == KerberosPacket.MessageType.krb_ap_req) {
+                        /** rfc1510 / http://web.mit.edu/freebsd/head/crypto/heimdal/lib/asn1/krb5.asn1 
+                         * KDC-REQ-BODY ::= SEQUENCE {
+                         *   kdc-options[0]		KDCOptions,
+                         *   cname[1]		PrincipalName OPTIONAL, -- Used only in AS-REQ
+                         *   realm[2]		Realm,	-- Server's realm
+                         *                -- Also client's in AS-REQ
+                         *   sname[3]		PrincipalName OPTIONAL,
+                         *   from[4]			KerberosTime OPTIONAL,
+                         *   till[5]			KerberosTime OPTIONAL,
+                         *   rtime[6]		KerberosTime OPTIONAL,
+                         *   nonce[7]		krb5int32,
+                         *   etype[8]		SEQUENCE OF ENCTYPE, -- EncryptionType,
+                         *                -- in preference order
+                         *   addresses[9]		HostAddresses OPTIONAL,
+                         *   enc-authorization-data[10] EncryptedData OPTIONAL,
+                         *                -- Encrypted AuthorizationData encoding
+                         *   additional-tickets[11]	SEQUENCE OF Ticket OPTIONAL
+                         * }
+                         **/
+                    if (item.Item2 == Utils.ByteConverter.Asn1TypeTag.GeneralString && hostnameRequestPaths.Contains(item.Item1) && itemString.EndsWith("$")) {
+                        string hostname = itemString.TrimEnd(new[] { '$' });
+                        sourceHost.AddHostName(hostname, kerberosPacket.PacketTypeDescription);
+                        //parameters.Add("Hostname (" + item.Item1 + ")", hostname);
+                        realm = hostname;
                     }
-                    else if (usernameResponsePaths.Contains(item.Item1)) {
-                        base.MainPacketHandler.AddCredential(new NetworkCredential(destinationHost, sourceHost, "Kerberos", itemString, kerberosPacket.ParentFrame.Timestamp));
-                        destinationHost.AddNumberedExtraDetail("Kerberos Username", itemString);
-                        username = itemString;
+                    else if (item.Item2 == Utils.ByteConverter.Asn1TypeTag.GeneralString && hostnameResponsePaths.Contains(item.Item1) && itemString.EndsWith("$")) {
+                        string hostname = itemString.TrimEnd(new[] { '$' });
+                        destinationHost.AddHostName(hostname, kerberosPacket.PacketTypeDescription);
+                        //parameters.Add("Hostname (" + item.Item1 + ")", hostname);
+                        realm = hostname;
                     }
+                    else if (item.Item2 == Utils.ByteConverter.Asn1TypeTag.GeneralString && (usernameRequestPaths.Contains(item.Item1) || usernameResponsePaths.Contains(item.Item1)) && !itemString.EndsWith("$")) {
+                        if (usernameRequestPaths.Contains(item.Item1)) {
+                            base.MainPacketHandler.AddCredential(new NetworkCredential(sourceHost, destinationHost, "Kerberos", itemString, kerberosPacket.ParentFrame.Timestamp));
+                            sourceHost.AddNumberedExtraDetail("Kerberos Username", itemString);
+                            username = itemString;
+                        }
+                        else if (usernameResponsePaths.Contains(item.Item1)) {
+                            base.MainPacketHandler.AddCredential(new NetworkCredential(destinationHost, sourceHost, "Kerberos", itemString, kerberosPacket.ParentFrame.Timestamp));
+                            destinationHost.AddNumberedExtraDetail("Kerberos Username", itemString);
+                            username = itemString;
+                        }
 #if DEBUG
-                    else
-                        System.Diagnostics.Debugger.Break();
+                        else
+                            System.Diagnostics.Debugger.Break();
 #endif
 
 
-                    //parameters.Add("Username (" + item.Item1 + ")", username);
-                }
-                else if (item.Item2 == Utils.ByteConverter.Asn1TypeTag.GeneralString && domainPaths.Contains(item.Item1)) {
-                    sourceHost.AddDomainName(itemString);
-                    destinationHost.AddDomainName(itemString);
-                    //parameters.Add("Realm (" + item.Item1 + ")", itemString);
-                    realm = itemString;
-                }
-                else if (item.Item2 == Utils.ByteConverter.Asn1TypeTag.GeneralString && kerberosPacket.MsgType == KerberosPacket.MessageType.krb_tgs_rep && hostnameResponsePaths.Contains(item.Item1))
-                    spnParts.Add(itemString);
-                else {
-                    //parameters.Add(item.Item1 + " " + Enum.GetName(typeof(Utils.ByteConverter.Asn1TypeTag), item.Item2), itemString);
+                        //parameters.Add("Username (" + item.Item1 + ")", username);
+                    }
+                    else if (item.Item2 == Utils.ByteConverter.Asn1TypeTag.GeneralString && domainPaths.Contains(item.Item1)) {
+                        sourceHost.AddDomainName(itemString);
+                        destinationHost.AddDomainName(itemString);
+                        //parameters.Add("Realm (" + item.Item1 + ")", itemString);
+                        realm = itemString;
+                    }
+                    else if (item.Item2 == Utils.ByteConverter.Asn1TypeTag.GeneralString && kerberosPacket.MsgType == KerberosPacket.MessageType.krb_tgs_rep && hostnameResponsePaths.Contains(item.Item1))
+                        spnParts.Add(itemString);
+                    else {
+                        //parameters.Add(item.Item1 + " " + Enum.GetName(typeof(Utils.ByteConverter.Asn1TypeTag), item.Item2), itemString);
+                    }
                 }
             }
             if(kerberosPacket.MsgType == KerberosPacket.MessageType.krb_tgs_rep && spnParts.Count > 0)

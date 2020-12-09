@@ -49,6 +49,7 @@ namespace PacketParser.Packets {
 
         public PhysicalAddress SourceMAC { get { return this.sourceMAC; } }
         public PhysicalAddress DestinationMAC { get { return this.destinationMAC; } }
+        public PhysicalAddress BSSID { get { return this.basicServiceSetMAC; } }
 
         internal IEEE_802_11Packet(Frame parentFrame, int packetStartIndex, int packetEndIndex)
             : base(parentFrame, packetStartIndex, packetEndIndex, "IEEE 802.11") {

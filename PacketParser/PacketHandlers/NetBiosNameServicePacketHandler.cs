@@ -57,7 +57,7 @@ namespace PacketParser.PacketHandlers {
 
                 parameters.Add(answer.Name, answeredIpAddress.ToString());
                 if (base.MainPacketHandler.NetworkHostList.ContainsIP(answeredIpAddress))
-                    base.MainPacketHandler.NetworkHostList.GetNetworkHost(answeredIpAddress).AddHostName(answer.NameTrimmed);
+                    base.MainPacketHandler.NetworkHostList.GetNetworkHost(answeredIpAddress).AddHostName(answer.NameTrimmed, netBiosNameServicePacket.PacketTypeDescription);
             }
             foreach (Packets.NetBiosNameServicePacket.ResourceRecord additional in netBiosNameServicePacket.AdditionalResourceRecords) {
                 UInt16 flags = Utils.ByteConverter.ToUInt16(additional.Data.Array, additional.Data.Offset);
@@ -70,7 +70,7 @@ namespace PacketParser.PacketHandlers {
 
                     parameters.Add(additional.Name, answeredIpAddress.ToString());
                     if (base.MainPacketHandler.NetworkHostList.ContainsIP(answeredIpAddress))
-                        base.MainPacketHandler.NetworkHostList.GetNetworkHost(answeredIpAddress).AddHostName(additional.NameTrimmed);
+                        base.MainPacketHandler.NetworkHostList.GetNetworkHost(answeredIpAddress).AddHostName(additional.NameTrimmed, netBiosNameServicePacket.PacketTypeDescription);
                 }
 
                 

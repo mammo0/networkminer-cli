@@ -53,9 +53,9 @@ namespace PacketParser.FileTransfer {
          **/
 
 
-        private static char[] specialCharacters={ ':', '*', '?', '"', '<', '>', '|' };
-        private static char[] directorySeparators={ '\\', '/' };
-        private static string[] forbiddenNames = { "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+        private static readonly char[] SPECIAL_CHARACTERS={ ':', '*', '?', '"', '<', '>', '|' };
+        private static readonly char[] DIRECTORY_SEPARATORS={ '\\', '/' };
+        private static readonly string[] FORBIDDEN_NAMES = { "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
             "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9" };
 
         private FileStreamAssemblerList parentAssemblerList;
@@ -260,10 +260,10 @@ namespace PacketParser.FileTransfer {
             }
 
             filename=System.Web.HttpUtility.UrlDecode(filename);
-            while(filename.IndexOfAny(specialCharacters)>-1)
-                filename=filename.Remove(filename.IndexOfAny(specialCharacters), 1);
-            while(filename.IndexOfAny(directorySeparators)>-1)
-                filename=filename.Remove(filename.IndexOfAny(directorySeparators), 1);
+            while(filename.IndexOfAny(SPECIAL_CHARACTERS)>-1)
+                filename=filename.Remove(filename.IndexOfAny(SPECIAL_CHARACTERS), 1);
+            while(filename.IndexOfAny(DIRECTORY_SEPARATORS)>-1)
+                filename=filename.Remove(filename.IndexOfAny(DIRECTORY_SEPARATORS), 1);
             while(filename.StartsWith("."))
                 filename=filename.Substring(1);
             if(filename.Length>32) {//not allowed by Windows to be more than 260 characters
@@ -282,11 +282,11 @@ namespace PacketParser.FileTransfer {
             fileLocation =fileLocation.Replace('\\', '/');//I prefer using frontslash
             
 
-            while (fileLocation.IndexOfAny(specialCharacters)>-1)
-                fileLocation=fileLocation.Remove(fileLocation.IndexOfAny(specialCharacters), 1);
+            while (fileLocation.IndexOfAny(SPECIAL_CHARACTERS)>-1)
+                fileLocation=fileLocation.Remove(fileLocation.IndexOfAny(SPECIAL_CHARACTERS), 1);
             if(fileLocation.Length>0 && !fileLocation.StartsWith("/"))
                 fileLocation="/"+fileLocation;
-            foreach(string forbiddenName in forbiddenNames) {
+            foreach(string forbiddenName in FORBIDDEN_NAMES) {
                 int index = fileLocation.IndexOf("/" + forbiddenName + "/", StringComparison.InvariantCultureIgnoreCase);
                 if (index >= 0)
                     fileLocation = fileLocation.Substring(0, index + 1) + "_" + fileLocation.Substring(index + 1);
@@ -295,9 +295,9 @@ namespace PacketParser.FileTransfer {
             while (fileLocation.EndsWith("."))
                 fileLocation = fileLocation.Substring(0, fileLocation.Length - 1);
             //char[] directorySeparators={'/','\\'};
-            fileLocation =fileLocation.TrimEnd(directorySeparators);
+            fileLocation =fileLocation.TrimEnd(DIRECTORY_SEPARATORS);
             if(fileLocation.Length>40)//248 characters totally (directory + file name) is the maximum allowed
-                fileLocation=fileLocation.Substring(0, 40).TrimEnd(directorySeparators);
+                fileLocation=fileLocation.Substring(0, 40).TrimEnd(DIRECTORY_SEPARATORS);
         }
 
         internal virtual bool TryActivate() {
@@ -388,6 +388,8 @@ namespace PacketParser.FileTransfer {
                 protocolString = "MIME_form-data";
             else if (fileStreamType == FileStreamTypes.HttpPostMimeFileData)
                 protocolString = "MIME_file-data";
+            else if (fileStreamType == FileStreamTypes.HttpPostMms)
+                protocolString = "HTTP_POST_MMS";
             else if (fileStreamType == FileStreamTypes.OscarFileTransfer)
                 protocolString = "OSCAR";
             else if (fileStreamType == FileStreamTypes.POP3)
@@ -439,7 +441,8 @@ namespace PacketParser.FileTransfer {
                 try {
                     System.IO.Path.GetDirectoryName(filePath);
                 }
-                catch {
+                catch (Exception e) {
+                    SharedUtils.Logger.Log("Error getting directory name of path \"" + filePath + "\".", SharedUtils.Logger.EventLogEntryType.Error);
                     //something could be wrong with the path.. so let's replace it with something that should work better
                     //Examples of things that can go wrong is that the file or directory has a reserved name (like COM2, CON or LPT1) as shown here:
                     //http://www.ureader.com/msg/144639432.aspx
@@ -447,7 +450,8 @@ namespace PacketParser.FileTransfer {
                     //this one generates directories like: "/HTTP - TCP 80/<directory>/<filename>"
                     //filePath=sourceIp.ToString().Replace(':', '-')+"/"+protocolString+" - "+transportString+" "+sourcePort.ToString()+"/"+System.IO.Path.GetRandomFileName();
                     //this one generates directories like: "/TCP-80/<directory>/<filename>"
-                    filePath=sourceIp.ToString().Replace(':', '-')+"/"+transportString+"-"+sourcePort.ToString()+"/"+System.IO.Path.GetRandomFileName();
+                    filePath =sourceIp.ToString().Replace(':', '-')+"/"+transportString+"-"+sourcePort.ToString()+"/"+System.IO.Path.GetRandomFileName();
+                    SharedUtils.Logger.Log("Changing file path to  \"" + filePath + "\".", SharedUtils.Logger.EventLogEntryType.Information);
                 }
             }
 
@@ -562,6 +566,7 @@ namespace PacketParser.FileTransfer {
                     || this.fileStreamType==FileStreamTypes.FTP
                     || this.fileStreamType==FileStreamTypes.HttpPostMimeMultipartFormData
                     || this.fileStreamType==FileStreamTypes.HttpPostMimeFileData
+                    || this.fileStreamType == FileStreamTypes.HttpPostMms
                     || this.fileStreamType==FileStreamTypes.OscarFileTransfer)
                     && assembledByteCount>=fileContentLength && fileContentLength!=-1) {//we have received the whole file
                     FinishAssembling();
@@ -740,19 +745,23 @@ namespace PacketParser.FileTransfer {
 
                     foreach (Mime.MultipartPart part in parts) {
                         if (part.Attributes["filename"] != null && part.Attributes["filename"].Length > 0 && part.Data != null && part.Data.Length > 0) {
+                            //char[] directorySeparators = { '/', '\\' };
                             //we have a file!
-                            string mimeFileLocation = part.Attributes["filename"];
-                            if (mimeFileLocation.Contains("/"))
-                                mimeFileLocation = mimeFileLocation.Substring(0, mimeFileLocation.LastIndexOf('/'));
-                            if (mimeFileLocation.Contains("\\"))
-                                mimeFileLocation = mimeFileLocation.Substring(0, mimeFileLocation.LastIndexOf('\\'));
+                            string mimeFileLocation = "/";
+                            if (part.Attributes["filename"].IndexOfAny(DIRECTORY_SEPARATORS) >= 0) {
+                                mimeFileLocation = part.Attributes["filename"];
+
+                                foreach (char separator in DIRECTORY_SEPARATORS) {
+                                    if (mimeFileLocation.Contains("" + separator))
+                                        mimeFileLocation = mimeFileLocation.Substring(0, mimeFileLocation.LastIndexOf(separator));
+                                }
+                            }
+
                             string mimeFileName = part.Attributes["filename"];
-                            if (mimeFileName.Contains("/") && mimeFileName.Length > mimeFileName.LastIndexOf('/') + 1)
-                                mimeFileName = mimeFileName.Substring(mimeFileName.LastIndexOf('/') + 1);
-                            if (mimeFileName.Contains("\\") && mimeFileName.Length > mimeFileName.LastIndexOf('\\') + 1)
-                                mimeFileName = mimeFileName.Substring(mimeFileName.LastIndexOf('\\') + 1);
-
-
+                            foreach (char separator in DIRECTORY_SEPARATORS) {
+                                if (mimeFileName.Contains("" + separator) && mimeFileName.Length > mimeFileName.LastIndexOf(separator) + 1)
+                                    mimeFileName = mimeFileName.Substring(mimeFileName.LastIndexOf(separator) + 1);
+                            }
                             using (FileStreamAssembler partAssembler = new FileStreamAssembler(this.parentAssemblerList, this.fiveTuple, this.transferIsClientToServer, FileStreamTypes.HttpPostMimeFileData, mimeFileName, mimeFileLocation, part.Attributes["filename"], this.initialFrameNumber, this.timestamp)) {
                                 this.parentAssemblerList.Add(partAssembler);
                                 partAssembler.FileContentLength = part.Data.Length;

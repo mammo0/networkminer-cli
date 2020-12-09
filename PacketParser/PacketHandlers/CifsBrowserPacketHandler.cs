@@ -22,7 +22,7 @@ namespace PacketParser.PacketHandlers {
                 System.Collections.Specialized.NameValueCollection parameters = new System.Collections.Specialized.NameValueCollection();
 
                 if (!string.IsNullOrEmpty(browser.Hostname))
-                    sourceHost.AddHostName(browser.Hostname);
+                    sourceHost.AddHostName(browser.Hostname, browser.PacketTypeDescription);
                 if (!string.IsNullOrEmpty(browser.DomainOrWorkgroup))
                     sourceHost.AddDomainName(browser.DomainOrWorkgroup);
                 if (browser.OSVersion.major > 0 || browser.OSVersion.minor > 0) {

@@ -1,58 +1,21 @@
-<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{06690200-D2DA-49F5-A687-068163BBEEC4}</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <RootNamespace>SharedUtils</RootNamespace>
-    <AssemblyName>SharedUtils</AssemblyName>
-    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <!--<TargetFramework>netstandard2.0</TargetFramework>-->
+    <TargetFramework>net461</TargetFramework>
+    <Company>Netresec AB</Company>
+    <Authors>Netresec AB</Authors>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <OutputPath>bin\Debug</OutputPath>
-    <DefineConstants>DEBUG;TRACE;</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <ConsolePause>false</ConsolePause>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <Optimize>true</Optimize>
-    <OutputPath>bin\Release</OutputPath>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <ConsolePause>false</ConsolePause>
-  </PropertyGroup>
+
+<!--System.Web is required when targeting net461, but not in netstandard2.0
+-->
   <ItemGroup>
     <Reference Include="System.Web" />
-    <Reference Include="System.Net" />
-    <Reference Include="System" />
   </ItemGroup>
-  <ItemGroup>
-    <Compile Include="ApiUtils.cs" />
-    <Compile Include="ConcurrentLogWriter.cs" />
-    <Compile Include="DateTimeAsUtcConverter.cs" />
-    <Compile Include="Logger.cs" />
-    <Compile Include="Md5SingletonHelper.cs" />
-    <Compile Include="MergedEnumerable.cs" />
-    <Compile Include="SystemHelper.cs" />
-    <Compile Include="TypedNetString.cs" />
-    <Compile Include="Pcap\IFrameWriter.cs" />
-    <Compile Include="Pcap\IPcapParser.cs" />
-    <Compile Include="Pcap\IPcapParserFactory.cs" />
-    <Compile Include="Pcap\IPcapStreamReader.cs" />
-    <Compile Include="Pcap\PacketReceivedEventArgs.cs" />
-    <Compile Include="Pcap\PcapFileReader.cs" />
-    <Compile Include="Pcap\PcapFileWriter.cs" />
-    <Compile Include="Pcap\PcapFrame.cs" />
-    <Compile Include="Pcap\PcapParser.cs" />
-    <Compile Include="Pcap\PcapParserFactory.cs" />
-    <Compile Include="Pcap\PcapStreamReader.cs" />
-    <Compile Include="Pcap\Tools.cs" />
-    <Compile Include="FileUtils.cs" />
-  </ItemGroup>
-  <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
+
 </Project>

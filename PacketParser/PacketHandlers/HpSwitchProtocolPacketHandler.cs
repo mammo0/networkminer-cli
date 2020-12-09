@@ -61,7 +61,7 @@ namespace PacketParser.PacketHandlers {
                 if(!sourceHost.ExtraDetailsList.ContainsKey("HPSW Device Name")) {
                     sourceHost.ExtraDetailsList.Add("HPSW Device Name", hpswField.ValueString);
                     //sourceHost.HostNameList.Add(hpswField.ValueString);
-                    sourceHost.AddHostName(hpswField.ValueString);
+                    sourceHost.AddHostName(hpswField.ValueString, hpswField.PacketTypeDescription);
                 }
             }
             else if(hpswField.TypeByte==(byte)Packets.HpSwitchProtocolPacket.HpSwField.FieldType.Version){

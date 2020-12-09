@@ -66,6 +66,7 @@ namespace PacketParser.Packets {
                         packet = new DnsPacket(ParentFrame, PacketStartIndex + 8, PacketEndIndex);
                     }
                     catch (Exception e) {
+                        //SharedUtils.Logger.Log("Error parsing DNS packet in UDP payload in " + this.ParentFrame.ToString() + ". " + e.ToString(), SharedUtils.Logger.EventLogEntryType.Information);
                         if (!this.ParentFrame.QuickParse)
                             ParentFrame.Errors.Add(new Frame.Error(ParentFrame, PacketStartIndex + 8, PacketEndIndex, "Cannot parse DNS packet (" + e.Message + ")"));
                         packet = new RawPacket(ParentFrame, PacketStartIndex + 8, PacketEndIndex);

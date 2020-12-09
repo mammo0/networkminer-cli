@@ -509,7 +509,7 @@ namespace PacketParser.Utils {
             return quotedPrintableBytes;
         }
 
-        public static List<byte> ReadQuotedPrintable(byte[] quotedPrintableData) {
+        public static List<byte> ReadQuotedPrintable(byte[] quotedPrintableData, bool ignoreLineBreaks = false) {
             //http://tools.ietf.org/html/rfc2045#page-19
 
             /**
@@ -537,9 +537,16 @@ namespace PacketParser.Utils {
              * in the encoded text.
              **/
 
+            SharedUtils.Logger.Log("Reading " + quotedPrintableData.Length + " bytes of Quoted-Printable encoded data.", SharedUtils.Logger.EventLogEntryType.Information);
+
+
             List<byte> outputBytes = new List<byte>();
             byte equals = 0x3d; //'='
-            HashSet<byte> ignoreChars = new HashSet<byte>(new byte[] { 0x0d, 0x0a });
+            HashSet<byte> ignoreChars = new HashSet<byte>();
+            if (ignoreLineBreaks) {
+                ignoreChars.Add(0x0d);
+                ignoreChars.Add(0x0a);
+            }
             for (int i = 0; i < quotedPrintableData.Length; i++) {
                 if (ignoreChars.Contains(quotedPrintableData[i])) {
                     //do nothing
@@ -720,6 +727,25 @@ namespace PacketParser.Utils {
                 }
                 return typeList;
             }
+        }
+
+        public static ushort CalculateOnesComplement(IList<byte> data) {
+            if (data.Count % 2 != 0)
+                throw new ArgumentException("There must be an even number of bytes");
+
+            int sum = 0;
+            //Add all ushort values
+            for (int i = 0; i < data.Count; i += 2) {
+                sum += data[i] << 8;
+                sum += data[i + 1];
+            }
+
+            //Fold to get the ones complement result
+            while (sum > ushort.MaxValue)
+                sum = (sum & 0xffff) + (sum >> 16);
+
+            //Invert to get the negative in ones complement arithmetic
+            return (ushort)~sum;
         }
 
     }

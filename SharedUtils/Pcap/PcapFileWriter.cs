@@ -120,16 +120,16 @@ namespace SharedUtils.Pcap {
             Tuple<uint, uint> secondsMicroseconds = this.GetSecondsMicrosecondsTuple(frame.Timestamp);
             this.writeLock.Wait();
             try {
-                outputStream.Write(ToByteArray(secondsMicroseconds.Item1), 0, 4);
-                outputStream.Write(ToByteArray(secondsMicroseconds.Item2), 0, 4);
+                this.outputStream.Write(ToByteArray(secondsMicroseconds.Item1), 0, 4);
+                this.outputStream.Write(ToByteArray(secondsMicroseconds.Item2), 0, 4);
                 //number of octets of packet saved in file
-                outputStream.Write(ToByteArray((uint)frame.Data.Length), 0, 4);
+                this.outputStream.Write(ToByteArray((uint)frame.Data.Length), 0, 4);
                 //actual length of packet
-                outputStream.Write(ToByteArray((uint)frame.Data.Length), 0, 4);
+                this.outputStream.Write(ToByteArray((uint)frame.Data.Length), 0, 4);
                 //data
-                outputStream.Write(frame.Data, 0, frame.Data.Length);
+                this.outputStream.Write(frame.Data, 0, frame.Data.Length);
                 if (flush)
-                    outputStream.Flush();
+                    this.outputStream.Flush();
             }
             finally {
                 this.writeLock.Release();
@@ -145,21 +145,21 @@ namespace SharedUtils.Pcap {
             Tuple<uint, uint> secondsMicroseconds = this.GetSecondsMicrosecondsTuple(frame.Timestamp);
             await this.writeLock.WaitAsync();
             try {
-                await outputStream.WriteAsync(ToByteArray(secondsMicroseconds.Item1), 0, 4);
-                await outputStream.WriteAsync(ToByteArray(secondsMicroseconds.Item2), 0, 4);
+                await this.outputStream.WriteAsync(ToByteArray(secondsMicroseconds.Item1), 0, 4);
+                await this.outputStream.WriteAsync(ToByteArray(secondsMicroseconds.Item2), 0, 4);
                 //number of octets of packet saved in file
-                await outputStream.WriteAsync(ToByteArray((uint)frame.Data.Length), 0, 4);
+                await this.outputStream.WriteAsync(ToByteArray((uint)frame.Data.Length), 0, 4);
                 //actual length of packet
-                await outputStream.WriteAsync(ToByteArray((uint)frame.Data.Length), 0, 4);
+                await this.outputStream.WriteAsync(ToByteArray((uint)frame.Data.Length), 0, 4);
                 //data
-                await outputStream.WriteAsync(frame.Data, 0, frame.Data.Length);
+                await this.outputStream.WriteAsync(frame.Data, 0, frame.Data.Length);
                 if (flush)
-                    await outputStream.FlushAsync();
+                    await this.outputStream.FlushAsync();
             }
             finally {
                 this.writeLock.Release();
             }
-            FramesWritten++;
+            this.FramesWritten++;
         }
 
 

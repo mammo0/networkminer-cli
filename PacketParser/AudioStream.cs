@@ -262,6 +262,7 @@ namespace PacketParser {
         }
 
         public FileTransfer.FileStreamAssembler AssembleAsWavFileNative() {
+            
             uint sampleRate = 8000;
             
             byte bitsPerSample = 8;
@@ -269,7 +270,11 @@ namespace PacketParser {
             FileTransfer.WavFileAssembler.AudioFormat outFormat;
 
             if(this.Format == PacketHandlers.RtpPacketHandler.RtpPayloadType.G722) {
+                //G722 sample rate is 16.000 samples/s according to RFC 3551
+                //https://tools.ietf.org/html/rfc3551
+                sampleRate = 16000;
                 //only AU format handles G722
+
                 FileTransfer.AuFileAssembler auAssembler = new FileTransfer.AuFileAssembler("AudioStream-" + this.FiveTuple.GetHashCode().ToString() + "-" + this.Format.ToString() + ".au", this.fileStreamAssemblerList, this.FiveTuple, FileTransfer.FileStreamTypes.RTP, this.initialFrameNumber, this.StartTime, FileTransfer.AuFileAssembler.Encoding.G722, sampleRate);
                 if(auAssembler.TryActivate()) {
                     auAssembler.AssembleAsWavFileNative(this.tempFileStream);
