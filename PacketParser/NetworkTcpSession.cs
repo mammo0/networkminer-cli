@@ -9,17 +9,17 @@ using System;
 using System.Collections.Generic;
 
 namespace PacketParser {
-    public class NetworkTcpSession : IComparable {//only TCP sessions
+    public class NetworkTcpSession : IComparable, IComparable<NetworkTcpSession> {//only TCP sessions
 
-        
+
 
         //private NetworkHost clientHost, serverHost;
         //private ushort clientTcpPort, serverTcpPort;
 
-        //private DateTime synPacketTimestamp;//in NetworkFlow
-        //private DateTime latestPacketTimestamp;//in NetworkFlow
+    //private DateTime synPacketTimestamp;//in NetworkFlow
+    //private DateTime latestPacketTimestamp;//in NetworkFlow
 
-        private long startFrameNumber;
+    private long startFrameNumber;
 
         private bool synPacketReceived;
         private bool synAckPacketReceived;
@@ -306,6 +306,7 @@ namespace PacketParser {
                     }
                 }
                 catch(Exception ex) {
+                    SharedUtils.Logger.Log("Error parsing TCP session data in " + tcpPacket.ParentFrame.ToString() + ". " + ex.Message, SharedUtils.Logger.EventLogEntryType.Warning);
                     if (!tcpPacket.ParentFrame.QuickParse)
                         tcpPacket.ParentFrame.Errors.Add(new Frame.Error(tcpPacket.ParentFrame, tcpPacket.PacketStartIndex, tcpPacket.PacketEndIndex, ex.Message));
                     return false;
@@ -377,22 +378,23 @@ namespace PacketParser {
         #region IComparable Members
 
         public int CompareTo(NetworkTcpSession session) {
-            if(this.ClientHost.CompareTo(session.ClientHost)!=0)
+            if (this.ClientHost.CompareTo(session.ClientHost) != 0)
                 return this.ClientHost.CompareTo(session.ClientHost);
-            else if(this.ServerHost.CompareTo(session.ServerHost)!=0)
+            else if (this.ServerHost.CompareTo(session.ServerHost) != 0)
                 return this.ServerHost.CompareTo(session.ServerHost);
-            else if(this.ClientTcpPort!=session.ClientTcpPort)
-                return this.ClientTcpPort-session.ClientTcpPort;
-            else if(this.ServerTcpPort!=session.ServerTcpPort)
-                return this.ServerTcpPort-session.ServerTcpPort;
-            else if(this.StartTime.CompareTo(session.StartTime)!=0)
+            else if (this.ClientTcpPort != session.ClientTcpPort)
+                return this.ClientTcpPort - session.ClientTcpPort;
+            else if (this.ServerTcpPort != session.ServerTcpPort)
+                return this.ServerTcpPort - session.ServerTcpPort;
+            else if (this.StartTime.CompareTo(session.StartTime) != 0)
                 return this.StartTime.CompareTo(session.StartTime);
             else
                 return 0;
         }
+
         public int CompareTo(object obj) {
             NetworkTcpSession s=(NetworkTcpSession)obj;
-            return CompareTo(s);
+            return this.CompareTo(s);
         }
 
         #endregion
@@ -441,8 +443,9 @@ namespace PacketParser {
                 //this.destinationPort=destinationPort;
                 this.dataList=new SortedList<uint, byte[]>();
                 //this.dataListMaxSize=64;//i hope I shouldn't need more than 64 packets in the list. It depends on how late a misordered packet might get received. Smaller number gives better performance, larger number gives better tolerance to reordered packets
-                this.dataListMaxSize = 256;//allows data packets to be out-of-order up to 256 packets apart from each other in the same unidirectional stream
-      
+                //this.dataListMaxSize = 256;//allows data packets to be out-of-order up to 256 packets apart from each other in the same unidirectional stream
+                this.dataListMaxSize = 1024;//Increased buffer size 2020-08-14 in order to support network traffic from poor quality links with lots of retransmissions
+
                 //this.totalByteCount=0;
                 this.virtualTcpData=null;
                 this.session = session;
@@ -701,7 +704,7 @@ namespace PacketParser {
                     if (this.tcpDataStream.session.protocolFinder.GetConfirmedApplicationLayerProtocol() == ApplicationLayerProtocol.Ssl)
                         maxPacketFragments = 15; //TLS records are max 16kB, each frame is about 1500 B, 15 frames should be enough (famous last words)
                     if (this.tcpDataStream.session.protocolFinder.GetConfirmedApplicationLayerProtocol() == ApplicationLayerProtocol.NetBiosSessionService)
-                        maxPacketFragments = 50;//Changed 2011-04-25
+                        maxPacketFragments = 1024;//Changed 2011-04-25 to 50, changed 2020-08-14 to 1024
                     else if (this.tcpDataStream.session.protocolFinder.GetConfirmedApplicationLayerProtocol() == ApplicationLayerProtocol.Http)
                         maxPacketFragments = 32;//Changed 2011-10-12 to handle AOL webmail
                     else if (this.tcpDataStream.session.protocolFinder.GetConfirmedApplicationLayerProtocol() == ApplicationLayerProtocol.Smtp)

@@ -186,7 +186,7 @@ namespace PacketParser.PacketHandlers {
                     sourceHost.AddJA3Hash(ja3Hash);
                 param.Add("JA3 Hash", ja3Hash);
                 if (handshake.ServerHostName != null) {
-                    destinationHost.AddHostName(handshake.ServerHostName);
+                    destinationHost.AddHostName(handshake.ServerHostName, handshake.PacketTypeDescription);
                     param.Add("TLS Server Name (SNI)", handshake.ServerHostName);
                 }
                 base.MainPacketHandler.OnParametersDetected(new Events.ParametersEventArgs(handshake.ParentFrame.FrameNumber, fiveTuple, transferIsClientToServer, param, handshake.ParentFrame.Timestamp, "TLS Client Hello"));
@@ -200,7 +200,8 @@ namespace PacketParser.PacketHandlers {
                         x509Cert = new System.Security.Cryptography.X509Certificates.X509Certificate(certificate);
                         x509CertSubject = x509Cert.Subject;
                     }
-                    catch {
+                    catch(Exception e) {
+                        SharedUtils.Logger.Log("Unable to parse X.509 Subject in " + tcpPacket.ParentFrame.ToString() + ". " + e.ToString(), SharedUtils.Logger.EventLogEntryType.Information);
                         x509CertSubject = "Unknown_x509_Certificate_Subject";
                         x509Cert = null;
                     }
@@ -230,7 +231,7 @@ namespace PacketParser.PacketHandlers {
                     FileTransfer.FileStreamAssembler assembler = new FileTransfer.FileStreamAssembler(base.MainPacketHandler.FileStreamAssemblerList, fiveTuple, transferIsClientToServer, FileTransfer.FileStreamTypes.TlsCertificate, filename, fileLocation, certificate.Length, certificate.Length, details, null, tcpPacket.ParentFrame.FrameNumber, tcpPacket.ParentFrame.Timestamp, FileTransfer.FileStreamAssembler.FileAssmeblyRootLocation.source);
                     base.MainPacketHandler.FileStreamAssemblerList.Add(assembler);
                     if (i == 0 && x509CertSubject.Contains(".") && !x509CertSubject.Contains("*") && !x509CertSubject.Contains(" "))
-                        sourceHost.AddHostName(x509CertSubject);
+                        sourceHost.AddHostName(x509CertSubject, handshake.PacketTypeDescription);
                     System.Collections.Specialized.NameValueCollection parameters = new System.Collections.Specialized.NameValueCollection();
                     //parameters.Add("Certificate Subject", x509Cert.Subject);
                     const string CERTIFICATE_SUBJECT = "Certificate Subject";
@@ -246,7 +247,7 @@ namespace PacketParser.PacketHandlers {
                                             sourceHost.AddDomainName(cn.Substring(2));
                                     }
                                     else
-                                        sourceHost.AddHostName(cn);
+                                        sourceHost.AddHostName(cn, handshake.PacketTypeDescription);
                                 }
                             }
                         }
@@ -284,7 +285,9 @@ namespace PacketParser.PacketHandlers {
                             parameters.Add("Certificate valid", "FALSE");
 
                     }
-                    catch (Exception) { }
+                    catch (Exception e) {
+                        SharedUtils.Logger.Log("Unable to parse X509Certificate2 in " + tcpPacket.ParentFrame.ToString() + ". " + e.ToString(), SharedUtils.Logger.EventLogEntryType.Information);
+                    }
 
 
                     base.MainPacketHandler.OnParametersDetected(new Events.ParametersEventArgs(tcpPacket.ParentFrame.FrameNumber, fiveTuple, transferIsClientToServer, parameters, tcpPacket.ParentFrame.Timestamp, "X.509 Certificate"));

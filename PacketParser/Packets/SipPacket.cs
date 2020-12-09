@@ -1,11 +1,34 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace PacketParser.Packets {
 
     //http://www.ietf.org/rfc/rfc3261.txt
     class SipPacket : AbstractPacket {
+
+        /**
+         * https://www.iana.org/assignments/sip-parameters/sip-parameters.xhtml
+         * 
+         * ACK 	[RFC3261]
+         * BYE 	[RFC3261]
+         * CANCEL 	[RFC3261]
+         * INFO 	[RFC6086]
+         * INVITE 	[RFC3261][RFC6026]
+         * MESSAGE 	[RFC3428]
+         * NOTIFY 	[RFC6665]
+         * OPTIONS 	[RFC3261]
+         * PRACK 	[RFC3262]
+         * PUBLISH 	[RFC3903]
+         * REFER 	[RFC3515]
+         * REGISTER 	[RFC3261]
+         * SUBSCRIBE 	[RFC6665]
+         * UPDATE 	[RFC3311]
+         **/
+        public enum RequestMethods {
+            ACK, BYE, CANCEL, INFO, INVITE, MESSAGE, NOTIFY, OPTIONS, PRACK, PUBLISH, REFER, REGISTER, SUBSCRIBE, UPDATE
+        }
 
         private string messageLine = null;
         private string to = null;
@@ -20,20 +43,33 @@ namespace PacketParser.Packets {
         internal string MessageLine { get { return this.messageLine; } }
         internal string To { get { return this.to; } }
         internal string From { get { return this.from; } }
+        internal string Contact { get; } = null;
         internal string CallID { get { return this.callId; } }
         internal SessionDescriptionProtocol SDP { get; }
         internal string UserAgent { get; }
+        internal RequestMethods? RequestMethod { get; } = null;
+        internal int? ResponseCode { get; } = null;
+        internal System.Collections.Specialized.NameValueCollection HeaderFields { get; }
+
+        internal int ContentLength { get { return this.contentLength; } }//aka MessageBodyLength
+        internal int MessageBodyStartIndex { get; }
+
 
         internal SipPacket(Frame parentFrame, int packetStartIndex, int packetEndIndex)
             : base(parentFrame, packetStartIndex, packetEndIndex, "SIP") {
             //The first line of the text-encoded message contains the method name
             int index = PacketStartIndex;
+            this.HeaderFields = new System.Collections.Specialized.NameValueCollection();
             this.messageLine = Utils.ByteConverter.ReadLine(parentFrame.Data, ref index, true);
+
+            string requestMethodString = Utils.StringManglerUtil.GetFirstPart(this.messageLine, ' ');
+            if (Enum.IsDefined(typeof(RequestMethods), requestMethodString))
+                this.RequestMethod = (RequestMethods)Enum.Parse(typeof(RequestMethods), requestMethodString);
             if (!this.ParentFrame.QuickParse)
                 base.Attributes.Add("Message Line", messageLine);
 
             string headerLine = "dummy value";
-            System.Collections.Specialized.NameValueCollection headerCollection = new System.Collections.Specialized.NameValueCollection();
+            //System.Collections.Specialized.NameValueCollection headerCollection = new System.Collections.Specialized.NameValueCollection();
             this.ContentType = null;
             while (index < PacketEndIndex && headerLine.Length > 0) {
                 headerLine = Utils.ByteConverter.ReadLine(parentFrame.Data, ref index, true);
@@ -41,12 +77,14 @@ namespace PacketParser.Packets {
                     string headerName = headerLine.Substring(0, headerLine.IndexOf(':'));
                     string headerValue = headerLine.Substring(headerLine.IndexOf(':') + 1).Trim();
                     if (headerName.Length > 0 && headerValue.Length > 0) {
-                        headerCollection[headerName] = headerValue;
+                        this.HeaderFields[headerName] = headerValue;
 
                         if (headerName.Equals("To", StringComparison.InvariantCultureIgnoreCase) || headerName == "t")
                             this.to = headerValue;
                         else if (headerName.Equals("From", StringComparison.InvariantCultureIgnoreCase) || headerName == "f")
                             this.from = headerValue;
+                        else if (headerName.Equals("Contact", StringComparison.InvariantCultureIgnoreCase) || headerName == "f")
+                            this.Contact = headerValue;
                         else if (headerName.Equals("Call-ID", StringComparison.InvariantCultureIgnoreCase))
                             this.callId = headerValue;
                         else if (headerName.Equals("Contact", StringComparison.InvariantCultureIgnoreCase))
@@ -54,20 +92,27 @@ namespace PacketParser.Packets {
                         else if (headerName.Equals("Content-Type", StringComparison.InvariantCultureIgnoreCase) || headerName == "c")
                             this.ContentType = headerValue;
                         else if (headerName.Equals("Content-Length", StringComparison.InvariantCultureIgnoreCase) || headerName == "l")
-                            Int32.TryParse(headerValue, out contentLength);
+                            Int32.TryParse(headerValue, out this.contentLength);
                         else if (headerName.Equals("User-Agent", StringComparison.InvariantCultureIgnoreCase))
                             this.UserAgent = headerValue;
                     }
                 }
             }
-            base.Attributes.Add(headerCollection);
+            //base.Attributes.Add(headerCollection);
 
             //the rest is the message body
-            if (this.contentLength > 0 && this.ContentType != null && this.ContentType.Equals("application/sdp", StringComparison.InvariantCultureIgnoreCase)) {
-                //TODO parse body as SDP if specified in the content-type
-                this.SDP = new SessionDescriptionProtocol(parentFrame.Data, index, this);
-            }
+            this.MessageBodyStartIndex = index;
+            if (this.contentLength > 0) {
+                if (index + this.contentLength < packetEndIndex + 1)
+                    throw new Exception("Incomplete SIP packet");
+                else if (index + this.contentLength > packetEndIndex + 1)
+                    base.PacketEndIndex = index + this.contentLength - 1;
 
+                if (this.ContentType?.Equals("application/sdp", StringComparison.InvariantCultureIgnoreCase) == true) {
+                    //TODO parse body as SDP if specified in the content-type
+                    this.SDP = new SessionDescriptionProtocol(parentFrame.Data, index, this);
+                }
+            }
         }
 
         public override IEnumerable<AbstractPacket> GetSubPackets(bool includeSelfReference) {

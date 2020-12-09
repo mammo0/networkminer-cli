@@ -23,6 +23,24 @@ namespace PacketParser.Packets {
             krb_error = 30// -- Error response
         }
 
+        //http://web.mit.edu/freebsd/head/crypto/heimdal/lib/asn1/krb5.asn1
+        public enum NameType : int {
+            KRB5_NT_UNKNOWN = 0,//	-- Name type not known
+            KRB5_NT_PRINCIPAL = 1,//	-- Just the name of the principal as in
+            KRB5_NT_SRV_INST = 2,//	-- Service and other unique instance(krbtgt)
+            KRB5_NT_SRV_HST = 3,//	-- Service with host name as instance
+            KRB5_NT_SRV_XHST = 4,//	-- Service with host as remaining components
+            KRB5_NT_UID = 5,//		-- Unique ID
+            KRB5_NT_X500_PRINCIPAL = 6,// -- PKINIT
+            KRB5_NT_SMTP_NAME = 7,//	-- Name in form of SMTP email name
+            KRB5_NT_ENTERPRISE_PRINCIPAL = 10,// -- Windows 2000 UPN
+            KRB5_NT_WELLKNOWN = 11,//	-- Wellknown
+            KRB5_NT_ENT_PRINCIPAL_AND_ID = -130,// -- Windows 2000 UPN and SID
+            KRB5_NT_MS_PRINCIPAL = -128,// -- NT 4 style name
+            KRB5_NT_MS_PRINCIPAL_AND_ID = -129,// -- NT style name and SID
+            KRB5_NT_NTLM = -1200// -- NTLM name, realm is domain
+        }
+
         private static HashSet<MessageType> REQUEST_TYPES = new HashSet<MessageType>( new[] {
             MessageType.krb_as_req,
             MessageType.krb_tgs_req,

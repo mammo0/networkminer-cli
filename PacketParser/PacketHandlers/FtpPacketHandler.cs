@@ -6,6 +6,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace PacketParser.PacketHandlers {
@@ -17,6 +18,7 @@ namespace PacketParser.PacketHandlers {
             private NetworkHost ftpClient, ftpServer;
             private string username, password;
 
+
             private PendingFileTransfer pendingFileTransfer;
             private System.Collections.Generic.Dictionary<string, int> fileSizes;
             private string pendingSizeRequestFileName;
@@ -27,8 +29,10 @@ namespace PacketParser.PacketHandlers {
             internal string Password { get { return this.password; } set { this.password=value; } }
             internal System.Collections.Generic.Dictionary<string, int> FileSizes { get { return this.fileSizes; } }
             internal string PendingSizeRequestFileName { get { return this.pendingSizeRequestFileName; } set { this.pendingSizeRequestFileName=value; } }
+            internal string LastClientCommand { get; set; }
 
             internal PendingFileTransfer PendingFileTransfer { get { return this.pendingFileTransfer; } set { this.pendingFileTransfer=value; } }
+
 
             internal FtpSession(NetworkHost ftpClient, NetworkHost ftpServer) {
                 this.ftpClient=ftpClient;
@@ -252,6 +256,9 @@ namespace PacketParser.PacketHandlers {
                 */
                 if (ftpPacket.ClientToServer) {
                     if(ftpPacket.RequestCommand!=null) {
+
+                        ftpSession.LastClientCommand = ftpPacket.RequestCommand;
+
                         if(ftpPacket.RequestArgument!=null) {
                             System.Collections.Specialized.NameValueCollection tmpCol=new System.Collections.Specialized.NameValueCollection();
                             tmpCol.Add(ftpPacket.RequestCommand, ftpPacket.RequestArgument);
@@ -362,6 +369,23 @@ namespace PacketParser.PacketHandlers {
                             if(this.pendingFileTransferList.ContainsKey(ftpSession.PendingFileTransfer.GetKey()))
                                 this.pendingFileTransferList.Remove(ftpSession.PendingFileTransfer.GetKey());
                             this.pendingFileTransferList.Add(ftpSession.PendingFileTransfer.GetKey(), ftpSession.PendingFileTransfer);
+                        }
+                    }
+                    else if (ftpPacket.ResponseCode == 229 && ftpSession.LastClientCommand == "EPSV") {//229 Entering Extended Passive Mode(||| 29199 |)
+                        if (ftpPacket.ResponseArgument == null)
+                            SharedUtils.Logger.Log("Unable to parse EPSV port from FTP response with null argument in frame " + ftpPacket.ParentFrame.ToString(), SharedUtils.Logger.EventLogEntryType.Warning);
+                        else {
+                            string epsvPortString = ftpPacket.ResponseArgument.Split('|').Skip(3)?.FirstOrDefault()?.Trim();
+                            if (epsvPortString == null)
+                                SharedUtils.Logger.Log("Unable to parse EPSV port from FTP response: " + ftpPacket.ResponseArgument, SharedUtils.Logger.EventLogEntryType.Warning);
+                            else if (UInt16.TryParse(epsvPortString, out ushort serverPort)) {
+                                ftpSession.PendingFileTransfer = new PendingFileTransfer(ftpSession.ClientHost, null, ftpSession.ServerHost, serverPort, true, ftpSession);
+                                if (this.pendingFileTransferList.ContainsKey(ftpSession.PendingFileTransfer.GetKey()))
+                                    this.pendingFileTransferList.Remove(ftpSession.PendingFileTransfer.GetKey());
+                                this.pendingFileTransferList.Add(ftpSession.PendingFileTransfer.GetKey(), ftpSession.PendingFileTransfer);
+                            }
+                            else
+                                SharedUtils.Logger.Log("Unable to parse EPSV port number from FTP response: " + ftpPacket.ResponseArgument, SharedUtils.Logger.EventLogEntryType.Warning);
                         }
                     }
                     else if(ftpPacket.ResponseCode==230) {//Login successful

@@ -87,9 +87,9 @@ namespace PacketParser.PacketHandlers {
                             this.MainPacketHandler.AddCredential(ircSession.GetCredential(sourceHost, destinationHost, ircPacket.ParentFrame.Timestamp));
                         }
                         if(parameters.Count>1)
-                            sourceHost.AddHostName(parameters[1]);
+                            sourceHost.AddHostName(parameters[1], ircPacket.PacketTypeDescription);
                         if(parameters.Count>2)
-                            destinationHost.AddHostName(parameters[2]);
+                            destinationHost.AddHostName(parameters[2], ircPacket.PacketTypeDescription);
                     }
                     else if(m.Command.Equals("NICK", StringComparison.InvariantCultureIgnoreCase)) {
                         IEnumerator<string> enumerator=m.Parameters.GetEnumerator();

@@ -93,7 +93,8 @@ namespace NetworkMiner {
 
         void linkLabelHomepage_Click(object sender, System.Windows.Forms.LinkLabelLinkClickedEventArgs e) {
             string target = e.Link.LinkData as string;
-            System.Diagnostics.Process.Start(target);
+            //System.Diagnostics.Process.Start(target);
+            SharedUtils.SystemHelper.ProcessStart(target);
         }
 
         #region Assembly Attribute Accessors

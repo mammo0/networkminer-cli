@@ -6,7 +6,7 @@ using System.Xml.Schema;
 
 namespace PacketParser.Events {
     public class MessageEventArgs : EventArgs, System.Xml.Serialization.IXmlSerializable {
-        private const int MAX_SUBJECT_LENGTH = 50;
+        private const int MAX_SUBJECT_LENGTH = 100;
 
         public PacketParser.ApplicationLayerProtocol Protocol;
         public NetworkHost SourceHost;

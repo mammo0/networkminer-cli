@@ -58,7 +58,7 @@ namespace PacketParser.PacketHandlers {
 
                 if(option.OptionCode==12) {//hostname
                     string hostname = Utils.ByteConverter.ReadString(option.OptionValue);
-                    sourceHost.AddHostName(hostname);
+                    sourceHost.AddHostName(hostname, dhcpPacket.PacketTypeDescription);
                     optionParameterList.Add("DHCP Option 12 Hostname", hostname);
                 }
                 else if(option.OptionCode==15) {//Domain Name
@@ -113,7 +113,7 @@ namespace PacketParser.PacketHandlers {
                 }
                 else if (option.OptionCode == 81) {//Client Fully Qualified Domain Name
                     string domain = Utils.ByteConverter.ReadString(option.OptionValue, 3, option.OptionValue.Length - 3);
-                    sourceHost.AddHostName(domain);
+                    sourceHost.AddHostName(domain, dhcpPacket.PacketTypeDescription);
                     optionParameterList.Add("DHCP Option 81 Domain", domain);
                 }
                 else if (option.OptionCode == 125) {//V-I Vendor-specific Information http://tools.ietf.org/html/rfc3925

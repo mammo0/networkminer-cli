@@ -2357,7 +2357,7 @@ namespace NetworkMiner {
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.MainMenuStrip = this.menuStrip1;
             this.Name = "NetworkMinerForm";
-            this.Text = "NetworkMiner 2.5";
+            this.Text = "NetworkMiner 2.6";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.NetworkMinerForm_FormClosing);
             this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.NetworkMinerForm_FormClosed);
             this.DragDrop += new System.Windows.Forms.DragEventHandler(this.NetworkMinerForm_DragDrop);

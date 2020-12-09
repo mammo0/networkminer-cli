@@ -137,12 +137,14 @@ namespace SharedUtils
         }
 
         public async Task LogAsync(params string[] columns) {
-            await this.LogAsync(columns as IEnumerable<string>);
+            await this.LogAsync(columns as IEnumerable<string>, true);
         }
 
-        public async Task LogAsync(IEnumerable<string> columns) {
+        public async Task LogAsync(IEnumerable<string> columns, bool prependTimestamp = true) {
             //StringBuilder logLine = new StringBuilder(DateTime.UtcNow.ToString("s", System.Globalization.CultureInfo.InvariantCulture));
-            StringBuilder logLine = new StringBuilder(DateTime.Now.ToString("o", System.Globalization.CultureInfo.InvariantCulture));
+            StringBuilder logLine = new StringBuilder();
+            if(prependTimestamp)
+                logLine.Append(DateTime.Now.ToString("o", System.Globalization.CultureInfo.InvariantCulture));
             foreach (string c in columns) {
                 logLine.Append(this.columnSeparator);
                 if(c != null)

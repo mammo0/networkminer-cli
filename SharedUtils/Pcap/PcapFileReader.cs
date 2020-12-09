@@ -12,7 +12,6 @@ namespace SharedUtils.Pcap {
         private System.IO.FileStream fileStream;
         private CaseFileLoadedCallback caseFileLoadedCallback;
 
-
         public string Filename {
             get {
                 return this.filename;

@@ -129,7 +129,9 @@ namespace PacketParser.PacketHandlers {
                             byte[] usernameBytes = System.Convert.FromBase64String(base64Username);
                             smtpSession.Username = System.Text.ASCIIEncoding.ASCII.GetString(usernameBytes);
                         }
-                        catch(FormatException e) { }
+                        catch(FormatException e) {
+                            SharedUtils.Logger.Log("Error parsing SMTP username as ASCII in " + smtpPacket.ParentFrame.ToString() + ". " + e.ToString(), SharedUtils.Logger.EventLogEntryType.Information);
+                        }
                     }
                     else if(smtpSession.State == SmtpSession.SmtpState.Password) {
                         string base64Password = smtpPacket.ReadLine().Trim();
@@ -137,7 +139,9 @@ namespace PacketParser.PacketHandlers {
                             byte[] passwordBytes = System.Convert.FromBase64String(base64Password);
                             smtpSession.Password = System.Text.ASCIIEncoding.ASCII.GetString(passwordBytes);
                         }
-                        catch(FormatException e) { }
+                        catch(FormatException e) {
+                            SharedUtils.Logger.Log("Error parsing SMTP password as ASCII in " + smtpPacket.ParentFrame.ToString() + ". " + e.ToString(), SharedUtils.Logger.EventLogEntryType.Information);
+                        }
                     }
                     else if(smtpSession.State == SmtpSession.SmtpState.Data) {
                         //write data to file until we receive "\n.\n" could also be \r\n.\r\n
@@ -166,7 +170,9 @@ namespace PacketParser.PacketHandlers {
                                             byte[] usernameBytes = System.Convert.FromBase64String(base64Username);
                                             smtpSession.Username = System.Text.ASCIIEncoding.ASCII.GetString(usernameBytes);
                                         }
-                                        catch (ArgumentException) { }
+                                        catch (ArgumentException e) {
+                                            SharedUtils.Logger.Log("Error parsing SMTP username as ASCII in " + smtpPacket.ParentFrame.ToString() + ". " + e.ToString(), SharedUtils.Logger.EventLogEntryType.Information);
+                                        }
                                     }
                                 }
                                 else if (requestCommandAndArgument.Value.Trim().StartsWith("PLAIN", StringComparison.InvariantCultureIgnoreCase)) {
@@ -182,7 +188,9 @@ namespace PacketParser.PacketHandlers {
                                                 this.MainPacketHandler.AddCredential(cred);
                                             }
                                         }
-                                        catch (ArgumentException) { }
+                                        catch (ArgumentException e) {
+                                            SharedUtils.Logger.Log("Error parsing SMTP credential in " + smtpPacket.ParentFrame.ToString() + ". " + e.ToString(), SharedUtils.Logger.EventLogEntryType.Information);
+                                        }
                                     }
                                 }
                             }

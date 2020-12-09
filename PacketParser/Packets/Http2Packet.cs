@@ -56,17 +56,17 @@ namespace PacketParser.Packets {
 
         private readonly int prefaceBytes = 0;
 
-        internal int Length { get; }
+        public int Length { get; }
         //internal int TotalLength { get { return this.prefaceBytes + 9 + this.Length; } }
-        internal FrameType Type { get; }
-        internal byte FlagsRaw { get; }
-        internal bool FlagEndStream { get { return (this.FlagsRaw & 0x01) == 0x01; } }
-        internal bool FlagEndHeaders { get { return (this.FlagsRaw & 0x04) == 0x04; } }
-        internal bool FlagPadded { get { return (this.FlagsRaw & 0x08) == 0x08; } }
-        internal bool FlagPriority { get { return (this.FlagsRaw & 0x20) == 0x20; } }
+        public FrameType Type { get; }
+        public byte FlagsRaw { get; }
+        public bool FlagEndStream { get { return (this.FlagsRaw & 0x01) == 0x01; } }
+        public bool FlagEndHeaders { get { return (this.FlagsRaw & 0x04) == 0x04; } }
+        public bool FlagPadded { get { return (this.FlagsRaw & 0x08) == 0x08; } }
+        public bool FlagPriority { get { return (this.FlagsRaw & 0x20) == 0x20; } }
 
-        internal int StreamIdentifier { get; }
-        internal IEnumerable<byte> Payload { get { return this.ParentFrame.Data.Skip(this.PacketStartIndex + this.prefaceBytes + 9).Take(this.Length); } }
+        public int StreamIdentifier { get; }
+        public IEnumerable<byte> Payload { get { return this.ParentFrame.Data.Skip(this.PacketStartIndex + this.prefaceBytes + 9).Take(this.Length); } }
 
         public bool PacketHeaderIsComplete { get { return this.ParsedBytesCount > 0; } }
 

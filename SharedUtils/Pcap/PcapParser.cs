@@ -6,10 +6,12 @@ namespace SharedUtils.Pcap {
     public class PcapParser : IPcapParser {
 
         public const uint LIBPCAP_MAGIC_NUMBER = 0xa1b2c3d4;
+        public const uint PCAP_MODIFIED_MAGIC = 0xa1b2cd34;
 
         //private System.IO.Stream pcapStream;
         //private PcapStreamReader.AbortReadingDelegate abortReading;
         private PcapFrame.DataLinkTypeEnum dataLinkType;
+        private int packetHeaderTrailerBytes = 0;//some capture formats (Like Fritzbox Modified PCAP have additional metadata after each packet header)
         private IPcapStreamReader pcapStreamReader;
 
         private bool littleEndian;
@@ -62,6 +64,16 @@ namespace SharedUtils.Pcap {
                 this.littleEndian = true;
                 this.metadata.Add(new KeyValuePair<string,string>("Endianness", "Little Endian"));
             }
+            else if (this.ToUInt32(buffer4, false) == PCAP_MODIFIED_MAGIC) {
+                this.littleEndian = false;
+                this.packetHeaderTrailerBytes = 8;
+                this.metadata.Add(new KeyValuePair<string, string>("Endianness", "Big Endian"));
+            }
+            else if (this.ToUInt32(buffer4, true) == PCAP_MODIFIED_MAGIC) {
+                this.littleEndian = true;
+                this.packetHeaderTrailerBytes = 8;
+                this.metadata.Add(new KeyValuePair<string, string>("Endianness", "Little Endian"));
+            }
             else
                 throw new System.IO.InvalidDataException("The stream is not a PCAP file. Magic number is " + this.ToUInt32(buffer4, false).ToString("X2") + " or " + this.ToUInt32(buffer4, true).ToString("X2") + " but should be " + LIBPCAP_MAGIC_NUMBER.ToString("X2") + ".");
 
@@ -104,7 +116,7 @@ namespace SharedUtils.Pcap {
                 throw new Exception("Cannot read frames of negative sizes! Frame size = " + bytesToRead);
             /* actual length of packet */
             //this.pcapStream.Read(buffer4, 0, 4);
-            this.pcapStreamReader.BlockingRead(4);//don't need this value
+            this.pcapStreamReader.BlockingRead(4 + this.packetHeaderTrailerBytes);//don't need this value
 
             byte[] data = this.pcapStreamReader.BlockingRead(bytesToRead);
 
@@ -127,7 +139,7 @@ namespace SharedUtils.Pcap {
             else if (bytesToRead < 0)
                 throw new Exception("Cannot read frames of negative sizes! Frame size = " + bytesToRead);
             /* actual length of packet */
-            await this.pcapStreamReader.ReadAsync(4, cancellationToken);//don't need this value
+            await this.pcapStreamReader.ReadAsync(4 + this.packetHeaderTrailerBytes, cancellationToken);//don't need this value
 
             byte[] data = await this.pcapStreamReader.ReadAsync(bytesToRead, cancellationToken);
 

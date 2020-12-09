@@ -17,7 +17,10 @@ namespace PacketParser.Mime {
                         decoded.Append(encoded.Substring(offset));
                         return decoded.ToString();
                     }
-                    else
+                    else if(offset > start) {
+                        SharedUtils.Logger.Log("Warning: RFC2047 decoded segment length is : " + (start - offset), SharedUtils.Logger.EventLogEntryType.Warning);
+                    }
+                    else if(start > offset)
                         decoded.Append(encoded, offset, start - offset);//unencoded part before RFC 2047 part
                     
                     int end = encoded.IndexOf("?=", start + 2);
@@ -32,7 +35,7 @@ namespace PacketParser.Mime {
                         return decoded.ToString();
                     }
                     else if (IsRfc2047String(encoded.Substring(start, end - start + 2))) {
-                        end = end + 2;
+                        end += 2;
                         decoded.Append(ParseRfc2047String(encoded.Substring(start, end - start)));
                         offset = end;
                     }
@@ -45,17 +48,23 @@ namespace PacketParser.Mime {
                     decoded.Append(encoded.Substring(offset));
                 return decoded.ToString();
             }
-            catch (Exception) {
+            catch (Exception e) {
+                if(encoded != null)
+                    SharedUtils.Logger.Log("Error decoding RFC2047 data \"" + encoded + "\". " + e.Message, SharedUtils.Logger.EventLogEntryType.Warning);
                 return encoded;
             }
 
         }
 
         public static bool IsRfc2047String(string s) {
+            if (s == null || s.Length < 1)
+                return false;
             try {
                 return s.StartsWith("=?") && s.EndsWith("?=") && s.Trim(EQ).Split(QU, StringSplitOptions.RemoveEmptyEntries).Length == 3;
             }
-            catch (Exception) { }
+            catch (Exception e) {
+                SharedUtils.Logger.Log("Error verifying RFC2047 format of \"" + s + "\". " + e.Message, SharedUtils.Logger.EventLogEntryType.Information);
+            }
             return false;
         }
 

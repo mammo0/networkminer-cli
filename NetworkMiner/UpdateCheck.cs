@@ -106,21 +106,26 @@ namespace NetworkMiner {
                     this.DownloadButtonAction = new Action(() => {
                         try {
                             CachedDownloadButtonAction.Invoke();
-                            this.Close();
+                            //this.Close();
                         }
                         catch(Exception e) {
                             SharedUtils.Logger.Log("Error invoking CachedDownloadButtonAction: " + e.Message, SharedUtils.Logger.EventLogEntryType.Error);
-                            System.Diagnostics.Process.Start(downloadUrl);
+                            //System.Diagnostics.Process.Start(downloadUrl);
+                            SharedUtils.SystemHelper.ProcessStart(downloadUrl);
                         }
                     });
                 else
-                    this.DownloadButtonAction = new Action(() => { System.Diagnostics.Process.Start(downloadUrl); });
+                    this.DownloadButtonAction = new Action(() => {
+                        //System.Diagnostics.Process.Start(downloadUrl);
+                        SharedUtils.SystemHelper.ProcessStart(downloadUrl);
+                    });
                 this.downloadButton.Enabled = true;
             }
         }
 
         private void linkClicked(object sender, LinkLabelLinkClickedEventArgs e) {
-            System.Diagnostics.Process.Start(e.Link.LinkData.ToString());
+            //System.Diagnostics.Process.Start(e.Link.LinkData.ToString());
+            SharedUtils.SystemHelper.ProcessStart(e.Link.LinkData.ToString());
         }
 
         private void downloadButton_Click(object sender, EventArgs e) {

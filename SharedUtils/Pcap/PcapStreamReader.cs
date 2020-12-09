@@ -83,10 +83,10 @@ namespace SharedUtils.Pcap {
             : this(pcapStream, packetQueueSize, streamReadCompletedCallback, startBackgroundWorkers, long.MaxValue, pcapStream.ReadTimeout) { }
             */
         public PcapStreamReader(System.Net.Sockets.NetworkStream pcapStream, int packetQueueSize, StreamReadCompletedCallback streamReadCompletedCallback, bool startBackgroundWorkers, long streamMaxLength)
-            : this(pcapStream, packetQueueSize, streamReadCompletedCallback, startBackgroundWorkers, streamMaxLength, pcapStream.ReadTimeout) { }
+            : this(pcapStream, packetQueueSize, streamReadCompletedCallback, startBackgroundWorkers, streamMaxLength, pcapStream.CanTimeout ? pcapStream.ReadTimeout : 20000) { }
 
         public PcapStreamReader(System.IO.Stream pcapStream, int packetQueueSize, StreamReadCompletedCallback streamReadCompletedCallback, bool startBackgroundWorkers, long streamMaxLength)
-            : this(pcapStream, packetQueueSize, streamReadCompletedCallback, startBackgroundWorkers, streamMaxLength, /*20000*/ pcapStream.ReadTimeout) { }
+            : this(pcapStream, packetQueueSize, streamReadCompletedCallback, startBackgroundWorkers, streamMaxLength, pcapStream.CanTimeout ? pcapStream.ReadTimeout : 20000) { }
 
         public PcapStreamReader(System.IO.Stream pcapStream, int packetQueueSize, StreamReadCompletedCallback streamReadCompletedCallback, bool startBackgroundWorkers, long streamMaxLength, int readTimeoutMilliseconds) {
         

@@ -357,9 +357,11 @@ namespace PacketParser {
 
         // http://msdn.microsoft.com/en-us/library/aa645739(VS.71).aspx
         public virtual void OnAnomalyDetected(Events.AnomalyEventArgs ae) {
+            SharedUtils.Logger.Log("Anomaly detected: " + ae.Message, SharedUtils.Logger.EventLogEntryType.Information);
             AnomalyDetected?.Invoke(this, ae);
         }
         internal virtual void OnAnomalyDetected(string anomalyMessage) {
+            
             OnAnomalyDetected(anomalyMessage, DateTime.Now);
         }
         internal virtual void OnAnomalyDetected(string anomalyMessage, DateTime anomalyTimestamp) {
@@ -520,6 +522,7 @@ namespace PacketParser {
             }
 #if !DEBUG
             catch(Exception e) {
+                SharedUtils.Logger.Log("Error creating frame from packet. " + e.ToString(), SharedUtils.Logger.EventLogEntryType.Warning);
                 if (this.UnhandledException == null)
                     throw e;
                 else
@@ -538,13 +541,14 @@ namespace PacketParser {
             }
         }
         internal void ParseFramesInFrameQueue() {
+            Frame frame = null;
             try {
                 while (true) {
                     
-                    Frame f = framesToParseQueue.Take();
-                    System.Threading.Interlocked.Add(ref this.framesToParseQueuedByteCount, -f.Data.Length);
+                    frame = framesToParseQueue.Take();
+                    System.Threading.Interlocked.Add(ref this.framesToParseQueuedByteCount, -frame.Data.Length);
                     UpdateBufferUsagePercent();
-                    this.ParseFrame(f);
+                    this.ParseFrame(frame);
                 }
             }
             catch (System.Threading.ThreadAbortException) {
@@ -552,6 +556,8 @@ namespace PacketParser {
             }
 #if !DEBUG
             catch (Exception e) {
+                if(frame != null)
+                    SharedUtils.Logger.Log("Error parsing " + frame.ToString() + ". " + e.ToString(), SharedUtils.Logger.EventLogEntryType.Warning);
                 if (this.UnhandledException == null)
                     throw e;
                 else
@@ -1224,8 +1230,18 @@ namespace PacketParser {
                         string partData = Utils.ByteConverter.ReadString(part.Data, 0, partDataTruncateSize).Trim();
                            
                         if(attributeName!=null && attributeName.Length>0) {
-                            if(partData!=null && partData.Length>0)
+                            if (partData != null && partData.Length > 0) {
                                 formParameters.Add(attributeName, partData);
+                                if(part.Data.Length > partDataTruncateSize) {
+                                    //create a fake "filename" header to save full data to disk if it has been truncated
+                                    if (formParameters["filename"] == null) {
+                                        string filename = attributeName;
+                                        if(formParameters["Content-Type"]?.Length > 0)
+                                            filename = PacketHandlers.HttpPacketHandler.AppendMimeContentTypeAsExtension(filename, formParameters["Content-Type"]);
+                                        part.Attributes.Add("filename", filename);
+                                    }
+                                }
+                            }
                             else
                                 formParameters.Add("name", attributeName);
                         }

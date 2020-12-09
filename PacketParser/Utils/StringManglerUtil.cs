@@ -119,6 +119,22 @@ namespace PacketParser.Utils {
             return byteArrays.ToArray();
         }
 
+        public static string GetFirstPart(string text, params char[] separator) {
+#if DEBUG
+            string x = String.Concat(text.TakeWhile(c => !separator.Contains(c)));
+            string y = text.Split(separator).First();
+            string z = text;
+            int index = text.IndexOfAny(separator);
+            if (index >= 0)
+                z = text.Substring(0, index);
+            if (!x.Equals(y) || !x.Equals(z))
+                System.Diagnostics.Debugger.Break();
+            return x;
+#else
+            return String.Concat(text.TakeWhile(c => !separator.Contains(c)));
+#endif
+        }
+
         public static string GetReadableContextString(byte[] data, int index, int length) {
             StringBuilder contextString = new StringBuilder();
             int contextLength = 32;
@@ -143,6 +159,17 @@ namespace PacketParser.Utils {
             }
             else
                 return unicodeString;
+        }
+
+        public static string ChangeToEnvironmentNewLines(string text) {
+            
+            if(System.Environment.NewLine == "\r\n") {
+                System.Text.RegularExpressions.Regex regex = new System.Text.RegularExpressions.Regex("(\r\n|\r|\n)");
+                return regex.Replace(text, System.Environment.NewLine);
+            }
+            else
+                return text.Replace("\r\n", System.Environment.NewLine);
+            
         }
     }
 

@@ -1,3 +1,71 @@
+
+NetworkMiner 2.6
+
+	* KerberosPacketHandler.cs: Better extraction of Salt from Kerberos ERROR packets.
+
+	* NtlmSspPacketHandler.cs: Added John-the-Ripper formated extraction of LanMan, NTLMv1
+	  and NTLMv2 challenge/response hashes
+	  LanMan example: $LM$A9C604D244C4E99D
+	  NTLMv1 example: $NETNTLM$1122334455667788$B2B2220790F40C88BCFF347C652F67A7C4A70D3BEBD70233
+	  NTLMv2 example: $NETNTLMv2$NTLMV2TESTWORKGROUP$1122334455667788$07659A550D5E9D02996DFD95C87EC1D5$0101000000000000006CF6385B74CA01B3610B02D99732DD000000000200120057004F0052004B00470052004F00550050000100200044004100540041002E00420049004E0043002D0053004500430055005200490000000000
+	  - LM (hashcat "-m 3000")
+	  - NETNTLM (hashcat "-m 5500")
+	  - NETNTLMv2 (hashcat "-m 5600")
+
+   * HttpPakcetHandler.cs: Improved extraction of json data sent in HTTP(2) POST requests.
+     Now with support for Content-Encoding: gzip
+
+   * Ethernet2Packet.cs: added support for Transparent Ethernet decapsulation for GRE tunnels
+
+   * PcapParser.cs: Added support for Fritzbox captures (PCAP_MODIFIED_MAGIC = 0xa1b2cd34).
+     Thanks to Jan Hesse for the feature request:
+	 https://twitter.com/clientjs/status/1255112064210743296
+
+   * MultiPart.cs: Improved parsing of quotes in email headers.
+     Thanks to Mandy van Oosterhout for reporting the bug!
+
+   * ImapPacketHandler.cs: Ignoring FETCH results for partial emails (from BODY.PEEK) except
+     when email headers are sent.
+
+   * MessageEventArgs.cs: Increased max Subject length from 50 to 100 characters
+
+   * FtpPacket.cs: Support for Extended Passive Mode (EPSV) in FTP
+
+   * SystemHelper.cs: Added workaround for bug introduced with Mono 6 that would otherwise
+     prevent opening files, folders and websites in external tools under Linux/OSX.
+	 https://github.com/mono/mono/issues/17204
+	 https://github.com/dotnet/runtime/issues/28005
+     https://github.com/dotnet/runtime/issues/23877
+
+   * PacketHandler.cs: ExtractMultipartFormData() was modified to save MIME multipart chunks
+     to disk when the data is truncated in Parameters tab due to being too large (>250 bytes).
+
+   * HttpPacketHandler.cs: The hostname is extracted from the HTTP header "Onion-Location"
+     to show onion domains of hosts in the Hosts tab.
+
+   * NetworkMinerForm.cs: The Messages tab filter now also performs keyword matching against
+     attachment filenames.
+
+   * SipPacketHandler.cs: SIP chat messages [RFC3428] are extracted to the "Messages" tab.
+     Audio extraction of VoIP calls is still a feature that is exlusively available only
+	 in NetworkMiner Professional though.
+
+   * HttpPacketHandler.cs and Http2PacketHandler.cs: The HTTP header "Accept-Language" and
+     HTTP/2 header "accept-language" are extracted to the "Hosts" tab, under "Host Details".
+	 This supports forensic analysis of user language settings, as shown by Fox-IT here:
+	 https://resources.fox-it.com/rs/170-CAK-271/images/201912_Report_Operation_Wocao.pdf
+
+   * HttpPacketHandler.cs: Improved extraction of Certificate Revocation List (CRL) files.
+
+   * NetworkMinerForm.cs: Messages tab now uses the local environment's default newline
+     characters to improve readability of reassembled emails.
+
+   * ByteConverter.cs: Newline characters are now preserved when reading Quoted Printable
+	 encoded text with non-escaped newline characters.
+
+   * MultipartPart.cs: Added RFC 822 "unfolding" to support multi-line header fields in
+     emails, HTTP POSTs and other protocols using MIME encoded data.
+
 NetworkMiner 2.5
 
 	* NetworkCredential.cs: Improved extraction of username/password credentials from

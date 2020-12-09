@@ -17,7 +17,7 @@ namespace PacketParser.Mime {
         }
 
         public override bool CanSeek {
-            get { return false; }
+            get { return true; }
         }
 
         public override bool CanWrite {
@@ -58,7 +58,13 @@ namespace PacketParser.Mime {
         }
 
         public override long Seek(long offset, System.IO.SeekOrigin origin) {
-            throw new Exception("The method or operation is not implemented.");
+            if (origin == System.IO.SeekOrigin.Begin)
+                this.index = offset;
+            else if (origin == System.IO.SeekOrigin.End)
+                this.index = this.data.Length + offset;
+            else if (origin == System.IO.SeekOrigin.Current)
+                this.index += offset;
+            return this.index;
         }
 
         public override void SetLength(long value) {

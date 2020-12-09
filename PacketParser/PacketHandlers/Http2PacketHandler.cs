@@ -7,22 +7,30 @@ using System.Collections.Specialized;
 
 namespace PacketParser.PacketHandlers
 {
-    internal class Http2PacketHandler : AbstractPacketHandler, ITcpSessionPacketHandler {
+    public class Http2PacketHandler : AbstractPacketHandler, ITcpSessionPacketHandler {
         //HTTP/2: https://tools.ietf.org/html/rfc7540
         //HPACK: https://tools.ietf.org/html/rfc7541
         //https://http2.github.io/http2-spec/compression.html#static.table.definition
-        internal class HPACK {
+        public class HPACK {
 
-            internal const string HEADER_NAME_PATH = ":path";
-            internal const string HEADER_NAME_METHOD = ":method";
-            internal const string HEADER_NAME_AUTHORITY = ":authority";
-            internal const string HEADER_NAME_CONTENT_LENGTH = "content-length";
-            internal const string HEADER_NAME_CONTENT_ENCODING = "content-encoding";
-            internal const string HEADER_NAME_CONTENT_TYPE = "content-type";
-            internal const string HEADER_NAME_COOKIE = "cookie";
-            internal const string HEADER_NAME_SET_COOKIE = "set-cookie";
-            internal const string HEADER_NAME_USER_AGENT = "user-agent";
-            internal const string HEADER_NAME_STATUS = ":status";
+            
+            public const string HEADER_NAME_ACCEPT_LANGUAGE = "accept-language";
+            public const string HEADER_NAME_AUTHORITY = ":authority";
+            public const string HEADER_NAME_CONTENT_DISPOSITION = "content-disposition";
+            public const string HEADER_NAME_CONTENT_ENCODING = "content-encoding";
+            public const string HEADER_NAME_CONTENT_LENGTH = "content-length";
+            public const string HEADER_NAME_CONTENT_TYPE = "content-type";
+            public const string HEADER_NAME_COOKIE = "cookie";
+            public const string HEADER_NAME_LOCATION = "location";
+            public const string HEADER_NAME_METHOD = ":method";
+            public const string HEADER_NAME_PATH = ":path";
+            public const string HEADER_NAME_REFERER = "referer";//nice to see the misspelling of the word "referrer" is preserved
+            public const string HEADER_NAME_SCHEME = ":scheme";//typically "http" or "https"
+            public const string HEADER_NAME_SERVER = "server";
+            public const string HEADER_NAME_SET_COOKIE = "set-cookie";
+            public const string HEADER_NAME_STATUS = ":status";
+            public const string HEADER_NAME_TRANSFER_ENCODING = "transfer-encoding";
+            public const string HEADER_NAME_USER_AGENT = "user-agent";
 
             //Another C# implementation of the Static Table: https://github.com/ringostarr80/hpack/blob/master/hpack/StaticTable.cs
             internal static readonly ValueTuple<string, string>[] STATIC_TABLE = {
@@ -32,8 +40,8 @@ namespace PacketParser.PacketHandlers
 			    (HEADER_NAME_METHOD, "POST"),                             /*  3 */
 			    (HEADER_NAME_PATH, "/"),                                  /*  4 */
 			    (HEADER_NAME_PATH, "/index.html"),                        /*  5 */
-			    (":scheme", "http"),                             /*  6 */
-			    (":scheme", "https"),                            /*  7 */
+			    (HEADER_NAME_SCHEME, "http"),                             /*  6 */
+			    (HEADER_NAME_SCHEME, "https"),                            /*  7 */
 			    (HEADER_NAME_STATUS, "200"),                              /*  8 */
 			    (HEADER_NAME_STATUS, "204"),                              /*  9 */
 			    (HEADER_NAME_STATUS, "206"),                              /* 10 */
@@ -43,7 +51,7 @@ namespace PacketParser.PacketHandlers
 			    (HEADER_NAME_STATUS, "500"),                              /* 14 */
 			    ("accept-charset", String.Empty),                /* 15 */
 			    ("accept-encoding", "gzip, deflate"),            /* 16 */
-			    ("accept-language", String.Empty),               /* 17 */
+			    (HEADER_NAME_ACCEPT_LANGUAGE, String.Empty),               /* 17 */
 			    ("accept-ranges", String.Empty),                 /* 18 */
 			    ("accept", String.Empty),                        /* 19 */
 			    ("access-control-allow-origin", String.Empty),   /* 20 */
@@ -51,7 +59,7 @@ namespace PacketParser.PacketHandlers
 			    ("allow", String.Empty),                         /* 22 */
 			    ("authorization", String.Empty),                 /* 23 */
 			    ("cache-control", String.Empty),                 /* 24 */
-			    ("content-disposition", String.Empty),           /* 25 */
+			    (HEADER_NAME_CONTENT_DISPOSITION, String.Empty),           /* 25 */
 			    (HEADER_NAME_CONTENT_ENCODING, String.Empty),              /* 26 */
 			    ("content-language", String.Empty),              /* 27 */
 			    (HEADER_NAME_CONTENT_LENGTH, String.Empty),      /* 28 */
@@ -72,18 +80,18 @@ namespace PacketParser.PacketHandlers
 			    ("if-unmodified-since", String.Empty),           /* 43 */
 			    ("last-modified", String.Empty),                 /* 44 */
 			    ("link", String.Empty),                          /* 45 */
-			    ("location", String.Empty),                      /* 46 */
+			    (HEADER_NAME_LOCATION, String.Empty),                      /* 46 */
 			    ("max-forwards", String.Empty),                  /* 47 */
 			    ("proxy-authenticate", String.Empty),            /* 48 */
 			    ("proxy-authorization", String.Empty),           /* 49 */
 			    ("range", String.Empty),                         /* 50 */
-			    ("referer", String.Empty),                       /* 51 */
+			    (HEADER_NAME_REFERER, String.Empty),                       /* 51 */
 			    ("refresh", String.Empty),                       /* 52 */
 			    ("retry-after", String.Empty),                   /* 53 */
 			    ("server", String.Empty),                        /* 54 */
 			    (HEADER_NAME_SET_COOKIE, String.Empty),                    /* 55 */
 			    ("strict-transport-security", String.Empty),     /* 56 */
-			    ("transfer-encoding", String.Empty),             /* 57 */
+			    (HEADER_NAME_TRANSFER_ENCODING, String.Empty),             /* 57 */
 			    (HEADER_NAME_USER_AGENT, String.Empty),                    /* 58 */
 			    ("vary", String.Empty),                          /* 59 */
 			    ("via", String.Empty),                           /* 60 */
@@ -416,6 +424,10 @@ namespace PacketParser.PacketHandlers
                 if (padLength > 0)
                     headerBlockFragment = payloadEnumerable.Reverse().Skip(padLength).Reverse();//slow??
 
+
+
+                
+
                 //HPACK = Header compression: https://www.rfc-editor.org/rfc/rfc7541.html
                 //List<Tuple<string, string>> headers = new List<Tuple<string, string>>();
                 System.Collections.Specialized.NameValueCollection headers = new System.Collections.Specialized.NameValueCollection();
@@ -427,11 +439,14 @@ namespace PacketParser.PacketHandlers
                         headers.Add(name, value);
 
                     if (name == HPACK.HEADER_NAME_AUTHORITY) {
-                        tcpSession.ServerHost.AddHostName(value);
+                        tcpSession.ServerHost.AddHostName(value, http2Packet.PacketTypeDescription);
                         //base.MainPacketHandler.NetworkHostList.GetNetworkHost(fiveTuple.ServerEndPoint.Address)?.AddHostName(value);
                     }
                     else if(name == HPACK.HEADER_NAME_USER_AGENT) {
                         tcpSession.ClientHost.AddHttpUserAgentBanner(value);
+                    }
+                    else if(name == HPACK.HEADER_NAME_ACCEPT_LANGUAGE) {
+                        sourceHost.AddNumberedExtraDetail(HPACK.HEADER_NAME_ACCEPT_LANGUAGE, value);
                     }
                     else if(name == "client") {
                         tcpSession.ClientHost.AddHttpUserAgentBanner(value);
@@ -458,6 +473,12 @@ namespace PacketParser.PacketHandlers
                             credential = new NetworkCredential(tcpSession.ClientHost, tcpSession.ServerHost, "HTTP/2 Cookie", value, "N/A", http2Packet.ParentFrame.Timestamp);
                         }
                         mainPacketHandler.AddCredential(credential);
+                    }
+                    else if (name == "X-Proxy-Origin") {
+                        //193.235.19.252; 193.235.19.252; 538.bm-nginx-loadbalancer.mgmt.fra1; *.adnxs.com; 37.252.172.199:80
+                        //207.154.239.150; 207.154.239.150; 258.bm-nginx-loadbalancer.mgmt.ams1; *.adnxs.com; 185.33.221.149:80
+                        if (!string.IsNullOrEmpty(value) && System.Net.IPAddress.TryParse(value.Split(';')?.First(), out System.Net.IPAddress ip))
+                            destinationHost.AddNumberedExtraDetail("Public IP address", ip.ToString());
                     }
                     /**
                      * http://mobiforge.com/developing/blog/useful-x-headers
@@ -577,12 +598,15 @@ namespace PacketParser.PacketHandlers
                             if (this.fileSegmentAssemblerList.ContainsKey(sentFileId)) {
                                 var assembler = this.fileSegmentAssemblerList[sentFileId];
                                 assembler.ContentType = headerDict[HPACK.HEADER_NAME_CONTENT_TYPE];
-                                assembler.FilePath = HttpPacketHandler.AppendContentTypeAsExtension(assembler.FilePath, assembler.ContentType);
+                                assembler.FilePath = HttpPacketHandler.AppendMimeContentTypeAsExtension(assembler.FilePath, assembler.ContentType);
                             }
                         }
                         
                     }
                 }
+
+                if (base.MainPacketHandler.ExtraHttpPacketHandler != null)
+                    base.MainPacketHandler.ExtraHttpPacketHandler.ExtractHttpData(http2Packet, headerDict, tcpPacket, tcpSession.Flow.FiveTuple, transferIsClientToServer, base.MainPacketHandler);
                 //TODO: http2.headers.status == 206
             }
             else if (http2Packet.Type == Http2Packet.FrameType.DATA) {
@@ -604,7 +628,9 @@ namespace PacketParser.PacketHandlers
                                 virtualPacketList.Add(dnsPacket);
                                 this.dnsPacketHandler.ExtractData(ref sourceHost, destinationHost, virtualPacketList);
                             }
-                            catch { }
+                            catch (Exception e){
+                                SharedUtils.Logger.Log("Error parsing DoH packet of " + http2Packet.ParentFrame.ToString() + ". " + e.ToString(), SharedUtils.Logger.EventLogEntryType.Information);
+                            }
                         }
                         else if (assembler.ContentType?.ToLower(System.Globalization.CultureInfo.InvariantCulture).StartsWith("application/x-www-form-urlencoded") == true) {
 

@@ -33,7 +33,7 @@ namespace PacketParser.PacketHandlers {
 
             if(netBiosDatagramServicePacket!=null) {
                 if(netBiosDatagramServicePacket.SourceNetBiosName!=null && netBiosDatagramServicePacket.SourceNetBiosName.Length>0)
-                    sourceHost.AddHostName(netBiosDatagramServicePacket.SourceNetBiosName);
+                    sourceHost.AddHostName(netBiosDatagramServicePacket.SourceNetBiosName, netBiosDatagramServicePacket.PacketTypeDescription);
             }
         }
 

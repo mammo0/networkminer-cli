@@ -6,6 +6,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Windows.Forms;
 
@@ -34,13 +35,15 @@ namespace NetworkMiner {
 
             if(networkHost.SentPackets.Count==0)
                 this.ForeColor=System.Drawing.Color.Gray;
-            
+
             if (this.networkHost.FaviconKey != null)
                 this.ImageKey = this.networkHost.FaviconKey;
-            else if (GetIpImageKey() != null)
-                this.ImageKey = GetIpImageKey();
-            else if (GetOsImageKey() != null)
-                this.ImageKey = GetOsImageKey();
+            else if (this.GetIpImageKey() != null)
+                this.ImageKey = this.GetIpImageKey();
+            else if (this.GetOsImageKey() != null)
+                this.ImageKey = this.GetOsImageKey();
+            else if (networkHost.ExtraDetailsList.Keys.Where(k => k.Contains("Tor ")).Count() > 0)
+                this.ImageKey = "tor";
             else if (networkHost.SentPackets.Count > 0)
                 this.ImageKey = "computer";
             else
@@ -202,7 +205,7 @@ namespace NetworkMiner {
                 }
             }
             if(networkHost.HostDetailCollection.Count>0) {
-                this.Nodes.Add(new HostDetailListTreeNode(networkHost.HostDetailCollection));
+                this.Nodes.Add(new HostDetailListTreeNode(this.networkHost.HostDetailCollection));
             }
 
         }
@@ -396,6 +399,7 @@ namespace NetworkMiner {
                 this.details=details;
                 this.Text="Host Details";
                 this.ImageKey="details";
+                this.SelectedImageKey = "details";
                 this.Nodes.Add("dummie node");//so that it can be expanded
             }
 

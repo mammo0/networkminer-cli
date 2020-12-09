@@ -11,7 +11,8 @@ using System.Linq;
 using System.Text;
 
 namespace PacketParser.PacketHandlers {
-    public class HttpPacketHandler : AbstractPacketHandler, ITcpSessionPacketHandler, IHttpPacketHandler {
+    //public class HttpPacketHandler : AbstractPacketHandler, ITcpSessionPacketHandler, IHttpPacketHandler {
+    public class HttpPacketHandler : AbstractPacketHandler, ITcpSessionPacketHandler {
 
         public static System.Collections.Specialized.NameValueCollection ParseHeaders(Packets.HttpPacket httpPacket, SortedList<string, string> ignoredHeaderNames = null) {
             System.Collections.Specialized.NameValueCollection httpHeaders = new System.Collections.Specialized.NameValueCollection();
@@ -45,31 +46,34 @@ namespace PacketParser.PacketHandlers {
         //extensions that should be left untouched if the mime-type matches
         internal static readonly ReadOnlyCollection<(string extension, string mimeType)> ExtensionMimeTypeCombos = new List<(string extension, string mimeType)> {
             (".asc", "pgp-keys"),
-            (".deb", "octet-stream"),
-            (".dll", "octet-stream"),
-            (".exe", "octet-stream"),
             (".cab", "octet-stream"),
             (".cab", "vnd.ms-cab-compressed"),
-            (".exe", "x-msdos-program"),
-            (".dll", "x-msdownload"),
-            (".exe", "x-msdownload"),
-            (".gz", "x-gzip"),
-            (".tgz", "x-gzip"),
-            (".swf", "x-shockwave-flash"),
-            (".jar", "java-archive"),
-            (".js", "x-javascript"),
-            (".js", "javascript"),
-            (".deb", "x-debian-package"),
-            (".ico", "x-icon"),
-            (".ico", Utils.StringManglerUtil.PLAIN_CONTENT_TYPE_EXTENSION),
-            (".jpg", "jpeg"),
-            (".htm", "html"),
-            (".vbs", "vbscript"),
             (".crl", "pkix-crl"),
-            (".svg", "svg+xml"),
-            (".xls", "vnd.ms-excel"),
+            (".crl", "octet-stream"),
+            (".crt", "x-x509-ca-cert"),
+            (".deb", "octet-stream"),
+            (".deb", "x-debian-package"),
+            (".dll", "octet-stream"),
+            (".dll", "x-msdownload"),
             (".doc", "msword"),
             (".docx", "vnd.openxmlformats-officedocument.wordprocessingml.document"),
+            (".exe", "octet-stream"),
+            (".exe", "x-msdos-program"),
+            (".exe", "x-msdownload"),
+            (".gz", "x-gzip"),
+            (".htm", "html"),
+            (".ico", "x-icon"),
+            (".ico", Utils.StringManglerUtil.PLAIN_CONTENT_TYPE_EXTENSION),
+            (".jar", "java-archive"),
+            (".jpg", "jpeg"),
+            (".js", "x-javascript"),
+            (".js", "javascript"),
+            (".png", "octet-stream"),//sites like SoundCloud's CDN (sndcdn.com) send images as content-type "octet-stream"
+            (".svg", "svg+xml"),
+            (".swf", "x-shockwave-flash"),
+            (".tgz", "x-gzip"),
+            (".vbs", "vbscript"),
+            (".xls", "vnd.ms-excel"),
             (".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
 
             //https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types/Complete_list_of_MIME_types
@@ -168,12 +172,17 @@ namespace PacketParser.PacketHandlers {
             return false;
         }
 
-        internal static string AppendContentTypeAsExtension(string filename, string contentType) {
+        internal static string AppendMimeContentTypeAsExtension(string filename, string contentType) {
             if (contentType != null && contentType.Contains("/") && contentType.IndexOf('/') < contentType.Length - 1) {
                 string mimeExtension = Utils.StringManglerUtil.GetExtension(contentType);
 
 
-                if (mimeExtension.Length > 0 && !filename.EndsWith("." + mimeExtension, StringComparison.InvariantCultureIgnoreCase)) {
+                if (mimeExtension?.Length > 0 &&
+                    !filename.EndsWith("." + mimeExtension, StringComparison.InvariantCultureIgnoreCase) &&
+                    !(mimeExtension.Length > 2 &&
+                      mimeExtension.StartsWith("x-", StringComparison.InvariantCultureIgnoreCase) &&
+                      filename.EndsWith("." + mimeExtension.Substring(2)))
+                    ) {
                     //string assemblerExtension = Utils.StringManglerUtil.GetExtension(assembler.Filename);
                     if (ExtensionMimeTypeCombosMatches(filename, mimeExtension))
                         mimeExtension = null;
@@ -182,6 +191,9 @@ namespace PacketParser.PacketHandlers {
                     if (mimeExtension != null) {//append the content type as extension
                         if (ExtensionReplacements.ContainsKey(mimeExtension))
                             filename = filename + "." + ExtensionReplacements[mimeExtension];
+                        else if(mimeExtension.Length > 2 && mimeExtension.StartsWith("x-", StringComparison.InvariantCultureIgnoreCase)) {
+                            filename = filename + "." + mimeExtension.Substring(2).Trim();
+                        }
                         else
                             filename = filename + "." + mimeExtension;
                     }
@@ -416,12 +428,15 @@ namespace PacketParser.PacketHandlers {
                 if (httpPacket.UserAgentBanner != null && httpPacket.UserAgentBanner.Length > 0)
                     sourceHost.AddHttpUserAgentBanner(httpPacket.UserAgentBanner);
                 if (httpPacket.RequestedHost != null && httpPacket.RequestedHost.Length > 0)
-                    destinationHost.AddHostName(httpPacket.RequestedHost);
+                    destinationHost.AddHostName(httpPacket.RequestedHost, httpPacket.PacketTypeDescription);
 
                 if (httpPacket.AuthorizationCredentialsUsername != null) {
                     NetworkCredential nc = new NetworkCredential(sourceHost, destinationHost, httpPacket.PacketTypeDescription, httpPacket.AuthorizationCredentialsUsername, httpPacket.AuthorizationCredentialsPassword, httpPacket.ParentFrame.Timestamp);
                     mainPacketHandler.AddCredential(nc);
                     //this.AddCredential(nc);
+                }
+                if(httpPacket.AcceptLanguage?.Length > 0) {
+                    sourceHost.AddNumberedExtraDetail("Accept-Language", httpPacket.AcceptLanguage);
                 }
                 if (httpPacket.HeaderFields != null && httpPacket.HeaderFields.Count > 0) {
                     SortedList<string, string> ignoredHeaderNames = new SortedList<string, string>();
@@ -457,7 +472,9 @@ namespace PacketParser.PacketHandlers {
                             else if (headerName.StartsWith("HTTP_MSISDN", StringComparison.InvariantCultureIgnoreCase)) {
                                 sourceHost.AddNumberedExtraDetail("HTTP header: " + headerName, httpHeaders[headerName]);
                             }
+                            
                         }
+                        
                     }
                 }
 
@@ -488,6 +505,12 @@ namespace PacketParser.PacketHandlers {
                                 sourceHost.AddNumberedExtraDetail("Browser language (Google Analytics)", queryStringDictionary["utmul"]);
                             if (queryStringDictionary.ContainsKey("utmfl"))
                                 sourceHost.AddNumberedExtraDetail("Flash version (Google Analytics)", queryStringDictionary["utmfl"]);
+                            if (queryStringDictionary.ContainsKey("mip")) {
+                                if (System.Net.IPAddress.TryParse(queryStringDictionary["mip"], out System.Net.IPAddress ip))
+                                    sourceHost.AddNumberedExtraDetail("Public IP address", queryStringDictionary["mip"]);
+                            }
+                                
+
                             if (httpPacket.RequestMethod == Packets.HttpPacket.RequestMethods.POST && queryStringDictionary.ContainsKey("a") && queryStringDictionary["a"].Equals("SendMessage")) {
                                 if (!httpPacket.ContentIsComplete())//we must have all the content when parsing AOL data
                                     return false;
@@ -605,35 +628,41 @@ namespace PacketParser.PacketHandlers {
                             }
 
                         }
-                        else if(httpPacket.ContentType?.StartsWith("application/json", StringComparison.InvariantCultureIgnoreCase) == true && httpPacket.MessageBody?.Length > 0) {
+                        else if(httpPacket.ContentType?.StartsWith("application/json", StringComparison.InvariantCultureIgnoreCase) == true && httpPacket.MessageBody?.Length > 0 && httpPacket.MessageBody?.Length == httpPacket.ContentLength) {
                             //extract JSON post parameters
-                            System.Collections.Specialized.NameValueCollection jsonPostElements = new System.Collections.Specialized.NameValueCollection();
-                            using (System.Xml.XmlReader jsonReader = System.Runtime.Serialization.Json.JsonReaderWriterFactory.CreateJsonReader(httpPacket.MessageBody, new System.Xml.XmlDictionaryReaderQuotas())) {
-                                System.Xml.Linq.XElement x = System.Xml.Linq.XElement.Load(jsonReader);
-                                if (!x.HasElements && !string.IsNullOrEmpty(x.Name.ToString()) && !string.IsNullOrEmpty(x.Value))
-                                    jsonPostElements.Add(x.Name.ToString(), x.Value);
-                                /*
-                                foreach(var attr in x.Attributes()) {
-                                    jsonPostElements.Add(attr.Name.ToString(), attr.Value);
-                                }
-                                */
-                                //foreach (var elem in x.Elements()) {
-                                foreach (var elem in x.Descendants()) {
-                                        if (!elem.HasElements && !string.IsNullOrEmpty(elem.Name.ToString()) && !string.IsNullOrEmpty(elem.Value))
-                                        jsonPostElements.Add(elem.Name.ToString(), elem.Value);
-                                    /*
-                                    foreach (var attr in elem.Attributes()) {
-                                        jsonPostElements.Add(attr.Name.ToString(), attr.Value);
-                                    }
-                                    */
+                            System.Collections.Specialized.NameValueCollection jsonPostElements = null;
+                            //= new System.Collections.Specialized.NameValueCollection();
+                            if (httpPacket.ContentEncoding?.Equals("gzip") == true) {
+                                using (System.IO.MemoryStream ms = new System.IO.MemoryStream(httpPacket.MessageBody))
+                                using (System.IO.Compression.GZipStream decompressed = new System.IO.Compression.GZipStream(ms, System.IO.Compression.CompressionMode.Decompress))
+                                using (System.Xml.XmlReader jsonReader = System.Runtime.Serialization.Json.JsonReaderWriterFactory.CreateJsonReader(decompressed, new System.Xml.XmlDictionaryReaderQuotas())) {
+                                    jsonPostElements = this.GetJsonParams(jsonReader);
                                 }
                             }
-                            if(jsonPostElements.Count > 0)
+                            else {
+                                using (System.Xml.XmlReader jsonReader = System.Runtime.Serialization.Json.JsonReaderWriterFactory.CreateJsonReader(httpPacket.MessageBody, new System.Xml.XmlDictionaryReaderQuotas())) {
+                                    jsonPostElements = this.GetJsonParams(jsonReader);
+                                }
+                            }
+                            if (jsonPostElements?.Count > 0) {
                                 mainPacketHandler.OnParametersDetected(new Events.ParametersEventArgs(tcpPacket.ParentFrame.FrameNumber, sourceHost, destinationHost, fiveTuple.Transport, tcpPacket.SourcePort, tcpPacket.DestinationPort, jsonPostElements, tcpPacket.ParentFrame.Timestamp, "HTTP POST JSON to " + httpPacket.RequestedHost));
 
-                            NetworkCredential jsonCredential = NetworkCredential.GetNetworkCredential(jsonPostElements, sourceHost, destinationHost, "HTTP POST JSON", httpPacket.ParentFrame.Timestamp);
-                            if (jsonCredential != null)
-                                mainPacketHandler.AddCredential(jsonCredential);
+                                NetworkCredential jsonCredential = NetworkCredential.GetNetworkCredential(jsonPostElements, sourceHost, destinationHost, "HTTP POST JSON", httpPacket.ParentFrame.Timestamp);
+                                if (jsonCredential != null)
+                                    mainPacketHandler.AddCredential(jsonCredential);
+                            }
+                        }
+                        else if (httpPacket.ContentType?.StartsWith("application/vnd.wap.mms-message", StringComparison.InvariantCultureIgnoreCase) == true && httpPacket.ContentLength > 0) {
+                            //extract MMS parameters
+                            FileTransfer.FileStreamAssembler assembler = new FileTransfer.FileStreamAssembler(mainPacketHandler.FileStreamAssemblerList, fiveTuple, transferIsClientToServer, FileTransfer.FileStreamTypes.HttpPostMms, Utils.StringManglerUtil.ConvertToFilename(fiveTuple.ToString(), 20) + ".MMS", fileLocation, "MMS", httpPacket.ParentFrame.FrameNumber, httpPacket.ParentFrame.Timestamp);
+                            assembler.FileContentLength = httpPacket.ContentLength;
+                            assembler.FileSegmentRemainingBytes = httpPacket.ContentLength;
+                            mainPacketHandler.FileStreamAssemblerList.Add(assembler);
+                            if (assembler.TryActivate()) {
+                                //assembler is now active
+                                if (httpPacket.MessageBody != null && httpPacket.MessageBody.Length > 0)
+                                    assembler.AddData(httpPacket.MessageBody, tcpPacket.SequenceNumber);
+                            }
                         }
                         else {//form data (not multipart)
                             System.Collections.Generic.List<Mime.MultipartPart> formMultipartData = httpPacket.GetFormData();
@@ -705,13 +734,25 @@ namespace PacketParser.PacketHandlers {
 
                     System.Collections.Specialized.NameValueCollection httpHeaders = HttpPacketHandler.ParseHeaders(httpPacket);
                     base.MainPacketHandler.OnParametersDetected(new Events.ParametersEventArgs(httpPacket.ParentFrame.FrameNumber, fiveTuple, transferIsClientToServer, httpHeaders, httpPacket.ParentFrame.Timestamp, "HTTP Header"));
+                    if(httpHeaders.AllKeys.Contains("X-Proxy-Origin")) {
+                        //193.235.19.252; 193.235.19.252; 538.bm-nginx-loadbalancer.mgmt.fra1; *.adnxs.com; 37.252.172.199:80
+                        string ipString = httpHeaders.GetValues("X-Proxy-Origin")?.First().Split(';')?.First();
+                        if (!string.IsNullOrEmpty(ipString) && System.Net.IPAddress.TryParse(ipString, out System.Net.IPAddress ip))
+                            destinationHost.AddNumberedExtraDetail("Public IP address", ip.ToString());
+                    }
+                    if(httpHeaders.AllKeys.Contains("Onion-Location")) {
+                        Uri onionUri = new Uri(httpHeaders["Onion-Location"]);
+                        sourceHost.AddHostName(onionUri.Host, httpPacket.PacketTypeDescription);
+                    }
 
                 }
-                catch { };
+                catch (Exception e) {
+                    SharedUtils.Logger.Log("Error parsing HTTP reply packet of " + httpPacket.ParentFrame.ToString() + ". " + e.ToString(), SharedUtils.Logger.EventLogEntryType.Information);
+                };
                 if (httpPacket.ServerBanner != null && httpPacket.ServerBanner.Length > 0)
                     sourceHost.AddHttpServerBanner(httpPacket.ServerBanner, tcpPacket.SourcePort);
                 if (httpPacket.WwwAuthenticateRealm != null && httpPacket.WwwAuthenticateRealm.Length > 0) {
-                    sourceHost.AddHostName(httpPacket.WwwAuthenticateRealm);
+                    sourceHost.AddHostName(httpPacket.WwwAuthenticateRealm, httpPacket.PacketTypeDescription);
                     sourceHost.AddNumberedExtraDetail("WWW-Authenticate realm", httpPacket.WwwAuthenticateRealm);
                 }
                 if (mainPacketHandler.FileStreamAssemblerList.ContainsAssembler(fiveTuple, transferIsClientToServer)) {
@@ -750,7 +791,7 @@ namespace PacketParser.PacketHandlers {
 
                             }
                             //append content type extention to file name
-                            assembler.Filename = AppendContentTypeAsExtension(assembler.Filename, httpPacket.ContentType);
+                            assembler.Filename = AppendMimeContentTypeAsExtension(assembler.Filename, httpPacket.ContentType);
                             /*
                             if (httpPacket.ContentType != null && httpPacket.ContentType.Contains("/") && httpPacket.ContentType.IndexOf('/') < httpPacket.ContentType.Length - 1) {
                                 string mimeExtension = Utils.StringManglerUtil.GetExtension(httpPacket.ContentType);
@@ -806,6 +847,20 @@ namespace PacketParser.PacketHandlers {
 
             }
             return true;
+        }
+
+        private System.Collections.Specialized.NameValueCollection GetJsonParams(System.Xml.XmlReader jsonReader) {
+            System.Collections.Specialized.NameValueCollection jsonElements = new System.Collections.Specialized.NameValueCollection();
+            System.Xml.Linq.XElement x = System.Xml.Linq.XElement.Load(jsonReader);
+            if (!x.HasElements && !string.IsNullOrEmpty(x.Name.ToString()) && !string.IsNullOrEmpty(x.Value))
+                jsonElements.Add(x.Name.ToString(), x.Value);
+
+            foreach (var elem in x.Descendants()) {
+                if (!elem.HasElements && !string.IsNullOrEmpty(elem.Name.ToString()) && !string.IsNullOrEmpty(elem.Value))
+                    jsonElements.Add(elem.Name.ToString(), elem.Value);
+
+            }
+            return jsonElements;
         }
 
         /*

@@ -20,6 +20,7 @@ namespace PacketParser.Packets {
             HPSW =          0x0623,
             IPv4 =          0x0800,
             ARP =           0x0806,
+            TransparentEthernet = 0x6558,
             IEEE802_1Q =    0x8100,
             xHayesTunnel =  0x8130,//Hayes Microcomputer Products, Ltd. (formerly Waterloo Microsystems, Inc.) (5ACD839C)
             IPv6 =          0x86dd,
@@ -58,6 +59,9 @@ namespace PacketParser.Packets {
                 }
                 else if (etherType == (ushort)Ethernet2Packet.EtherTypes.xHayesTunnel) {
                     packet = new Ethernet2Packet(parentFrame, newPacketStartIndex + 4, newPacketEndIndex);
+                }
+                else if (etherType == (ushort)Ethernet2Packet.EtherTypes.TransparentEthernet) {
+                    packet = new Ethernet2Packet(parentFrame, newPacketStartIndex, newPacketEndIndex);
                 }
                 //etherType might actually be a content length if it is an IEEE 802.3 packet
                 else if (etherType < 0x0600) {

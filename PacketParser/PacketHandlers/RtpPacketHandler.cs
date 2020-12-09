@@ -63,7 +63,7 @@ namespace PacketParser.PacketHandlers {
                             base.MainPacketHandler.OnAudioDetected(audioStream);
                         }
 
-                        audioStream.AddSamples(rtpPacket.ParentFrame.Data.Skip(rtpPacket.PacketStartIndex + Packets.RtpPacket.HEADER_LENGTH).ToArray(), rtpPacket.SampleTick, rtpPacket.ParentFrame.Timestamp, rtpPacket.SyncSourceID);
+                        audioStream.AddSamples(rtpPacket.ParentFrame.Data.Skip(rtpPacket.PacketStartIndex).Take(rtpPacket.PacketByteCount).Skip(Packets.RtpPacket.HEADER_LENGTH).ToArray(), rtpPacket.SampleTick, rtpPacket.ParentFrame.Timestamp, rtpPacket.SyncSourceID);
                     }
                 }
             }

@@ -49,7 +49,7 @@ namespace PacketParser.PacketHandlers {
                 NetworkCredential nc=null;
 
                 if(tdsPacket.ClientHostname!=null && tdsPacket.ClientHostname.Length>0)
-                    tcpSession.ClientHost.AddHostName(tdsPacket.ClientHostname);
+                    tcpSession.ClientHost.AddHostName(tdsPacket.ClientHostname, tdsPacket.PacketTypeDescription);
                 if(tdsPacket.Username!=null && tdsPacket.Username.Length>0)
                     nc=new NetworkCredential(tcpSession.ClientHost, tcpSession.ServerHost, "TDS (SQL)", tdsPacket.Username, tdsPacket.ParentFrame.Timestamp);
                 if(tdsPacket.Password!=null && tdsPacket.Password.Length>0 && nc!=null)
@@ -59,7 +59,7 @@ namespace PacketParser.PacketHandlers {
                 if(tdsPacket.AppName!=null && tdsPacket.AppName.Length>0)
                     tcpSession.ServerHost.AddNumberedExtraDetail("SQL AppName", tdsPacket.AppName);
                 if(tdsPacket.ServerHostname!=null && tdsPacket.ServerHostname.Length>0)
-                    tcpSession.ServerHost.AddHostName(tdsPacket.ServerHostname);
+                    tcpSession.ServerHost.AddHostName(tdsPacket.ServerHostname, tdsPacket.PacketTypeDescription);
                 if(tdsPacket.LibraryName!=null && tdsPacket.LibraryName.Length>0)
                     tcpSession.ServerHost.AddNumberedExtraDetail("SQL Library", tdsPacket.LibraryName);
                 if(tdsPacket.DatabaseName!=null && tdsPacket.DatabaseName.Length>0)

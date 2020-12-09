@@ -190,6 +190,7 @@ namespace PacketParser {
                 this.errorStartIndex=errorStartIndex;
                 this.errorEndIndex=errorEndIndex;
                 this.description=description;
+                SharedUtils.Logger.Log("Frame error in " + frame.ToString() + " : " + description, SharedUtils.Logger.EventLogEntryType.Information);
             }
 
             public override string ToString() {

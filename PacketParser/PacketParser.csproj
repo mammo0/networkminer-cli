@@ -5,9 +5,9 @@
     <TargetFramework>net472</TargetFramework>
     <Company>NETRESEC</Company>
     <Authors>Erik Hjelmvik</Authors>
-    <AssemblyVersion>2.5.0.0</AssemblyVersion>
-    <FileVersion>2.5.0.0</FileVersion>
-    <Version>2.5</Version>
+    <AssemblyVersion>2.6.0</AssemblyVersion>
+    <FileVersion>2.6.0</FileVersion>
+    <Version>2.6</Version>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
@@ -77,8 +77,8 @@
     <ProjectReference Include="..\SharedUtils\SharedUtils.csproj" />
   </ItemGroup>
 
-<!--System.Web is required when targeting net472, but not for netstandard2.0-->
-
+<!--System.Web is required when targeting net472, but not for netstandard2.0
+-->
   <ItemGroup>
     <Reference Include="System.Web" />
   </ItemGroup>

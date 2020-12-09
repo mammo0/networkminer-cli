@@ -10,6 +10,7 @@ namespace PacketParser.FileTransfer {
         HttpPost,
         HttpPostMimeMultipartFormData,
         HttpPostMimeFileData,
+        HttpPostMms,
         HTTP2,
         IMAP,
         OscarFileTransfer,

@@ -140,6 +140,22 @@ namespace NetworkMiner {
         //internal ConcurrentQueue<PacketParser.AudioStream> AudioStreamQueue { get; }
         //internal ConcurrentQueue<Tuple<System.Net.IPAddress, ushort, System.Net.IPAddress, ushort, string, string, string>> VoipCallQueue { get; }
 
+        public ToolInterfaces.IDataExporterFactory DataExporterFactory {
+            get { return this.dataExporterFactory; }
+            set {
+                this.dataExporterFactory = value;
+                if (this.dataExporterFactory != null) {
+                    
+                    this.exportToolStripMenuItem.Enabled = true;
+                    this.exportToolStripMenuItem.Visible = true;
+                }
+                else {
+                    this.exportToolStripMenuItem.Enabled = false;
+                    this.exportToolStripMenuItem.Visible = false;
+                }
+            }
+        }
+
         internal int SnifferBufferToolStripProgressBarNewValue {
             get {
                 return this.snifferBufferToolStripProgressBarNewValue;
@@ -244,7 +260,13 @@ namespace NetworkMiner {
             this.ipLocator = ipLocator;
             this.domainNameFilter = domainNameFilter;
             this.aboutText.Add(aboutText);
-            this.dataExporterFactory = dataExporterFactory;
+            this.DataExporterFactory = dataExporterFactory;
+            if (this.DataExporterFactory != null) {
+                this.DataExporterFactory.RegisterHandlers(this.packetHandlerWrapper.PacketHandler);//must be done after CreateNewPacketHandlerWrapper 
+                this.GuiCleared += this.DataExporterFactory.ResetEventHandler;
+            }
+
+            //this.dataExporterFactory = dataExporterFactory;
             this.hostDetailsGenerator = hostDetailsGenerator;
             this.httpTransactionTreeNodeHandler = httpClientTreeNodeFactory;
             if (this.httpTransactionTreeNodeHandler != null) {
@@ -265,10 +287,12 @@ namespace NetworkMiner {
             }
 
 
-            if (this.dataExporterFactory != null) {
+            /*
+             if (this.dataExporterFactory != null) {
                 this.exportToolStripMenuItem.Enabled = true;
                 this.exportToolStripMenuItem.Visible = true;
             }
+            */
 
             this.productLink = productLink;
 
@@ -292,9 +316,10 @@ namespace NetworkMiner {
             }
 
 
+            
             this.loadCleartextDictionary((string)this.dictionaryNameLabel.Tag, this.GuiProperties.UseCleartextTab);
-
-
+            
+            
         }
 
 
@@ -330,8 +355,9 @@ namespace NetworkMiner {
             this.guiUpdateTimer.Tick += this.GuiUpdateTimer_Tick;
 
             if (SharedUtils.Logger.CurrentLogLevel == SharedUtils.Logger.LogLevel.Debug && SharedUtils.Logger.LogToFile) {
-                var isoFileStore = SharedUtils.Logger.GetIsolatedStorageFile();
-                MessageBox.Show("Writing debug log to: " + Environment.NewLine + isoFileStore.GetType().GetField("m_RootDir", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).GetValue(isoFileStore).ToString());
+#if !DEBUG                
+                MessageBox.Show("Writing debug log to: " + SharedUtils.Logger.LogFilePath);
+#endif
             }
 
             SharedUtils.Logger.Log("Initializing Component", SharedUtils.Logger.EventLogEntryType.Information);
@@ -589,33 +615,37 @@ namespace NetworkMiner {
 
                 treeView.ImageList = new ImageList();
                 //AddImage(networkHostTreeView, "white", "white.gif");
-                AddImage(treeView, "white", "white.jpg");//first is default
-                AddImage(treeView, "iana", "iana.jpg");
-                AddImage(treeView, "computer", "computer.jpg");
-                AddImage(treeView, "multicast", "multicast.jpg");
-                AddImage(treeView, "broadcast", "broadcast.jpg");
+                this.AddImage(treeView, "white", "white.jpg");//first is default
+                this.AddImage(treeView, "iana", "iana.jpg");
+                this.AddImage(treeView, "computer", "computer.jpg");
+                this.AddImage(treeView, "multicast", "multicast.jpg");
+                this.AddImage(treeView, "broadcast", "broadcast.jpg");
 
-                AddImage(treeView, "windows", "windows.jpg");
-                AddImage(treeView, "apple", "macos.jpg");
-                AddImage(treeView, "android", "android.jpg");
+                this.AddImage(treeView, "windows", "windows.jpg");
+                this.AddImage(treeView, "apple", "macos.jpg");
+                this.AddImage(treeView, "android", "android.jpg");
 
                 //AddImage(networkHostTreeView, "unix", "unix.gif");
-                AddImage(treeView, "unix", "unix.jpg");
-                AddImage(treeView, "linux", "linux.jpg");
-                AddImage(treeView, "freebsd", "freebsd.jpg");
-                AddImage(treeView, "netbsd", "netbsd.jpg");
-                AddImage(treeView, "solaris", "solaris.jpg");
-                AddImage(treeView, "siemens", "siemens.png");
-                AddImage(treeView, "abb", "abb.png");
-                AddImage(treeView, "ICS device", "hardhat.png");
+                this.AddImage(treeView, "unix", "unix.jpg");
+                this.AddImage(treeView, "linux", "linux.jpg");
+                this.AddImage(treeView, "freebsd", "freebsd.jpg");
+                this.AddImage(treeView, "netbsd", "netbsd.jpg");
+                this.AddImage(treeView, "solaris", "solaris.jpg");
+                this.AddImage(treeView, "siemens", "siemens.png");
+                this.AddImage(treeView, "abb", "abb.png");
+                this.AddImage(treeView, "ICS device", "hardhat.png");
 
-                AddImage(treeView, "sent", "arrow_sent.jpg");
-                AddImage(treeView, "received", "arrow_received.jpg");
-                AddImage(treeView, "incoming", "arrow_incoming.jpg");
-                AddImage(treeView, "outgoing", "arrow_outgoing.jpg");
+                this.AddImage(treeView, "sent", "arrow_sent.jpg");
+                this.AddImage(treeView, "received", "arrow_received.jpg");
+                this.AddImage(treeView, "incoming", "arrow_incoming.jpg");
+                this.AddImage(treeView, "outgoing", "arrow_outgoing.jpg");
 
-                AddImage(treeView, "nic", "network_card.jpg");
-                AddImage(treeView, "details", "details.gif");
+                //this.AddImage(treeView, "nic", "network_card.jpg");
+                this.AddImage(treeView, "nic", "network_socket.png");
+                this.AddImage(treeView, "details", "details.gif");
+
+                //this.AddImage(treeView, "tor", "tor.png");
+                this.AddImage(treeView, "tor", "tor.gif");
 
                 treeView.BeforeExpand += new TreeViewCancelEventHandler(extendedTreeView_BeforeExpand);
                 //treeView.AfterSelect += this.TreeView_AfterSelect;
@@ -634,7 +664,7 @@ namespace NetworkMiner {
 
             
 
-            this.openPcapFileDialog.Filter = "Pcap files (*.pcap, *.cap, *.dump, *.dmp, *.log)|*.pcap;*.cap;*.dump;*.dmp;*.log|NetworkMiner files (*.nmine)|*.nmine|All files (*.*)|*.*";
+            this.openPcapFileDialog.Filter = "PCAP Files (*.pcap, *.cap, *.dump, *.dmp, *.eth, *.log)|*.pcap;*.cap;*.dump;*.dmp;*.eth;*.log|All Files (*.*)|*.*";
             this.openPcapFileDialog.FileName = "";
 
             this.HandleCreated += new EventHandler(LoadNextPcapFileFromCommandLineArgs);
@@ -704,7 +734,28 @@ namespace NetworkMiner {
             this.messageEncodingComboBox.Items.Add(new EncodingWrapper(Encoding.GetEncoding(850)));
             this.messageEncodingComboBox.Items.Add(new EncodingWrapper(Encoding.GetEncoding(437)));
 
+
             //There seems to be a bug in MONO with regards to code pages it doesn't think are used: http://stackoverflow.com/a/29702302
+            int[] additionalCodePages = {
+                932,
+                936,
+                949,
+                1251,
+                1256,
+                1252,
+                28591
+            };
+
+            foreach(int codePage in additionalCodePages)
+                try {
+                    Encoding enc = Encoding.GetEncoding(codePage);
+                    this.messageEncodingComboBox.Items.Add(new EncodingWrapper(enc));
+                }
+                catch (Exception e) {
+                    SharedUtils.Logger.Log(e.Message, SharedUtils.Logger.EventLogEntryType.Information);
+                }
+
+            /*
             try {//not all versions of mono support codepage 932 for some reason
                 this.messageEncodingComboBox.Items.Add(new EncodingWrapper(Encoding.GetEncoding(932)));
             }
@@ -735,6 +786,19 @@ namespace NetworkMiner {
             catch (Exception e) {
                 SharedUtils.Logger.Log(e.Message, SharedUtils.Logger.EventLogEntryType.Information);
             }
+            try {
+                this.messageEncodingComboBox.Items.Add(new EncodingWrapper(Encoding.GetEncoding(1252)));
+            }
+            catch (Exception e) {
+                SharedUtils.Logger.Log(e.Message, SharedUtils.Logger.EventLogEntryType.Information);
+            }
+            try {
+                this.messageEncodingComboBox.Items.Add(new EncodingWrapper(Encoding.GetEncoding("ISO-8859-1")));
+            }
+            catch (Exception e) {
+                SharedUtils.Logger.Log(e.Message, SharedUtils.Logger.EventLogEntryType.Information);
+            }
+            */
             this.messageEncodingComboBox.SelectedIndex = 0;
 
 
@@ -918,6 +982,8 @@ namespace NetworkMiner {
                 NetworkWrapper.WinPCapSniffer.PacketReceived -= this.packetReceivedHandler;
                 NetworkWrapper.SocketSniffer.PacketReceived -= this.packetReceivedHandler;
             }
+            if (this.DataExporterFactory?.ResetEventHandler != null)
+                this.GuiCleared -= this.DataExporterFactory.ResetEventHandler;
 
 
             if (this.PacketHandlerWrapper != null) {
@@ -940,6 +1006,11 @@ namespace NetworkMiner {
 
             NetworkWrapper.WinPCapSniffer.PacketReceived += this.packetReceivedHandler;
             NetworkWrapper.SocketSniffer.PacketReceived += this.packetReceivedHandler;
+
+            if (this.DataExporterFactory != null) {
+                this.DataExporterFactory.RegisterHandlers(this.packetHandlerWrapper.PacketHandler);//must be done after CreateNewPacketHandlerWrapper 
+                this.GuiCleared += this.DataExporterFactory.ResetEventHandler;
+            }
 
             this.packetHandlerWrapper.StartBackgroundThreads();
         }
@@ -1071,7 +1142,8 @@ namespace NetworkMiner {
         private void OpenParentFolderInExplorer(string filePath) {
             if (filePath.Contains(System.IO.Path.DirectorySeparatorChar.ToString()))
                 filePath = filePath.Substring(0, filePath.LastIndexOf(System.IO.Path.DirectorySeparatorChar));
-            System.Diagnostics.Process.Start("explorer.exe", filePath);
+            //System.Diagnostics.Process.Start("explorer.exe", filePath);
+            SharedUtils.SystemHelper.ProcessStart(filePath);
         }
 
         private void AddFilesToFileList(IEnumerable<PacketParser.FileTransfer.ReconstructedFile> files) {
@@ -1137,9 +1209,20 @@ namespace NetworkMiner {
                 //this.controlTextDictionary[this.tabPageFiles] = "Files (" + this.filesKeywordFilterControl.UnfilteredList.Count + ")";
 
                 try {
-                    if (file.IsImage())
-                        imageFilesList.Add(new Tuple<PacketParser.FileTransfer.ReconstructedFile, Bitmap>(file, new Bitmap(file.FilePath)));
+                    if (file.IsImage()) {
+                        Bitmap bm = new Bitmap(file.FilePath);
+                        imageFilesList.Add(new Tuple<PacketParser.FileTransfer.ReconstructedFile, Bitmap>(file, bm));
                         //AddImageToImageList(file, new Bitmap(file.FilePath));
+                        if (file.Filename.StartsWith("favicon", StringComparison.InvariantCultureIgnoreCase) && bm.Width == bm.Height && bm.Width < 100 && bm.Height < 100 && bm.Width > 8 && bm.Height > 8 && !file.SourceHost.FaviconPerHost.ContainsKey(file.ServerHostname)) {
+                            //we have a favicon between 8x8 and 100x100 pixels
+                            foreach (TreeView treeView in this.treeViewsWithHostIcons) {
+                                this.AddImage(treeView, file.FilePath, Icon.FromHandle(bm.GetHicon()));
+                            }
+                            file.SourceHost.FaviconKey = file.FilePath;
+                            if (file.ServerHostname != null)
+                                file.SourceHost.FaviconPerHost[file.ServerHostname] = file.FilePath;
+                        }
+                    }
                     else if (file.IsIcon()) {
                         Icon icon = new Icon(file.FilePath);
                         imageFilesList.Add(new Tuple<PacketParser.FileTransfer.ReconstructedFile, Bitmap>(file, icon.ToBitmap()));
@@ -1272,7 +1355,7 @@ namespace NetworkMiner {
                     });
 
                 //set the message and attributes as tag for retrieval from the GUI when the message is selected
-                var tuple = new Tuple<System.Collections.Specialized.NameValueCollection, byte[], Encoding>(me.Attributes, me.MessageEncoding.GetBytes(me.Message), me.MessageEncoding);
+                Tuple<System.Collections.Specialized.NameValueCollection, byte[], Encoding> tuple = new Tuple<System.Collections.Specialized.NameValueCollection, byte[], Encoding>(me.Attributes, me.MessageEncoding.GetBytes(me.Message), me.MessageEncoding);
                 int messageMaxLength = 10000;
                 if (tuple.Item2?.Length > messageMaxLength) {
                     byte[] newMessage = new byte[messageMaxLength];
@@ -1608,7 +1691,8 @@ namespace NetworkMiner {
             if (imagesListView.SelectedItems.Count > 0) {
                 PacketParser.FileTransfer.ReconstructedFile file = (PacketParser.FileTransfer.ReconstructedFile)imagesListView.SelectedItems[0].Tag;
                 try {
-                    System.Diagnostics.Process.Start(file.FilePath);
+                    //System.Diagnostics.Process.Start(file.FilePath);
+                    SharedUtils.SystemHelper.ProcessStart(file.FilePath);
                 }
                 catch (Exception ex) {
                     MessageBox.Show(ex.Message);
@@ -1733,7 +1817,8 @@ namespace NetworkMiner {
                 string filePath = listView.SelectedItems[0].Tag.ToString();//.Text;
                 try {
                     SharedUtils.Logger.Log("Opening file " + filePath, SharedUtils.Logger.EventLogEntryType.Information);
-                    System.Diagnostics.Process.Start(filePath);
+                    //System.Diagnostics.Process.Start(filePath);
+                    SharedUtils.SystemHelper.ProcessStart(filePath);
                 }
                 catch (Exception ex) {
                     
@@ -1759,7 +1844,8 @@ namespace NetworkMiner {
 
                 SharedUtils.Logger.Log("Opening folder " + folderPath, SharedUtils.Logger.EventLogEntryType.Information);
                 try {
-                    System.Diagnostics.Process.Start(folderPath);
+                    //System.Diagnostics.Process.Start(folderPath);
+                    SharedUtils.SystemHelper.ProcessStart(folderPath);
                 }
                 catch (Exception ex) {
                     SharedUtils.Logger.Log(ex.GetType().ToString() + " : " + ex.Message + " " + folderPath, SharedUtils.Logger.EventLogEntryType.Error);
@@ -1956,6 +2042,25 @@ namespace NetworkMiner {
                 this.resizeListViewColumns(this.parametersListView);
                 this.resizeListViewColumns(this.detectedKeywordsListView);
             }
+            //update Tag in messagesListView to also include attachments so that they can be filtered/searched for
+            foreach(ListViewItem messageItem in this.messagesListView.Items) {
+                //look for Tag, extract MessageID and append name of each attachment to the list
+                if (messageItem.Tag is Tuple<System.Collections.Specialized.NameValueCollection, byte[], Encoding> tuple) {
+                    try {
+                        string messageId = PacketParser.Mime.Email.GetMessageId(tuple.Item1);
+                        if (this.messageAttachments.ContainsKey(messageId)) {
+                            foreach (var attachment in this.messageAttachments[messageId]) {
+                                tuple.Item1.Add(String.Empty, attachment.Filename);
+                            }
+                        }
+                    }
+                    catch {
+                        //Pokemon exception handling, "Gotta catch 'em all"
+                        SharedUtils.Logger.Log("Unable to index attachment for filtering.", SharedUtils.Logger.EventLogEntryType.Error);
+                    }
+                }
+            }
+
             SharedUtils.Logger.Log("..done updating GUI.", SharedUtils.Logger.EventLogEntryType.Information);
         }
 
@@ -2536,6 +2641,7 @@ namespace NetworkMiner {
         private void NetworkMinerForm_DragDrop(object sender, DragEventArgs e) {
             if (e.Data.GetDataPresent(DataFormats.FileDrop)) {
                 string[] filenames = (string[])e.Data.GetData(DataFormats.FileDrop);
+                Array.Sort<string>(filenames);
                 this.LoadPcapFilesSequentially(filenames);
             }
         }
@@ -2583,7 +2689,8 @@ namespace NetworkMiner {
                 string folderPath = caseFile.FilePathAndName;
                 if (caseFile.FilePathAndName.Contains(System.IO.Path.DirectorySeparatorChar.ToString()))
                     folderPath = caseFile.FilePathAndName.Substring(0, caseFile.FilePathAndName.LastIndexOf(System.IO.Path.DirectorySeparatorChar) + 1);
-                System.Diagnostics.Process.Start(folderPath);
+                //System.Diagnostics.Process.Start(folderPath);
+                SharedUtils.SystemHelper.ProcessStart(folderPath);
             }
         }
 
@@ -2772,7 +2879,7 @@ namespace NetworkMiner {
 
             //this.messageAttributesTreeView.Nodes.Clear();
             //string messageId = PacketParser.Mime.Email.GetFileId(attributesAndMessage.Key);
-            string messageId = PacketParser.Mime.Email.GetFileId(attributesMessageEncodingTuple.Item1);
+            string messageId = PacketParser.Mime.Email.GetMessageId(attributesMessageEncodingTuple.Item1);
             if (messageId != null && messageId.Length > 0) {
                 lock (this.messageAttachments) {
                     if (this.messageAttachments.ContainsKey(messageId)) {
@@ -2803,21 +2910,59 @@ namespace NetworkMiner {
                 this.messageAttributeListView.Items.Add(item);
             }
             */
-            foreach (string attributeName in attributesMessageEncodingTuple.Item1.AllKeys) {
+
+            /*
+            IEnumerable<KeyValuePair<string, string>> kvpEnumerable = attributesMessageEncodingTuple.Item1.Cast<string>().Select(key => new KeyValuePair<string, string>(key, attributesMessageEncodingTuple.Item1[key]));
+            kvpEnumerable.Where(kvp => kvp.Key?.Length > 0).Select(kvp => {
+                var item = new ListViewItem(kvp.Key);
+                item.SubItems.Add(kvp.Value);
+            }
+            this.messageAttributeListView.Items.AddRange();
+            */
+
+
+            this.messageAttributeListView.Items.AddRange(attributesMessageEncodingTuple.Item1.AllKeys.Where(name => name?.Length > 0).Select(attributeName => {
+                ListViewItem lvi = new ListViewItem(attributeName);
+                lvi.SubItems.Add(attributesMessageEncodingTuple.Item1[attributeName]);
+                return lvi;
+            }).ToArray());
+
+            /*
+            foreach (string attributeName in attributesMessageEncodingTuple.Item1.AllKeys.Where(name => name?.Length > 0)) {
                 ListViewItem item = new ListViewItem(attributeName);
                 item.SubItems.Add(attributesMessageEncodingTuple.Item1[attributeName]);
                 this.messageAttributeListView.Items.Add(item);
             }
+            */
 
 
             //this.messageTextBox.Tag = attributesAndMessage.Value;
+            if (attributesMessageEncodingTuple.Item3 != null) {
+                EncodingWrapper encodingItem = this.messageEncodingComboBox.Items?.OfType<EncodingWrapper>()?.Where(i => i.Encoding == attributesMessageEncodingTuple.Item3).FirstOrDefault();
+                if(encodingItem == null) {
+                    //try adding it
+                    lock(this.messageEncodingComboBox) {
+                        SharedUtils.Logger.Log("Adding message encoding option for " + attributesMessageEncodingTuple.Item3.ToString(), SharedUtils.Logger.EventLogEntryType.Information);
+                        try {
+                            this.messageEncodingComboBox.Items.Add(new EncodingWrapper(attributesMessageEncodingTuple.Item3));
+                        }
+                        catch (Exception ee) {
+                            SharedUtils.Logger.Log(ee.Message, SharedUtils.Logger.EventLogEntryType.Warning);
+                        }
+                        encodingItem = this.messageEncodingComboBox.Items?.OfType<EncodingWrapper>()?.Where(i => i.Encoding == attributesMessageEncodingTuple.Item3).FirstOrDefault();
+                    }
+                }
+                if (encodingItem != null)
+                    this.messageEncodingComboBox.SelectedItem = encodingItem;
+
+                //this.SetTextBoxText(this.messageTextBox, attributesMessageEncodingTuple.Item2, attributesMessageEncodingTuple.Item3);
+            }
+
             if (this.messageEncodingComboBox.SelectedItem is EncodingWrapper) {
                 EncodingWrapper ew = this.messageEncodingComboBox.SelectedItem as EncodingWrapper;
                 this.SetTextBoxText(this.messageTextBox, attributesMessageEncodingTuple.Item2, ew.Encoding);
                 //this.messageTextBox.Text = ew.Encoding.GetString(Encoding.Default.GetBytes(attributesAndMessage.Value));
             }
-            else if(attributesMessageEncodingTuple.Item3 != null)
-                this.SetTextBoxText(this.messageTextBox, attributesMessageEncodingTuple.Item2, attributesMessageEncodingTuple.Item3);
             else
                 this.SetTextBoxText(this.messageTextBox, attributesMessageEncodingTuple.Item2, Encoding.Default);
 
@@ -2829,12 +2974,15 @@ namespace NetworkMiner {
 
         private void SetTextBoxText(TextBox tb, byte[] bytes, Encoding enc) {
             tb.Text = enc.GetString(bytes);
+            //check line ending, in Windows: replace \n with \r\n, in Linux replace \r\n with \n
+            tb.Text = PacketParser.Utils.StringManglerUtil.ChangeToEnvironmentNewLines(tb.Text);
+
             tb.Tag = bytes;
         }
 
         private void ShowExportToFileDialog(ListView listView, string basename) {
             try {
-                if (this.dataExporterFactory != null) {
+                if (this.DataExporterFactory != null) {
                     this.exportDataToFileDialog.FileName = basename + this.exportDataToFileDialog.DefaultExt;
                     if (this.exportDataToFileDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK) {
 
@@ -2844,7 +2992,7 @@ namespace NetworkMiner {
                                 caseFiles.Add(fileItem.Tag as CaseFile);
                         }
 
-                        using (ToolInterfaces.IDataExporter exporter = this.dataExporterFactory.CreateDataExporter(this.exportDataToFileDialog.FileName, this.UseRelativeExtractedFilesPaths, this.guiProperties.PreserveLinesInCsvExport)) {
+                        using (ToolInterfaces.IDataExporter exporter = this.DataExporterFactory.CreateDataExporter(this.exportDataToFileDialog.FileName, this.UseRelativeExtractedFilesPaths, this.guiProperties.PreserveLinesInCsvExport)) {
                             try {
                                 exporter.Export(listView, true, caseFiles);
                             }
@@ -2867,7 +3015,7 @@ namespace NetworkMiner {
 
         private void ShowExportToFileDialog(DataGridView dgv, string basename) {
             try {
-                if (this.dataExporterFactory != null) {
+                if (this.DataExporterFactory != null) {
                     this.exportDataToFileDialog.FileName = basename + this.exportDataToFileDialog.DefaultExt;
                     if (this.exportDataToFileDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK) {
 
@@ -2877,7 +3025,7 @@ namespace NetworkMiner {
                                 caseFiles.Add(fileItem.Tag as CaseFile);
                         }
 
-                        using (ToolInterfaces.IDataExporter exporter = this.dataExporterFactory.CreateDataExporter(this.exportDataToFileDialog.FileName, this.UseRelativeExtractedFilesPaths, this.guiProperties.PreserveLinesInCsvExport)) {
+                        using (ToolInterfaces.IDataExporter exporter = this.DataExporterFactory.CreateDataExporter(this.exportDataToFileDialog.FileName, this.UseRelativeExtractedFilesPaths, this.guiProperties.PreserveLinesInCsvExport)) {
                             try {
                                 exporter.Export(dgv, true, caseFiles);
                             }
@@ -2916,11 +3064,11 @@ namespace NetworkMiner {
 
         private void hostsToolStripMenuItem_Click(object sender, EventArgs e) {
             try {
-                if (this.dataExporterFactory != null) {
+                if (this.DataExporterFactory != null) {
                     this.exportDataToFileDialog.FileName = "hosts" + this.exportDataToFileDialog.DefaultExt;
                     if (this.exportDataToFileDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK) {
 
-                        using (ToolInterfaces.IDataExporter exporter = this.dataExporterFactory.CreateDataExporter(this.exportDataToFileDialog.FileName, this.UseRelativeExtractedFilesPaths, this.guiProperties.PreserveLinesInCsvExport)) {
+                        using (ToolInterfaces.IDataExporter exporter = this.DataExporterFactory.CreateDataExporter(this.exportDataToFileDialog.FileName, this.UseRelativeExtractedFilesPaths, this.guiProperties.PreserveLinesInCsvExport)) {
                             foreach (NetworkHostTreeNode host in this.networkHostTreeView.Nodes) {
                                 //NetworkHostTreeNode host = (NetworkHostTreeNode)n;
 

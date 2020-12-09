@@ -137,7 +137,7 @@ namespace PacketParser.Packets {
 
         public static ushort CalculateChecksum(ICollection<byte> data, int tcpPacketIndex, int tcpPacketLength, System.Net.IPAddress sourceIP, System.Net.IPAddress destinationIP, IPv4Packet.RFC1700Protocols protocol = IPv4Packet.RFC1700Protocols.TCP) {
             //https://locklessinc.com/articles/tcp_checksum/
-            int sum = 0;
+            
             List<byte> pseudoHeaderBytes = new List<byte>();
             if (sourceIP.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork) {
                 // RFC 793
@@ -171,6 +171,9 @@ namespace PacketParser.Packets {
             if (length % 2 == 1)
                 pseudoHeaderBytes.Add(0);
 
+            return Utils.ByteConverter.CalculateOnesComplement(pseudoHeaderBytes);
+            /*
+            int sum = 0;
             //Add all ushort values
             for (int i = 0; i < length; i += 2) {
                 sum += pseudoHeaderBytes[i] << 8;
@@ -183,6 +186,7 @@ namespace PacketParser.Packets {
 
             //Invert to get the negative in ones complement arithmetic
             return (ushort)~sum;
+            */
         }
 
         private ushort sourcePort;

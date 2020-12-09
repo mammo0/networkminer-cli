@@ -233,7 +233,7 @@ namespace NetworkMiner {
                     if (caseSensitive) {
                         if (item is ListViewItem) {
                             ListViewItem listViewItem = item as ListViewItem;
-                            return matchesExactPhrase(listViewItem, text => text.Contains(filterString), columnIndex);
+                            return matchesExactPhrase(listViewItem, text => text?.Contains(filterString) == true, columnIndex);
                         }
                         else if (item is TreeNode) {
                             TreeNode treeNode = item as TreeNode;
