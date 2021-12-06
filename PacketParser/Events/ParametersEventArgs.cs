@@ -17,20 +17,6 @@ namespace PacketParser.Events {
         private ParametersEventArgs() { }//for serialization purposes
 
 
-        [Obsolete]
-        public ParametersEventArgs(long frameNumber, NetworkHost sourceHost, NetworkHost destinationHost, string sourcePort, string destinationPort, IEnumerable<KeyValuePair<string,string>> parameters, DateTime timestamp, string details) {
-            this.FrameNumber = frameNumber;
-            this.SourceHost = sourceHost;
-            this.DestinationHost = destinationHost;
-            this.SourcePort = sourcePort;
-            this.DestinationPort = destinationPort;
-            this.Parameters = new System.Collections.Specialized.NameValueCollection();
-            foreach (KeyValuePair<string, string> kvp in parameters)
-                this.Parameters.Add(kvp.Key, kvp.Value);
-            this.Timestamp = timestamp;
-            this.Details = details;
-        }
-
         public ParametersEventArgs(long frameNumber, NetworkHost sourceHost, NetworkHost destinationHost, FiveTuple.TransportProtocol transport, ushort sourcePort, ushort destinationPort, System.Collections.Specialized.NameValueCollection parameters, DateTime timestamp, string details) : this(frameNumber, sourceHost, destinationHost, transport.ToString() + " " + sourcePort, transport.ToString() + " " + destinationPort, parameters, timestamp, details) {
             //nothing more to add
         }
@@ -44,6 +30,20 @@ namespace PacketParser.Events {
             this.Parameters=parameters;
             this.Timestamp=timestamp;
             this.Details=details;
+        }
+
+        [Obsolete]
+        public ParametersEventArgs(long frameNumber, NetworkHost sourceHost, NetworkHost destinationHost, string sourcePort, string destinationPort, IEnumerable<KeyValuePair<string, string>> parameters, DateTime timestamp, string details) {
+            this.FrameNumber = frameNumber;
+            this.SourceHost = sourceHost;
+            this.DestinationHost = destinationHost;
+            this.SourcePort = sourcePort;
+            this.DestinationPort = destinationPort;
+            this.Parameters = new System.Collections.Specialized.NameValueCollection();
+            foreach (KeyValuePair<string, string> kvp in parameters)
+                this.Parameters.Add(kvp.Key, kvp.Value);
+            this.Timestamp = timestamp;
+            this.Details = details;
         }
 
         [Obsolete]

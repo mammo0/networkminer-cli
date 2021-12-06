@@ -142,12 +142,13 @@ namespace SharedUtils {
                     StdErrLog(message, eventLogEntryType);
                 }
                 catch { }
-                if(eventLogWriteEntryAction != null)
-                try {
-                    //eventLog(message, eventLogEntryType);
-                    eventLogWriteEntryAction(message, eventLogEntryType);
+                if (eventLogWriteEntryAction != null) {
+                    try {
+                        //eventLog(message, eventLogEntryType);
+                        eventLogWriteEntryAction(message, eventLogEntryType);
+                    }
+                    catch { }
                 }
-                catch { }
                 try {
                     fileLog(message, eventLogEntryType.ToString());
                 }
@@ -175,12 +176,13 @@ namespace SharedUtils {
                     await StdErrLogAsync(message, eventLogEntryType);
                 }
                 catch { }
-                if (eventLogWriteEntryAction != null)
+                if (eventLogWriteEntryAction != null) {
                     try {
                         //eventLogWriteEntryAction(message, eventLogEntryType);
                         await System.Threading.Tasks.Task.Run(() => eventLogWriteEntryAction(message, eventLogEntryType));
                     }
                     catch { }
+                }
                 try {
                     await fileLogAsync(message, eventLogEntryType.ToString());
                 }

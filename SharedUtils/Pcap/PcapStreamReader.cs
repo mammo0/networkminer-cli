@@ -31,8 +31,9 @@ namespace SharedUtils.Pcap {
         private System.Threading.CancellationTokenSource backgroundStreamReaderCanceller;
         //private System.ComponentModel.BackgroundWorker backgroundStreamReader;
         //private System.Collections.Generic.Queue<PcapFrame> packetQueue;//private const int PACKET_QUEUE_SIZE=4000;
-        private System.Collections.Concurrent.BlockingCollection<PcapFrame> packetQueue;
-
+        private readonly System.Collections.Concurrent.BlockingCollection<PcapFrame> packetQueueBC;
+        //private System.Collections.Concurrent.ConcurrentQueue<PcapFrame> packetQueue;//ConcurrentQueue is faster than BlockingCollection, but doesn't allow blocking waits, for example waiting until the queue has room before more adding items: https://stackoverflow.com/questions/3039724/blockingcollectiont-performance
+        
         private int packetQueueMaxSize;
         //private System.Threading.AutoResetEvent packetQueueHasRoomEvent;
 
@@ -89,7 +90,7 @@ namespace SharedUtils.Pcap {
             : this(pcapStream, packetQueueSize, streamReadCompletedCallback, startBackgroundWorkers, streamMaxLength, pcapStream.CanTimeout ? pcapStream.ReadTimeout : 20000) { }
 
         public PcapStreamReader(System.IO.Stream pcapStream, int packetQueueSize, StreamReadCompletedCallback streamReadCompletedCallback, bool startBackgroundWorkers, long streamMaxLength, int readTimeoutMilliseconds) {
-        
+
             this.pcapStream = pcapStream;
             this.streamLength = streamMaxLength;
             this.readBytesEstimate = 0;
@@ -102,7 +103,8 @@ namespace SharedUtils.Pcap {
             //TODO: Figure out if it is a libpcap or pcapNG stream...
             this.pcapParser = PcapParserFactory.CreatePcapParser(this);// new PcapParser(pcapStream, this.AbortReadingPcapStream);
 
-            this.packetQueue = new System.Collections.Concurrent.BlockingCollection<PcapFrame>(this.packetQueueMaxSize);
+            this.packetQueueBC = new System.Collections.Concurrent.BlockingCollection<PcapFrame>(this.packetQueueMaxSize);
+            //this.packetQueue = new System.Collections.Concurrent.ConcurrentQueue<PcapFrame>();
             //this.packetQueueHasRoomEvent = new System.Threading.AutoResetEvent(true);
             this.enqueuedByteCount=0;
             this.dequeuedByteCount=0;
@@ -125,10 +127,11 @@ namespace SharedUtils.Pcap {
                         framesCount++;
                         this.enqueuedByteCount += packet.Data.Length;
 
-                        while (!this.packetQueue.TryAdd(packet, 1000, cancellationToken)) {
+                        while (!this.packetQueueBC.TryAdd(packet, 1000, cancellationToken)) {
                             if (cancellationToken.IsCancellationRequested || this.EndOfStream())
                                 break;
                         }
+                        //this.packetQueue.Enqueue(packet);
                     }
                 }
                 catch (System.IO.EndOfStreamException) {
@@ -187,7 +190,7 @@ namespace SharedUtils.Pcap {
                 if(this.pcapStream.CanWrite)
                     this.pcapStream.Flush();
                 */
-                
+
             }
             this.streamReadCompletedCallback = null;
         }
@@ -238,7 +241,8 @@ namespace SharedUtils.Pcap {
             //this.backgroundStreamReader.CancelAsync();
             //this.packetQueue.Clear();
             //foreach(var pcapFrame in this.packetQueue.GetConsumingEnumerable()) { }
-            while (this.packetQueue.TryTake(out var pcapFrame)) { }
+            while (this.packetQueueBC.TryTake(out var pcapFrame)) { }
+            //while(this.packetQueue.TryDequeue(out var pcapFrame)) { }
         }
 
         public void ThreadStart() {
@@ -263,7 +267,7 @@ namespace SharedUtils.Pcap {
             //maxSleepMS += timeoutMilliSecs;//to make sure BlockingRead timeouts before
             int maxSleepMS = (int)Math.Sqrt(2.0 * this.readTimeoutMilliseconds + timeoutMilliSecs* timeoutMilliSecs);
             
-            while (!cancellationToken.IsCancellationRequested && (/*this.backgroundStreamReader.IsBusy ||*/ !this.EndOfStream() || this.packetQueue.Count > 0)) {
+            while (!cancellationToken.IsCancellationRequested && (/*this.backgroundStreamReader.IsBusy ||*/ !this.EndOfStream() || this.packetQueueBC.Count > 0)) {
 
                 /*
                 if(this.packetQueue.Count>0) {
@@ -294,7 +298,8 @@ namespace SharedUtils.Pcap {
                     }
                 }
                 */
-                if (this.packetQueue.TryTake(out PcapFrame packet, timeoutMilliSecs, cancellationToken)) {
+                if (this.packetQueueBC.TryTake(out PcapFrame packet, timeoutMilliSecs, cancellationToken)) {
+                //if (this.packetQueue.TryDequeue(out PcapFrame packet)) {
                     timeoutMilliSecs = MIN_TAKE_TIMEOUT;
                     this.dequeuedByteCount += packet.Data.Length;
                     yield return packet;
@@ -419,6 +424,7 @@ namespace SharedUtils.Pcap {
                 */
 
             }
+                
             this.streamReadCompletedCallback = null;
         }
 

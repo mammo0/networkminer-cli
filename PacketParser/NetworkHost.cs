@@ -119,6 +119,7 @@ namespace PacketParser {
         private SortedList<ushort, NetworkServiceMetadata> networkServiceMetadataList;//the key is identified by the TCP port number of the service (on the server)
         private List<ushort> vlanIdList;
         private Dictionary<string, string> ja3Hashes;
+        private HashSet<string> ja3sHashes;
 
         #endregion
 
@@ -135,8 +136,6 @@ namespace PacketParser {
 
         private List<string> acceptedSmbDialectsList;
         private string preferredSmbDialect;
-
-        private SortedList<string, string> extraDetailsList;//a simple list to store extra details about the host
 
         #endregion
 
@@ -204,6 +203,14 @@ namespace PacketParser {
                 lock (this.ja3Hashes)
                     ja3List.AddRange(this.ja3Hashes.Keys);
                 return ja3List;
+            }
+        }
+        public List<string> Ja3sHashes {
+            get {
+                List<string> ja3sList = new List<string>();
+                lock (this.ja3sHashes)
+                    ja3sList.AddRange(this.ja3sHashes);
+                return ja3sList;
             }
         }
 
@@ -289,15 +296,33 @@ namespace PacketParser {
                     details.Add("Device Category", this.DeviceCategory);
                 if(this.ja3Hashes.Count > 0) {
                     lock (this.ja3Hashes) {
-                        details.Add("JA3 Hashes", String.Join(",", this.ja3Hashes.Keys));
+                        //details.Add("JA3 Hashes", String.Join(",", this.ja3Hashes.Keys));
+                        /*
                         foreach (var ja3 in this.ja3Hashes.Where(kvp => !string.IsNullOrEmpty(kvp.Value))) {
                             details.Add("JA3 Fingerprint " + ja3.Key, ja3.Value);
+                        }
+                        */
+                        string[] keys = this.ja3Hashes.Keys.ToArray();
+                        for (int i = 0;  i < keys.Length; i++) {
+                            string fingerprint = this.ja3Hashes[keys[i]];
+                            if (string.IsNullOrEmpty(fingerprint))
+                                details.Add("JA3 Hash " + (i + 1), keys[i]);
+                            else
+                                details.Add("JA3 Hash " + (i + 1), keys[i] + " = " + fingerprint);
+                        }
+                    }
+                }
+                if (this.ja3sHashes.Count > 0) {
+                    lock (this.ja3sHashes) {
+                        string[] hashes = this.ja3sHashes.ToArray();
+                        for (int i = 0; i < hashes.Length; i++) {
+                            details.Add("JA3S Hash " + (i + 1), hashes[i]);
                         }
                     }
                 }
 
-                lock(this.extraDetailsList)
-                    foreach(KeyValuePair<string, string> keyValue in extraDetailsList) {
+                lock (this.ExtraDetailsList)
+                    foreach(KeyValuePair<string, string> keyValue in ExtraDetailsList) {
                         details.Add(keyValue.Key, keyValue.Value);
                 }
                 return details;
@@ -615,7 +640,7 @@ namespace PacketParser {
         /// Use AddNumberedExtraDetail to add info to this list
         /// </summary>
         [Browsable(false)]
-        public SortedList<string, string> ExtraDetailsList { get { return this.extraDetailsList; } }
+        public SortedList<string, string> ExtraDetailsList { get; }
 
         private NetworkHost() { throw new NotImplementedException(); }//for serialization purposes
 
@@ -635,6 +660,7 @@ namespace PacketParser {
             this.networkServiceMetadataList=new SortedList<ushort, NetworkServiceMetadata>();
             this.vlanIdList = new List<ushort>();
             this.ja3Hashes = new Dictionary<string, string>();
+            this.ja3sHashes = new HashSet<string>();
 
             this.sentPackets=new NetworkPacketList();
             this.receivedPackets=new NetworkPacketList();
@@ -647,7 +673,7 @@ namespace PacketParser {
             this.httpServerBannerList=new List<string>();
             this.ftpServerBannerList=new List<string>();
             this.dhcpVendorCodeList=new List<string>();
-            this.extraDetailsList=new SortedList<string, string>();
+            this.ExtraDetailsList=new SortedList<string, string>();
 
             this.FaviconPerHost = new System.Collections.Concurrent.ConcurrentDictionary<string, string>();
 
@@ -744,6 +770,13 @@ namespace PacketParser {
                     operatingSystemCount.Add(operatingSystem, probability);
             }
         }
+        internal double GetFingerprinterTotalMatches(PacketParser.Fingerprints.IOsFingerprinter fingerprinter) {
+            double total = 0.0;
+            if (this.fingerprinterOsCounterList.ContainsKey(fingerprinter))
+                foreach (double p in this.fingerprinterOsCounterList[fingerprinter].Values)
+                    total += p;
+            return total;
+        }
 
         internal void AddVlanID(ushort vlanID) {
             lock (this.vlanIdList) {
@@ -756,6 +789,13 @@ namespace PacketParser {
             lock (this.ja3Hashes) {
                 if (!this.ja3Hashes.ContainsKey(ja3Hash)) {
                     this.ja3Hashes.Add(ja3Hash, fingerprintDetails);
+                }
+            }
+        }
+        internal void AddJA3SHash(string ja3sHash) {
+            lock (this.ja3sHashes) {
+                if (!this.ja3sHashes.Contains(ja3sHash)) {
+                    this.ja3sHashes.Add(ja3sHash);
                 }
             }
         }
@@ -837,15 +877,18 @@ namespace PacketParser {
         }
         internal void AddNumberedExtraDetail(string name, string value) {
             lock (this.ExtraDetailsList) {
-                for (int i = 1; i < 100; i++)
-                    if (this.ExtraDetailsList.ContainsKey(name + " " + i)) {
-                        if (this.ExtraDetailsList[name + " " + i].Equals(value, StringComparison.InvariantCultureIgnoreCase))
+                for (int i = 1; i < 100; i++) {
+                    //string numberText = " " + i.ToString("00");
+                    string numberText = " " + i.ToString();
+                    if (this.ExtraDetailsList.ContainsKey(name + numberText)) {
+                        if (this.ExtraDetailsList[name + numberText].Equals(value, StringComparison.InvariantCultureIgnoreCase))
                             break;//the value is already stored
                     }
                     else {
-                        this.ExtraDetailsList.Add(name + " " + i, value);
+                        this.ExtraDetailsList.Add(name + numberText, value);
                         break;
                     }
+                }
             }
         }
         internal void AddOpenTcpPort(ushort port) {

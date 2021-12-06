@@ -46,9 +46,6 @@ namespace PacketParser.Packets {
         private string authorizationCredentailsPassword;
 
         private string contentDispositionFilename;
-
-        //ISessionPacket
-        private bool packetHeaderIsComplete;//the main reason for using this variable is because HTTP POST's often are splitted into two packets right at the start of Content-Type definition
         private FileTransfer.ContentRange contentRange;
 
         public string AcceptLanguage { get; set; } = null;
@@ -142,7 +139,7 @@ namespace PacketParser.Packets {
             this.wwwAuthenticateRealm = null;
             this.authorizationCredentialsUsername = null;
             this.authorizationCredentailsPassword = null;
-            this.packetHeaderIsComplete = false;
+            this.PacketHeaderIsComplete = false;
             this.contentDispositionFilename = null;
             this.contentRange = null;
 
@@ -209,21 +206,21 @@ namespace PacketParser.Packets {
                     break;//this.packetHeaderIsComplete will NOT be true!
                 else if(headerLine.Length>0) {
                     this.headerFields.Add(headerLine);
-                    ExtractHeaderField(headerLine);
+                    this.ExtractHeaderField(headerLine);
                 }
                 else {//headerLine.Length==0
-                    this.packetHeaderIsComplete=true;//the header is complete and that's enough
+                    this.PacketHeaderIsComplete=true;//the header is complete and that's enough
                     break;//the for loop should stop now...
                 }
             }
 
             //see if there is a message-body
-            if(this.packetHeaderIsComplete && this.messageTypeIsRequest && (requestMethod == RequestMethods.HEAD || requestMethod == RequestMethods.GET)) {
+            if(this.PacketHeaderIsComplete && this.messageTypeIsRequest && (requestMethod == RequestMethods.HEAD || requestMethod == RequestMethods.GET)) {
                 //this part is important in case there are chained (queued) requests as in HTTP 1.1
                 this.messageBody = null;
                 this.PacketEndIndex = dataIndex - 1;
             }
-            else if(this.packetHeaderIsComplete && dataIndex<=packetEndIndex) {//we have a body!
+            else if(this.PacketHeaderIsComplete && dataIndex<=packetEndIndex) {//we have a body!
                 if (this.contentLength > 0 && this.contentLength < packetEndIndex - dataIndex + 1) {
                     this.messageBody = new byte[this.contentLength];
                     this.PacketEndIndex = (int)(dataIndex + this.contentLength - 1);
@@ -614,9 +611,7 @@ namespace PacketParser.Packets {
 
         #region ISessionPacket Members
 
-        public bool PacketHeaderIsComplete {
-            get { return this.packetHeaderIsComplete; }
-        }
+        public bool PacketHeaderIsComplete { get; }
 
         public int ParsedBytesCount { get { return base.PacketLength; } }
 

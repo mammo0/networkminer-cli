@@ -165,7 +165,10 @@ namespace PacketParser {
             }
             if(this.serverPort==445 || this.clientPort==445)
                 this.probableProtocols.Add(ApplicationLayerProtocol.NetBiosSessionService);
+            if (this.ServerPort == 515)
+                this.probableProtocols.Add(ApplicationLayerProtocol.Lpd);
             if (this.serverPort == 1080 ||
+                this.ServerPort == 4145 ||
                 this.serverPort == 9040 ||
                 this.serverPort == 9050 ||
                 this.serverPort == 9051 ||

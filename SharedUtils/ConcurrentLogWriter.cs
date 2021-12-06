@@ -19,43 +19,15 @@ namespace SharedUtils
             }
         }
 
+        /// <summary>
+        /// The output stream will be flushed if time since last write operation
+        /// is greater than AutoFlushInterval. A value of zero, or a negative value,
+        /// disables the auto flush.
+        /// </summary>
+        public TimeSpan AutoFlushInterval { get; set; } = TimeSpan.Zero;
+        private DateTime lastFlush = DateTime.Now;
+
         public override string NewLine { get; set; } = "\r\n";
-
-        /*
-        public override bool CanRead {
-            get {
-                return false;
-            }
-        }
-
-        public override bool CanSeek {
-            get {
-                return false;
-            }
-        }
-
-        public override bool CanWrite {
-            get {
-                return fs.CanWrite;
-            }
-        }
-
-        public override long Length {
-            get {
-                return fs.Length;
-            }
-        }
-
-        public override long Position {
-            get {
-                return fs.Position;
-            }
-
-            set {
-                fs.Position = value;
-            }
-        }
-        */
 
         [Obsolete]
         private ConcurrentLogWriter() { }
@@ -64,6 +36,10 @@ namespace SharedUtils
             this.columnSeparator = columnSeparator;
             this.AppendOrCreate(path);
             this.writeLock = new SemaphoreSlim(1, 1);
+        }
+
+        private bool IsTimeToFlush() {
+            return this.AutoFlushInterval > TimeSpan.Zero && this.lastFlush.Add(this.AutoFlushInterval) < DateTime.Now;
         }
 
         private void AppendOrCreate(string path) {
@@ -83,7 +59,7 @@ namespace SharedUtils
         public override void Flush() {
             this.writeLock.Wait();
             try {
-                fs.Flush();
+                this.fs.Flush();
             }
             catch {
                 this.ReOpen();
@@ -96,7 +72,7 @@ namespace SharedUtils
         public override async Task FlushAsync() {
             await this.writeLock.WaitAsync();
             try {
-                await fs.FlushAsync();
+                await this.fs.FlushAsync();
             }
             catch {
                 this.ReOpen();
@@ -119,6 +95,11 @@ namespace SharedUtils
             finally {
                 this.writeLock.Release();
             }
+
+            if (this.IsTimeToFlush()) {
+                this.lastFlush = DateTime.Now;
+                await this.FlushAsync();
+            }
         }
 
         public override void WriteLine(string line) {
@@ -133,6 +114,11 @@ namespace SharedUtils
             }
             finally {
                 this.writeLock.Release();
+            }
+
+            if(this.IsTimeToFlush()) {
+                this.lastFlush = DateTime.Now;
+                this.Flush();
             }
         }
 
@@ -153,43 +139,6 @@ namespace SharedUtils
             await this.WriteLineAsync(logLine.ToString());
         }
 
-        /*
-        public override int Read(byte[] buffer, int offset, int count) {
-            throw new NotImplementedException();
-        }
-
-        public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) {
-            throw new NotImplementedException();
-        }
-
-        public override long Seek(long offset, SeekOrigin origin) {
-            throw new NotImplementedException();
-        }
-
-        public override void SetLength(long value) {
-            throw new NotImplementedException();
-        }
-
-        public override void Write(byte[] buffer, int offset, int count) {
-            try {
-                fs.Write(buffer, offset, count);
-            }
-            catch {
-                this.ReOpen();
-                fs.Write(buffer, offset, count);
-            }
-        }
-
-        public override Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) {
-            try {
-                return fs.WriteAsync(buffer, offset, count, cancellationToken);
-            }
-            catch {
-                this.ReOpen();
-                return fs.WriteAsync(buffer, offset, count, cancellationToken);
-            }
-        }
-        */
 
         public override void Close() {
             fs.Close();

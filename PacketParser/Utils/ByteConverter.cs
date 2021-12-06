@@ -470,10 +470,27 @@ namespace PacketParser.Utils {
         }
 
         //Format: 6162633132330a\tabc123.
-        public static string ToXxdHexString(byte[] data) {
-            string hexPart = ReadHexString(data, data.Length);
-            string asciiPart = ReadString(data, ".");
-            return hexPart + "\t" + asciiPart;
+        public static string ToXxdHexString(byte[] data, int maxBytesPerRow = 0) {
+            if(maxBytesPerRow > 0) {
+                StringBuilder sb = new StringBuilder();
+                for (int offset = 0; offset < data.Length; offset += maxBytesPerRow) {
+                    int nBytesToRead = Math.Min(maxBytesPerRow, data.Length - offset);
+                    string hexPart = ReadHexString(data, nBytesToRead, offset);
+                    string asciiPart = StringManglerUtil.GetAsciiString(data, offset, nBytesToRead, false);
+                    //string asciiPart = ReadString(data, offset, nBytesToRead);
+                    if(asciiPart.Length < maxBytesPerRow) {
+                        hexPart = hexPart.PadRight(maxBytesPerRow * 2, ' ');
+                    }
+                    sb.AppendLine(hexPart + "\t" + asciiPart);
+                }
+                SharedUtils.SystemHelper.IsRunningOnMono();
+                return sb.ToString();
+            }
+            else {
+                string hexPart = ReadHexString(data, data.Length);
+                string asciiPart = ReadString(data, ".");
+                return hexPart + "\t" + asciiPart;
+            }
         }
 
 

@@ -10,7 +10,7 @@ using System.Text;
 namespace PacketParser.Packets {
     class Smb2Packet : AbstractPacket {
 
-        internal static uint NT_STATUS_SUCCESS = 0;
+        //internal static uint NT_STATUS_SUCCESS = 0;//Use ERROR_CLASS.STATUS_SUCCESS instead
         internal static uint NT_STATUS_MORE_PROCESSING_REQUIRED = 0xc0000016;
 
         internal enum OP_CODE : ushort {
@@ -33,6 +33,36 @@ namespace PacketParser.Packets {
             GetInfo = 0x10,
             SetInfo = 0x11,
             Break = 0x12
+        }
+
+        internal enum ERROR_CLASS : uint {
+            STATUS_SUCCESS = 0x00000000,//The client request is successful.
+            STATUS_INVALID_SMB = 0x00010002,//An invalid SMB client request is received by the server.
+            STATUS_SMB_BAD_TID = 0x00050002,//The client request received by the server contains an invalid TID value.
+            STATUS_SMB_BAD_COMMAND = 0x00160002,//The client request received by the server contains an unknown SMB command code.
+            STATUS_SMB_BAD_UID = 0x005B0002,//The client request to the server contains an invalid UID value.
+            STATUS_SMB_USE_STANDARD = 0x00FB0002,//The client request received by the server is for a non-standard SMB operation (for example, an SMB_COM_READ_MPX request on a non-disk share). The client SHOULD send another request with a different SMB command to perform this operation.
+            STATUS_BUFFER_OVERFLOW = 0x80000005,//The data was too large to fit into the specified buffer.
+            STATUS_NO_MORE_FILES = 0x80000006,//No more files were found that match the file specification.
+            STATUS_STOPPED_ON_SYMLINK = 0x8000002D,//The create operation stopped after reaching a symbolic link.
+            STATUS_NOT_IMPLEMENTED = 0xC0000002,//The requested operation is not implemented.
+            STATUS_INVALID_PARAMETER = 0xC000000D,//The parameter specified in the request is not valid.
+            STATUS_NO_SUCH_DEVICE = 0xC000000E,//A device that does not exist was specified.
+            STATUS_INVALID_DEVICE_REQUEST = 0xC0000010,//The specified request is not a valid operation for the target device.
+            STATUS_MORE_PROCESSING_REQUIRED = 0xC0000016,//If extended security has been negotiated, then this error code can be returned in the SMB_COM_SESSION_SETUP_ANDX response from the server to indicate that additional authentication information is to be exchanged.See section 2.2.4.6 for details.
+            STATUS_ACCESS_DENIED = 0xC0000022,//The client did not have the required permission needed for the operation.
+            STATUS_BUFFER_TOO_SMALL = 0xC0000023,//The buffer is too small to contain the entry. No information has been written to the buffer.
+            STATUS_OBJECT_NAME_NOT_FOUND = 0xC0000034,//The object name is not found.
+            STATUS_OBJECT_NAME_COLLISION = 0xC0000035,//The object name already exists.
+            STATUS_OBJECT_PATH_NOT_FOUND = 0xC000003A,//The path to the directory specified was not found. This error is also returned on a create request if the operation requires the creation of more than one new directory level for the path specified.
+            STATUS_BAD_IMPERSONATION_LEVEL = 0xC00000A5,//A specified impersonation level is invalid.This error is also used to indicate that a required impersonation level was not provided.
+            STATUS_IO_TIMEOUT = 0xC00000B5,//The specified I/O operation was not completed before the time-out period expired.
+            STATUS_FILE_IS_A_DIRECTORY = 0xC00000BA,//The file that was specified as a target is a directory and the caller specified that it could be anything but a directory.
+            STATUS_NOT_SUPPORTED = 0xC00000BB,//The client request is not supported.
+            STATUS_NETWORK_NAME_DELETED = 0xC00000C9,//The network name specified by the client has been deleted on the server. This error is returned if the client specifies an incorrect TID or the share on the server represented by the TID was deleted.
+            STATUS_USER_SESSION_DELETED = 0xC0000203,//The user session specified by the client has been deleted on the server. This error is returned by the server if the client sends an incorrect UID.
+            STATUS_NETWORK_SESSION_EXPIRED = 0xC000035C,//The client's session has expired; therefore, the client MUST re-authenticate to continue accessing remote resources.
+            STATUS_SMB_TOO_MANY_UIDS = 0xC000205A,//The client has requested too many UID values from the server or the client already has an SMB session setup with this UID value.
         }
 
         private const uint smb2ProtocolIdentifier = 0xfe534d42;//=0xfe+SMB
@@ -118,7 +148,7 @@ namespace PacketParser.Packets {
         public override IEnumerable<AbstractPacket> GetSubPackets(bool includeSelfReference) {
             if (includeSelfReference)
                 yield return this;
-            if (!this.IsResponse || this.ntStatus == NT_STATUS_SUCCESS || this.ntStatus == NT_STATUS_MORE_PROCESSING_REQUIRED) {
+            if (!this.IsResponse || this.ntStatus == (uint)ERROR_CLASS.STATUS_SUCCESS || this.ntStatus == NT_STATUS_MORE_PROCESSING_REQUIRED) {
                 if (!this.IsResponse && this.opCode == (ushort)OP_CODE.SessionSetup) {//0x01
                     Smb2SessionSetupRequest p = new Smb2SessionSetupRequest(this, this.PacketStartIndex + this.headerLength, this.PacketEndIndex);
                     yield return p;
@@ -307,7 +337,7 @@ namespace PacketParser.Packets {
 
             internal Smb2TreeConnectResponse(Smb2Packet smb2Packet, int packetStartIndex, int packetEndIndex)
             : base(smb2Packet, packetStartIndex, packetEndIndex, "SMB2 Tree Connect Response") {
-                if (base.Smb2Packet.ntStatus == NT_STATUS_SUCCESS) {
+                if (base.Smb2Packet.ntStatus == (uint)ERROR_CLASS.STATUS_SUCCESS) {
                     //success
                 }
             }
@@ -334,6 +364,8 @@ namespace PacketParser.Packets {
             public DateTime LastAccessTIme { get { return this.lastAccessTime; } }
             public DateTime LastWriteTime { get { return this.lastWriteTime; } }
             public DateTime ChangeTime { get { return this.changeTime; } }
+            public long AllocationSize { get; } = -1;
+            public long EndOfFile { get; } = 0;
             public Guid FileID { get { return this.fileId; } }
 
             internal Smb2CreateResponse(Smb2Packet smb2Packet, int packetStartIndex, int packetEndIndex)
@@ -344,6 +376,8 @@ namespace PacketParser.Packets {
                     this.lastAccessTime = ReadFileTime(this.ParentFrame.Data, packetStartIndex + 16);
                     this.lastWriteTime = ReadFileTime(this.ParentFrame.Data, packetStartIndex + 24);
                     this.changeTime = ReadFileTime(this.ParentFrame.Data, packetStartIndex + 32);
+                    this.AllocationSize = BitConverter.ToInt64(this.ParentFrame.Data, packetStartIndex + 40);
+                    this.EndOfFile = BitConverter.ToInt64(this.ParentFrame.Data, packetStartIndex + 48);
                     this.fileId = ReadSmb2FileId(this.ParentFrame.Data, packetStartIndex + 64);
                 }
             }
@@ -355,17 +389,30 @@ namespace PacketParser.Packets {
         }
 
         internal class Smb2CreateRequest : Smb2Command { //0x05
+
+            //https://winprotocoldoc.blob.core.windows.net/productionwindowsarchives/MS-SMB2/%5bMS-SMB2%5d.pdf
+            private enum CREATE_DISPOSITION : uint {
+                FILE_SUPERSEDE = 0x00000000,//If the file already exists, supersede it. Otherwise, create the file. This value SHOULD NOT be used for a printer object.<32>
+                FILE_OPEN = 0x00000001,//If the file already exists, return success; otherwise, fail the operation.MUST NOT beused for a printer object.
+                FILE_CREATE = 0x00000002,//If the file already exists, fail the operation; otherwise, create the file.
+                FILE_OPEN_IF = 0x00000003,//Open the file if it already exists; otherwise, create the file.This value SHOULD NOT be used for a printer object.<33>
+                FILE_OVERWRITE = 0x00000004,//Overwrite the file if it already exists; otherwise, fail the operation.MUST NOT be used for a printer object.
+                FILE_OVERWRITE_IF = 0x00000005
+            }
+
+            
             private ushort nameOffset; //NameOffset (2 bytes)
             private ushort nameLength; //NameLength (2 bytes)
-            private string fileName;
 
-            public string FileName { get { return this.fileName; } }
+            public string CreateDisposition { get; } = null;
+            public string FileName { get; }
 
             internal Smb2CreateRequest(Smb2Packet smb2Packet, int packetStartIndex, int packetEndIndex)
             : base(smb2Packet, packetStartIndex, packetEndIndex, "SMB2 Create") {
+                this.CreateDisposition = Enum.GetName(typeof(CREATE_DISPOSITION), Utils.ByteConverter.ToUInt32(this.ParentFrame.Data, packetStartIndex + 36, 4, true));
                 this.nameOffset = Utils.ByteConverter.ToUInt16(this.ParentFrame.Data, packetStartIndex + 44, true);
                 this.nameLength = Utils.ByteConverter.ToUInt16(this.ParentFrame.Data, packetStartIndex + 46, true);
-                this.fileName = Utils.ByteConverter.ReadString(this.ParentFrame.Data, smb2Packet.PacketStartIndex + this.nameOffset, this.nameLength, true, true);
+                this.FileName = Utils.ByteConverter.ReadString(this.ParentFrame.Data, smb2Packet.PacketStartIndex + this.nameOffset, this.nameLength, true, true);
             }
 
             public override IEnumerable<AbstractPacket> GetSubPackets(bool includeSelfReference) {
@@ -500,7 +547,7 @@ namespace PacketParser.Packets {
 
             internal Smb2CloseResponse(Smb2Packet smb2Packet, int packetStartIndex, int packetEndIndex)
             : base(smb2Packet, packetStartIndex, packetEndIndex, "SMB2 Close Response") {
-                if (smb2Packet.ntStatus == NT_STATUS_SUCCESS) {//STATUS_SUCCESS
+                if (smb2Packet.ntStatus == (uint)ERROR_CLASS.STATUS_SUCCESS) {//STATUS_SUCCESS
                     ushort structureSize = BitConverter.ToUInt16(this.ParentFrame.Data, packetStartIndex);
                     if (structureSize == 0x3c) {
                         //if status is success

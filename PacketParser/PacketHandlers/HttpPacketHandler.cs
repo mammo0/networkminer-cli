@@ -38,9 +38,12 @@ namespace PacketParser.PacketHandlers {
             { "java-archive", "jar" },
             { "x-javascript", "js" },
             { "javascript", "js" },
+            { "vnd.wap.mms-message", "mms" },
             { "MP2T", "mpeg" },
             { "svg+xml", "svg" },
-            { "x-shockwave-flash", "swf" }
+            { "x-shockwave-flash", "swf" },
+            { "soap xml", "xml" },
+            { "soap+xml", "xml" }
         };
 
         //extensions that should be left untouched if the mime-type matches
@@ -68,6 +71,7 @@ namespace PacketParser.PacketHandlers {
             (".jpg", "jpeg"),
             (".js", "x-javascript"),
             (".js", "javascript"),
+            (".mms", "vnd.wap.mms-message"),
             (".png", "octet-stream"),//sites like SoundCloud's CDN (sndcdn.com) send images as content-type "octet-stream"
             (".svg", "svg+xml"),
             (".swf", "x-shockwave-flash"),
@@ -75,6 +79,8 @@ namespace PacketParser.PacketHandlers {
             (".vbs", "vbscript"),
             (".xls", "vnd.ms-excel"),
             (".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+            ( ".xml", "soap xml" ),
+            ( ".xml", "soap+xml" ),
 
             //https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types/Complete_list_of_MIME_types
 
@@ -263,50 +269,11 @@ namespace PacketParser.PacketHandlers {
 
         public HttpPacketHandler(PacketHandler mainPacketHandler)
             : base(mainPacketHandler) {
-            //extensions that should be left untouched if the mime-type matches
-            /*
-            this.extensionMimeTypeCombos = new List<KeyValuePair<string, string>> {
-                new KeyValuePair<string, string>(".asc", "pgp-keys"),
-                new KeyValuePair<string, string>(".deb", "octet-stream"),
-                new KeyValuePair<string, string>(".dll", "octet-stream"),
-                new KeyValuePair<string, string>(".exe", "octet-stream"),
-                new KeyValuePair<string, string>(".cab", "octet-stream"),
-                new KeyValuePair<string, string>(".cab", "vnd.ms-cab-compressed"),
-                new KeyValuePair<string, string>(".exe", "x-msdos-program"),
-                new KeyValuePair<string, string>(".dll", "x-msdownload"),
-                new KeyValuePair<string, string>(".exe", "x-msdownload"),
-                new KeyValuePair<string, string>(".gz", "x-gzip"),
-                new KeyValuePair<string, string>(".tgz", "x-gzip"),
-                new KeyValuePair<string, string>(".swf", "x-shockwave-flash"),
-                new KeyValuePair<string, string>(".jar", "java-archive"),
-                new KeyValuePair<string, string>(".js", "x-javascript"),
-                new KeyValuePair<string, string>(".js", "javascript"),
-                new KeyValuePair<string, string>(".deb", "x-debian-package"),
-                new KeyValuePair<string, string>(".ico", "x-icon"),
-                new KeyValuePair<string, string>(".ico", Utils.StringManglerUtil.PLAIN_CONTENT_TYPE_EXTENSION),
-                new KeyValuePair<string, string>(".jpg", "jpeg"),
-                new KeyValuePair<string, string>(".htm", "html"),
-                new KeyValuePair<string, string>(".vbs", "vbscript"),
-                new KeyValuePair<string, string>(".crl", "pkix-crl"),
-                new KeyValuePair<string, string>(".svg", "svg+xml"),
-                new KeyValuePair<string, string>(".xls", "vnd.ms-excel"),
-                new KeyValuePair<string, string>(".doc", "msword"),
-                new KeyValuePair<string, string>(".docx", "vnd.openxmlformats-officedocument.wordprocessingml.document"),
-                new KeyValuePair<string, string>(".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-            };
-            /*
-
-            //extensions that should always be replaced to avoid mime-type file extensions
-            /*
-            this.extensionReplacements = new Dictionary<string, string>();
-            this.extensionReplacements.Add("x-javascript", "js");
-            this.extensionReplacements.Add("x-shockwave-flash", ".swf");
-            */
+            
         }
 
         #region ITcpSessionPacketHandler Members
 
-        //public int ExtractData(NetworkTcpSession tcpSession, NetworkHost sourceHost, NetworkHost destinationHost, IEnumerable<Packets.AbstractPacket> packetList) {
         public int ExtractData(NetworkTcpSession tcpSession, bool transferIsClientToServer, IEnumerable<PacketParser.Packets.AbstractPacket> packetList) {
 
             bool successfulExtraction =false;
@@ -324,7 +291,7 @@ namespace PacketParser.PacketHandlers {
                 if(httpPacket.PacketHeaderIsComplete) {
                     //check if it is a POST and content length is small
                     if(httpPacket.RequestMethod!=Packets.HttpPacket.RequestMethods.POST || httpPacket.ContentLength>4096/* used to be 1024*/ || httpPacket.ContentIsComplete()) {
-                        successfulExtraction = ExtractHttpData(httpPacket, tcpPacket, tcpSession.Flow.FiveTuple, transferIsClientToServer, base.MainPacketHandler);
+                        successfulExtraction = this.ExtractHttpData(httpPacket, tcpPacket, tcpSession.Flow.FiveTuple, transferIsClientToServer, base.MainPacketHandler);
                         //successfulExtraction=true;
                     }
 
@@ -493,6 +460,8 @@ namespace PacketParser.PacketHandlers {
                         if (credential != null)
                             mainPacketHandler.AddCredential(credential);
                         if (queryStringData.HasKeys()) {
+                            this.ExtractHostDetailsFromQueryString(sourceHost, queryStringData, out Dictionary<string, string> queryStringDictionary);
+                            /*
                             Dictionary<string, string> queryStringDictionary = new Dictionary<string, string>();
                             foreach (string key in queryStringData.AllKeys)
                                 queryStringDictionary.Add(key, queryStringData[key]);
@@ -509,7 +478,7 @@ namespace PacketParser.PacketHandlers {
                                 if (System.Net.IPAddress.TryParse(queryStringDictionary["mip"], out System.Net.IPAddress ip))
                                     sourceHost.AddNumberedExtraDetail("Public IP address", queryStringDictionary["mip"]);
                             }
-                                
+                             */   
 
                             if (httpPacket.RequestMethod == Packets.HttpPacket.RequestMethods.POST && queryStringDictionary.ContainsKey("a") && queryStringDictionary["a"].Equals("SendMessage")) {
                                 if (!httpPacket.ContentIsComplete())//we must have all the content when parsing AOL data
@@ -520,45 +489,7 @@ namespace PacketParser.PacketHandlers {
 
                     //file transfer stuff
                     (string filename, string fileLocation) = GetFilenameAndLocation(httpPacket.RequestedFileName);
-                    /*
-                    string fileUri = httpPacket.RequestedFileName;
-                    string queryString = null;
-                    if (fileUri.Contains("?")) {
-                        if (fileUri.IndexOf('?') + 1 < fileUri.Length)
-                            queryString = fileUri.Substring(fileUri.IndexOf('?') + 1);
-                        fileUri = fileUri.Substring(0, fileUri.IndexOf('?'));
-                    }
-                    if (fileUri.StartsWith("http://"))
-                        fileUri = fileUri.Substring(7);
-                    if (fileUri.StartsWith("www.") && fileUri.Contains("/"))
-                        fileUri = fileUri.Substring(fileUri.IndexOf("/"));
 
-                    //char[] separators={ '/' };
-                    char[] separators = new char[System.IO.Path.GetInvalidPathChars().Length + 1];
-                    Array.Copy(System.IO.Path.GetInvalidPathChars(), separators, System.IO.Path.GetInvalidPathChars().Length);
-                    separators[separators.Length - 1] = '/';
-
-                    string[] uriParts = fileUri.Split(separators);
-                    string filename;
-                    string fileLocation = "";
-
-                    if (fileUri.EndsWith("/")) {
-                        filename = "index.html";
-                        for (int i = 0; i < uriParts.Length; i++)
-                            if (uriParts[i].Length > 0 && !uriParts[i].Contains(".."))
-                                fileLocation += "/" + uriParts[i];
-                    }
-                    else {
-                        filename = uriParts[uriParts.Length - 1];
-                        for (int i = 0; i < uriParts.Length - 1; i++)
-                            if (uriParts[i].Length > 0 && !uriParts[i].Contains(".."))
-                                fileLocation += "/" + uriParts[i];
-                    }
-
-                    //make sure all queryString-depending dynamic webpages are shown individually
-                    if (queryString != null && queryString.Length > 0 && !ExtensionMimeTypeCombosMatches(filename))
-                        filename += "." + queryString.GetHashCode().ToString("X4");
-                    */
 
                     //I will have to switch source and destination host here since this is only the request, not the actual file transfer!
                     try {
@@ -577,8 +508,6 @@ namespace PacketParser.PacketHandlers {
 
 
                     //Large HTTP POSTs should also be dumped to files
-                    //if(httpPacket.RequestMethod==Packets.HttpPacket.RequestMethods.POST && !httpPacket.ContentIsComplete() && httpPacket.ContentLength>4096 && httpPacket.ContentType.StartsWith("multipart/form-data")) {
-
                     if (httpPacket.RequestMethod == Packets.HttpPacket.RequestMethods.POST) {
 
                         //All Multipart MIME HTTP POSTs should be dumped to file
@@ -652,9 +581,10 @@ namespace PacketParser.PacketHandlers {
                                     mainPacketHandler.AddCredential(jsonCredential);
                             }
                         }
+                        /*
                         else if (httpPacket.ContentType?.StartsWith("application/vnd.wap.mms-message", StringComparison.InvariantCultureIgnoreCase) == true && httpPacket.ContentLength > 0) {
                             //extract MMS parameters
-                            FileTransfer.FileStreamAssembler assembler = new FileTransfer.FileStreamAssembler(mainPacketHandler.FileStreamAssemblerList, fiveTuple, transferIsClientToServer, FileTransfer.FileStreamTypes.HttpPostMms, Utils.StringManglerUtil.ConvertToFilename(fiveTuple.ToString(), 20) + ".MMS", fileLocation, "MMS", httpPacket.ParentFrame.FrameNumber, httpPacket.ParentFrame.Timestamp);
+                            FileTransfer.FileStreamAssembler assembler = new FileTransfer.FileStreamAssembler(mainPacketHandler.FileStreamAssemblerList, fiveTuple, transferIsClientToServer, FileTransfer.FileStreamTypes.HttpPostUpload, Utils.StringManglerUtil.ConvertToFilename(fiveTuple.ToString(), 20) + ".MMS", fileLocation, "MMS", httpPacket.ParentFrame.FrameNumber, httpPacket.ParentFrame.Timestamp);
                             assembler.FileContentLength = httpPacket.ContentLength;
                             assembler.FileSegmentRemainingBytes = httpPacket.ContentLength;
                             mainPacketHandler.FileStreamAssemblerList.Add(assembler);
@@ -664,7 +594,8 @@ namespace PacketParser.PacketHandlers {
                                     assembler.AddData(httpPacket.MessageBody, tcpPacket.SequenceNumber);
                             }
                         }
-                        else {//form data (not multipart)
+                        */
+                        else if(httpPacket.ContentType?.ToLower().Contains("www-form-urlencoded") == true && httpPacket.ContentLength > 0 && httpPacket.MessageBody.Length >= httpPacket.ContentLength) {//form data (not multipart)
                             System.Collections.Generic.List<Mime.MultipartPart> formMultipartData = httpPacket.GetFormData();
                             if (formMultipartData != null) {
                                 foreach (Mime.MultipartPart mimeMultipart in formMultipartData) {
@@ -721,6 +652,22 @@ namespace PacketParser.PacketHandlers {
                                 this.MainPacketHandler.ExtractMultipartFormData(formMultipartData, fiveTuple, transferIsClientToServer, tcpPacket.ParentFrame.Timestamp, httpPacket.ParentFrame.FrameNumber, ApplicationLayerProtocol.Http, cookieParams, httpPacket.RequestedHost);
                             }
                         }
+                        else {
+                            //extract other posted data to file
+                            if(httpPacket.ContentLength > 0) {
+                                filename = AppendMimeContentTypeAsExtension(filename, httpPacket.ContentType);
+                                FileTransfer.FileStreamAssembler assembler = new FileTransfer.FileStreamAssembler(mainPacketHandler.FileStreamAssemblerList, fiveTuple, transferIsClientToServer, FileTransfer.FileStreamTypes.HttpPostUpload, filename, fileLocation, "HTTP POST", httpPacket.ParentFrame.FrameNumber, httpPacket.ParentFrame.Timestamp);
+                                assembler.FileContentLength = httpPacket.ContentLength;
+                                assembler.FileSegmentRemainingBytes = httpPacket.ContentLength;
+                                mainPacketHandler.FileStreamAssemblerList.Add(assembler);
+                                if (assembler.TryActivate()) {
+                                    //assembler is now active
+                                    if (httpPacket.MessageBody != null && httpPacket.MessageBody.Length > 0)
+                                        assembler.AddData(httpPacket.MessageBody, tcpPacket.SequenceNumber);
+                                }
+                            }
+
+                        }
                     }
                 }
 
@@ -743,6 +690,21 @@ namespace PacketParser.PacketHandlers {
                     if(httpHeaders.AllKeys.Contains("Onion-Location")) {
                         Uri onionUri = new Uri(httpHeaders["Onion-Location"]);
                         sourceHost.AddHostName(onionUri.Host, httpPacket.PacketTypeDescription);
+                    }
+                    if (httpHeaders.AllKeys.Contains("Location")) {
+                        if(Uri.TryCreate(httpHeaders["Location"], UriKind.Absolute, out Uri redirectTarget)) {
+                            string query = redirectTarget.Query.TrimStart('?');
+                            System.Collections.Specialized.NameValueCollection q = System.Web.HttpUtility.ParseQueryString(query);
+                            if(q.HasKeys())
+                                this.ExtractHostDetailsFromQueryString(destinationHost, q, out _);
+                            //copied from request parsing code
+                            /*
+                            if (!string.IsNullOrEmpty(q["mip"])) {
+                                if (System.Net.IPAddress.TryParse(q["mip"], out System.Net.IPAddress ip))
+                                    destinationHost.AddNumberedExtraDetail("Public IP address", q["mip"]);
+                            }
+                            */
+                        }
                     }
 
                 }
@@ -847,6 +809,25 @@ namespace PacketParser.PacketHandlers {
 
             }
             return true;
+        }
+
+        private void ExtractHostDetailsFromQueryString(NetworkHost httpClient, System.Collections.Specialized.NameValueCollection queryString, out Dictionary<string, string> queryStringDictionary) {
+            queryStringDictionary = new Dictionary<string, string>();
+            foreach (string key in queryString.AllKeys)
+                queryStringDictionary.Add(key, queryString[key]);
+
+            if (queryStringDictionary.ContainsKey("utmsr"))
+                httpClient.AddNumberedExtraDetail("Screen resolution (Google Analytics)", queryStringDictionary["utmsr"]);
+            if (queryStringDictionary.ContainsKey("utmsc"))
+                httpClient.AddNumberedExtraDetail("Color depth (Google Analytics)", queryStringDictionary["utmsc"]);
+            if (queryStringDictionary.ContainsKey("utmul"))
+                httpClient.AddNumberedExtraDetail("Browser language (Google Analytics)", queryStringDictionary["utmul"]);
+            if (queryStringDictionary.ContainsKey("utmfl"))
+                httpClient.AddNumberedExtraDetail("Flash version (Google Analytics)", queryStringDictionary["utmfl"]);
+            if (queryStringDictionary.ContainsKey("mip")) {
+                if (System.Net.IPAddress.TryParse(queryStringDictionary["mip"], out System.Net.IPAddress ip))
+                    httpClient.AddNumberedExtraDetail("Public IP address", queryStringDictionary["mip"]);
+            }
         }
 
         private System.Collections.Specialized.NameValueCollection GetJsonParams(System.Xml.XmlReader jsonReader) {

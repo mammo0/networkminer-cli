@@ -12,7 +12,7 @@ using System.Text;
 namespace PacketParser.PacketHandlers {
 
     //http://cr.yp.to/ftp.html
-    class FtpPacketHandler : AbstractPacketHandler, ITcpSessionPacketHandler{
+    class FtpPacketHandler : AbstractPacketHandler, ITcpSessionPacketHandler {
 
         private class FtpSession{
             private NetworkHost ftpClient, ftpServer;
@@ -150,7 +150,7 @@ namespace PacketParser.PacketHandlers {
 
         public override Type ParsedType { get { return typeof(Packets.FtpPacket); } }
         public override bool CanParse(HashSet<Type> packetTypeSet) {
-            return true;
+            return packetTypeSet.Contains(this.ParsedType) || packetTypeSet.Contains(typeof(Packets.TcpPacket));
         }
 
         public ApplicationLayerProtocol HandledProtocol {
@@ -168,18 +168,7 @@ namespace PacketParser.PacketHandlers {
 
         #region ITcpSessionPacketHandler Members
 
-        //public int ExtractData(NetworkTcpSession tcpSession, NetworkHost sourceHost, NetworkHost destinationHost, IEnumerable<Packets.AbstractPacket> packetList) {
         public int ExtractData(NetworkTcpSession tcpSession, bool transferIsClientToServer, IEnumerable<PacketParser.Packets.AbstractPacket> packetList) {
-            /*
-            NetworkHost sourceHost, destinationHost;
-            if (transferIsClientToServer) {
-                sourceHost = tcpSession.Flow.FiveTuple.ClientHost;
-                destinationHost = tcpSession.Flow.FiveTuple.ServerHost;
-            }
-            else {
-                sourceHost = tcpSession.Flow.FiveTuple.ServerHost;
-                destinationHost = tcpSession.Flow.FiveTuple.ClientHost;
-            }*/
 
             Packets.TcpPacket tcpPacket=null;
             Packets.FtpPacket ftpPacket=null;

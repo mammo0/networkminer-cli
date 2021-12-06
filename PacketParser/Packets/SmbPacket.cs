@@ -728,7 +728,7 @@ namespace PacketParser.Packets {
                     base.SecurityBlobLength = Utils.ByteConverter.ToUInt16(base.ParentFrame.Data, base.PacketStartIndex + 14, true);
                     int packetIndex = base.PacketStartIndex + 26+base.SecurityBlobLength;
                     if(parentCifsPacket.Flags2UnicodeStrings && ((packetIndex-parentCifsPacket.SmbHeaderStartIndex)%2==1))
-                        packetIndex++;//must start on a word boundrary (2 bytes)
+                        packetIndex++;//must start on a word boundary (2 bytes)
                     this.nativeOs = Utils.ByteConverter.ReadNullTerminatedString(base.ParentFrame.Data, ref packetIndex, parentCifsPacket.Flags2UnicodeStrings, true);
                     this.nativeLanManager = Utils.ByteConverter.ReadNullTerminatedString(base.ParentFrame.Data, ref packetIndex, parentCifsPacket.Flags2UnicodeStrings, true);
                 }

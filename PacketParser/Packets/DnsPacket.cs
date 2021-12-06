@@ -13,13 +13,36 @@ namespace PacketParser.Packets {
     //DNS
     //http://www.ietf.org/rfc/rfc1035.txt
     public class DnsPacket : AbstractPacket {
-        public enum RRTypes : uint {
-            HostAddress = 0x0001,
-            CNAME = 0x0005,
-            DomainNamePointer = 0x000c,
-            AAAA = 0x001c,
-            NB = 0x0020,
-            NBSTAT = 0x0021
+        public enum RRTypes : ushort {
+            HostAddress = 1,//A
+            CNAME = 5,
+            DomainNamePointer = 12,//PTR
+            AAAA = 28,
+            NB = 32,
+            //NBSTAT = 33,//obsolete replaced by SRV!
+            //new added 2021-06-01
+            A = 1, //a host address
+            NS = 2, //an authoritative name server
+            MD = 3, //a mail destination (Obsolete - use MX)
+            MF = 4, //a mail forwarder(Obsolete - use MX)
+            //CNAME = 5, //the canonical name for an alias
+            SOA = 6, //marks the start of a zone of authority
+            MB = 7, //a mailbox domain name(EXPERIMENTAL)
+            MG = 8, //a mail group member(EXPERIMENTAL)
+            MR = 9, //a mail rename domain name(EXPERIMENTAL)
+            NULL = 10, //a null RR(EXPERIMENTAL)
+            WKS = 11, //a well known service description
+            PTR = 12, //a domain name pointer
+            HINFO = 13, //host information
+            MINFO = 14, //mailbox or mail list information
+            MX = 15, //mail exchange
+            TXT = 16, //text strings
+            AXFR = 252, //A request for a transfer of an entire zone
+            MAILB = 253, //A request for mailbox-related records (MB, MG or MR)
+            MAILA = 254, //A request for mail agent RRs(Obsolete - see MX)
+            ALL = 255,// Actually query type "*". A request for all records
+            //https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml
+            SRV = 33 //Server Selection [RFC2782]. Same value as NBSTAT
         }
 
 
@@ -66,14 +89,8 @@ namespace PacketParser.Packets {
             return nameLabels;
         }
 
-        //header
-        private ushort transactionID;
-
-        private HeaderFlags headerFlags;
         private ushort questionCount;//Unsigned 16 bit integer specifying the number of entries in the question section of a Name
         private ushort answerCount;
-        private ushort nameServerCount;
-        private ushort additionalCount;
 
         //question section
         private int questionSectionByteCount;
@@ -82,11 +99,10 @@ namespace PacketParser.Packets {
         private ushort questionType;//NB == 0x0020, NBSTAT == 0x0021, Domain Name Pointer=0x000c
         private ushort questionClass;//Internet Class: 0x0001
 
-        private ResourceRecord[] answerRecords;
-
-        public ushort TransactionId { get { return this.transactionID; } }
-        public HeaderFlags Flags { get { return this.headerFlags; } }
-        public ResourceRecord[] AnswerRecords { get { return this.answerRecords; } }
+        public int SkippedBytes { get; } = 0;//increased when start of DNS packet isn't at offset 0, such as in DNS over TCP
+        public ushort TransactionId { get; }
+        public HeaderFlags Flags { get; }
+        public ResourceRecord[] AnswerRecords { get; }
         public string QueriedDnsName {
             get {
                 if(questionCount>0) {
@@ -113,13 +129,13 @@ namespace PacketParser.Packets {
         //additional
 
         public static bool TryParse(Frame parentFrame, int packetStartIndex, int packetEndIndex, bool lengthPrefix, out DnsPacket dnsPacket) {
-            const ushort INSANE_MAX_LENGTH = 0x8000;//32 kB
+            //const int MAX_LENGTH = ushort.MaxValue;//64 kB
             dnsPacket = null;
             if(lengthPrefix) {
                 ushort packetLength = Utils.ByteConverter.ToUInt16(parentFrame.Data, packetStartIndex);
                 if (packetLength < 4)
                     return false;
-                else if (packetLength > INSANE_MAX_LENGTH)
+                else if(packetStartIndex + packetLength + 1 > packetEndIndex)
                     return false;
             }
             try {
@@ -137,47 +153,37 @@ namespace PacketParser.Packets {
             
             if (lengthPrefix) {//Typically when parsing DNS over TCP
                 ushort packetLength = Utils.ByteConverter.ToUInt16(parentFrame.Data, packetStartIndex);
+                this.SkippedBytes += 2;
                 packetStartIndex += 2;
                 base.PacketStartIndex += 2;
                 base.PacketEndIndex = Math.Min(base.PacketEndIndex, base.PacketStartIndex + packetLength - 1);
             }
             //header
-            this.transactionID = Utils.ByteConverter.ToUInt16(parentFrame.Data, packetStartIndex);
-            this.headerFlags = new HeaderFlags(Utils.ByteConverter.ToUInt16(parentFrame.Data, packetStartIndex + 2));
+            this.TransactionId = Utils.ByteConverter.ToUInt16(parentFrame.Data, packetStartIndex);
+            this.Flags = new HeaderFlags(Utils.ByteConverter.ToUInt16(parentFrame.Data, packetStartIndex + 2));
             if (!this.ParentFrame.QuickParse) {
-                if (this.headerFlags.Response)
+                if (this.Flags.Response)
                     this.Attributes.Add("Type", "Response");
                 else
                     this.Attributes.Add("Type", "Request");
-                if (this.headerFlags.OperationCode == (byte)HeaderFlags.OperationCodes.Query)
+                if (this.Flags.OperationCode == (byte)HeaderFlags.OperationCodes.Query)
                     this.Attributes.Add("Operation", "Standard Query");
-                else if (this.headerFlags.OperationCode == (byte)HeaderFlags.OperationCodes.InverseQuery)
+                else if (this.Flags.OperationCode == (byte)HeaderFlags.OperationCodes.InverseQuery)
                     this.Attributes.Add("Operation", "Inverse Query");
             }
 
             //NetworkMiner currently does not handle Dynamic Update (operation code 5)
-            if(this.headerFlags.OperationCode < 5) {
+            if(this.Flags.OperationCode < 5) {
 
                 this.questionCount = Utils.ByteConverter.ToUInt16(parentFrame.Data, packetStartIndex + 4);
                 if (this.questionCount > 64)
                     throw new Exception("Too many questions in DNS: " + this.questionCount);//this is probably not DNS
                 this.answerCount = Utils.ByteConverter.ToUInt16(parentFrame.Data, packetStartIndex + 6);
-                this.answerRecords=new ResourceRecord[answerCount];
+                this.AnswerRecords=new ResourceRecord[this.answerCount];
 
-                if(questionCount>0) {
-                    //this.questionSectionByteCount=0;
-
-                    //List<NameLabel> nameLabelList=GetNameLabelList(parentFrame.Data, packetStartIndex+12);
+                if(this.questionCount > 0) {
                     int typeStartOffset;
                     List<NameLabel> nameLabelList=GetNameLabelList(parentFrame.Data, packetStartIndex, 12, out typeStartOffset);
-                    /*
-                    foreach(NameLabel label in nameLabelList) {
-                        questionSectionByteCount+=label.LabelByteCount+1;
-                    }
-                     * */
-
-
-                    //this.questionSectionByteCount++;//add the last 0x00 terminator
                     this.questionSectionByteCount=typeStartOffset-12;
 
                     //we have now decoded the name!
@@ -185,12 +191,10 @@ namespace PacketParser.Packets {
                     for(int i=0; i<nameLabelList.Count; i++)
                         this.questionNameDecoded[i]=nameLabelList[i].ToString();
                     
-                    //this.questionType=ByteConverter.ToUInt16(parentFrame.Data, packetStartIndex+12+questionSectionByteCount);
                     this.questionType = Utils.ByteConverter.ToUInt16(parentFrame.Data, packetStartIndex + typeStartOffset);
-                    questionSectionByteCount+=2;
-                    //this.questionClass=ByteConverter.ToUInt16(parentFrame.Data, packetStartIndex+12+questionSectionByteCount);
+                    this.questionSectionByteCount +=2;
                     this.questionClass = Utils.ByteConverter.ToUInt16(parentFrame.Data, packetStartIndex + typeStartOffset + 2);
-                    questionSectionByteCount+=2;
+                    this.questionSectionByteCount +=2;
                 }
                 else {
                     this.questionSectionByteCount=0;
@@ -198,19 +202,15 @@ namespace PacketParser.Packets {
                 }
                 //ANSWER RESOURCE RECORDS
                 int packetPositionIndex=packetStartIndex+12+questionSectionByteCount;
-                for(int i=0; i<answerRecords.Length; i++) {
-                    //ResourceRecord answerRecord in answerRecords) {
-                    answerRecords[i]=new ResourceRecord(this, packetPositionIndex);
-                    packetPositionIndex+=answerRecords[i].ByteCount;
-
-
-                    //decodedName.ToString();
+                for(int i=0; i < this.AnswerRecords.Length; i++) {
+                    this.AnswerRecords[i]=new ResourceRecord(this, packetPositionIndex);
+                    packetPositionIndex+= this.AnswerRecords[i].ByteCount;
                     if (!this.ParentFrame.QuickParse) {
-                        if (answerRecords[i].Type == (ushort)RRTypes.HostAddress) {
-                            if (answerRecords[i].IP != null)
-                                this.Attributes.Add("IP", answerRecords[i].IP.ToString());
-                            if (answerRecords[i].DNS != null)
-                                this.Attributes.Add("DNS", answerRecords[i].DNS);
+                        if (this.AnswerRecords[i].Type == (ushort)RRTypes.HostAddress) {
+                            if (this.AnswerRecords[i].IP != null)
+                                this.Attributes.Add("IP", this.AnswerRecords[i].IP.ToString());
+                            if (this.AnswerRecords[i].DNS != null)
+                                this.Attributes.Add("DNS", this.AnswerRecords[i].DNS);
                         }
                     }
                 }
@@ -258,12 +258,11 @@ namespace PacketParser.Packets {
         public class NameLabel {
             //private byte[] sourceData;
             private int labelStartPosition;//the position
-            private byte labelByteCount;
             private StringBuilder decodedName;
 
-            internal byte LabelByteCount { get { return this.labelByteCount; } }//if this is zero wh have a terminator
+            internal byte LabelByteCount { get; }//if this is zero wh have a terminator
             public override string ToString() {
-                return decodedName.ToString();
+                return this.decodedName.ToString();
             }
 
             internal NameLabel(byte[] sourceData, int labelStartPosition) {
@@ -271,14 +270,14 @@ namespace PacketParser.Packets {
                 //this.labelByteCount=0;
                 this.decodedName=new StringBuilder();
 
-                labelByteCount=sourceData[labelStartPosition];//max 63
-                if(labelByteCount>63)
-                    throw new Exception("DNS Name label is larger than 63 : "+labelByteCount+" at position "+labelStartPosition);
+                this.LabelByteCount =sourceData[labelStartPosition];//max 63
+                if(this.LabelByteCount >63)
+                    throw new Exception("DNS Name label is larger than 63 : "+LabelByteCount+" at position "+labelStartPosition);
                     //labelByteCount=63;//NO! of the first two bits are 1:s we will have to go somewhere else! See RFC-1035 3.1 "Name space definitions"
                 
                 else
-                    for(byte b=0; b<labelByteCount; b++)
-                        decodedName.Append((char)sourceData[labelStartPosition+1+b]);
+                    for(byte b=0; b<LabelByteCount; b++)
+                        this.decodedName.Append((char)sourceData[labelStartPosition+1+b]);
             }
 
         }
@@ -289,20 +288,15 @@ namespace PacketParser.Packets {
             TimeSpan TimeToLive { get; }
             System.Net.IPAddress IP { get; }
             string PrimaryName { get; }
+            string TXT { get; }
             ushort Type { get; }
         }
 
         public class ResponseWithErrorCode : IDnsResponseInfo {
-
-            private DnsPacket parentPacket;
-            private string queriedDns = null;
-
-            public DnsPacket ParentPacket {
-                get { return this.parentPacket; }
-            }
+            public DnsPacket ParentPacket { get; }
 
             public string DNS {
-                get { return this.parentPacket.QueriedDnsName; }
+                get { return this.ParentPacket.QueriedDnsName; }
             }
 
             public TimeSpan TimeToLive {
@@ -321,15 +315,19 @@ namespace PacketParser.Packets {
                 get { return 0; }
             }
 
+            public string TXT {
+                get { return null; }
+            }
+
             public string GetResultCodeString() {
-                return this.RCode() + " (flags 0x" + this.parentPacket.Flags.ToString() + ")";
+                return this.RCode() + " (flags 0x" + this.ParentPacket.Flags.ToString() + ")";
             }
 
             public string RCode() {
                 //http://www.ietf.org/rfc/rfc1035.txt
 
 
-                byte rcode = parentPacket.Flags.ResultCode;
+                byte rcode = this.ParentPacket.Flags.ResultCode;
 
                 if (rcode == 0) return "No error condition";
                 else if (rcode == 1) return "Format error";
@@ -342,31 +340,28 @@ namespace PacketParser.Packets {
             }
 
             public ResponseWithErrorCode(DnsPacket parentPacket) {
-                this.parentPacket = parentPacket;
+                this.ParentPacket = parentPacket;
                
             }
         }
 
         public class ResourceRecord : IDnsResponseInfo  {//for example answers/replies
             private string[] answerRequestedNameDecoded;
-            private ushort answerType;//NB == 0x0020, NBSTAT == 0x0021, Domain Name Pointer=0x000c, Host address=0x0001
             private ushort answerClass;//Internet Class: 0x0001
             private uint answerTimeToLive;//seconds
             private ushort answerDataLength;
             private string[] answerRepliedNameDecoded;
-            private DnsPacket parentPacket;
-            private int recordByteCount;//number of bytes...
 
-            public DnsPacket ParentPacket { get { return this.parentPacket; } }
-            public ushort Type { get { return this.answerType; } }
-            public TimeSpan TimeToLive { get { return new TimeSpan(0, 0, (int)answerTimeToLive); } }
-            public int ByteCount { get { return this.recordByteCount; } }
+            public DnsPacket ParentPacket { get; }
+            public ushort Type { get; }
+            public TimeSpan TimeToLive { get { return new TimeSpan(0, 0, (int)this.answerTimeToLive); } }
+            public int ByteCount { get; }
             public System.Net.IPAddress IP {
                 //kolla antingen answerType eller OPCODE i headerFlags
 
                 get {
                     //if(this.questionType
-                    if(parentPacket.headerFlags.OperationCode==(byte)HeaderFlags.OperationCodes.Query && this.answerType==(ushort)RRTypes.HostAddress) {//request=IPv4
+                    if(this.ParentPacket.Flags.OperationCode==(byte)HeaderFlags.OperationCodes.Query && this.Type==(ushort)RRTypes.HostAddress) {//request=IPv4
                         try {
                             byte[] ip=new byte[4];
                             for(int i=0; i<4; i++)
@@ -377,7 +372,7 @@ namespace PacketParser.Packets {
                             return null;
                         }
                     }
-                    else if (parentPacket.headerFlags.OperationCode == (byte)HeaderFlags.OperationCodes.Query && this.answerType == (ushort)RRTypes.AAAA) {//request=IPv6
+                    else if (this.ParentPacket.Flags.OperationCode == (byte)HeaderFlags.OperationCodes.Query && this.Type == (ushort)RRTypes.AAAA) {//request=IPv6
                         try {
                             byte[] ip = new byte[16];
                             for (int i = 0; i < ip.Length; i++)
@@ -388,7 +383,7 @@ namespace PacketParser.Packets {
                             return null;
                         }
                     }
-                    else if (parentPacket.headerFlags.OperationCode==(byte)HeaderFlags.OperationCodes.InverseQuery) {//den har datat som typ 154.23.233.11.int-adr.arpa.net
+                    else if (this.ParentPacket.Flags.OperationCode==(byte)HeaderFlags.OperationCodes.InverseQuery) {//den har datat som typ 154.23.233.11.int-adr.arpa.net
                         try {
                             byte[] ip=new byte[4];
                             for(int i=0; i<4; i++)
@@ -405,13 +400,13 @@ namespace PacketParser.Packets {
             }
             public string PrimaryName {//Instead of IP for CNAME packets
                 get {
-                    if(answerType==(ushort)RRTypes.CNAME) {
-                        if(answerRepliedNameDecoded!=null && answerRepliedNameDecoded.Length>0) {
+                    if(this.Type ==(ushort)RRTypes.CNAME || this.Type == (ushort)RRTypes.SRV) {
+                        if(this.answerRepliedNameDecoded !=null && this.answerRepliedNameDecoded.Length>0) {
                             StringBuilder sb=new StringBuilder();
-                            for(int i=0; i<answerRepliedNameDecoded.Length; i++) {
+                            for(int i=0; i< this.answerRepliedNameDecoded.Length; i++) {
                                 if(i>0)
                                     sb.Append(".");
-                                sb.Append(answerRepliedNameDecoded[i]);
+                                sb.Append(this.answerRepliedNameDecoded[i]);
                             }
                             return sb.ToString();
                         }
@@ -423,29 +418,37 @@ namespace PacketParser.Packets {
                         return null;
                 }
             }
+            public string TXT {
+                get {
+                    if (this.Type == (ushort)RRTypes.TXT && this.answerRepliedNameDecoded != null) {
+                        return string.Concat(this.answerRepliedNameDecoded);
+                    }
+                    else return null;
+                }
+            }
             public string DNS {
                 //kolla antingen answerType eller OPCODE i headerFlags
                 get {
-                    if(parentPacket.headerFlags.OperationCode==(byte)HeaderFlags.OperationCodes.Query) {
-                        if(answerRequestedNameDecoded!=null && answerRequestedNameDecoded.Length>0) {
+                    if(this.ParentPacket.Flags.OperationCode==(byte)HeaderFlags.OperationCodes.Query) {
+                        if(this.answerRequestedNameDecoded !=null && this.answerRequestedNameDecoded.Length>0) {
                             StringBuilder sb=new StringBuilder();
-                            for(int i=0; i<answerRequestedNameDecoded.Length; i++) {
+                            for(int i=0; i< this.answerRequestedNameDecoded.Length; i++) {
                                 if(i>0)
                                     sb.Append(".");
-                                sb.Append(answerRequestedNameDecoded[i]);
+                                sb.Append(this.answerRequestedNameDecoded[i]);
                             }
                             return sb.ToString();
                         }
                         else
                             return null;
                     }
-                    else if(parentPacket.headerFlags.OperationCode==(byte)HeaderFlags.OperationCodes.InverseQuery) {//request=IP
-                        if(answerRepliedNameDecoded!=null && answerRepliedNameDecoded.Length>0) {
+                    else if(this.ParentPacket.Flags.OperationCode==(byte)HeaderFlags.OperationCodes.InverseQuery) {//request=IP
+                        if(this.answerRepliedNameDecoded !=null && this.answerRepliedNameDecoded.Length>0) {
                             StringBuilder sb=new StringBuilder();
-                            for(int i=0; i<answerRepliedNameDecoded.Length; i++) {
+                            for(int i=0; i< this.answerRepliedNameDecoded.Length; i++) {
                                 if(i>0)
                                     sb.Append(".");
-                                sb.Append(answerRepliedNameDecoded[i]);
+                                sb.Append(this.answerRepliedNameDecoded[i]);
                             }
                             return sb.ToString();
                         }
@@ -459,46 +462,66 @@ namespace PacketParser.Packets {
             }
 
             public ResourceRecord(DnsPacket parentPacket, int startIndex) {
-                this.parentPacket=parentPacket;
+                this.ParentPacket=parentPacket;
                 int typeStartOffset;
-                List<NameLabel> nameLabelList=GetNameLabelList(parentPacket.ParentFrame.Data, parentPacket.PacketStartIndex, startIndex-parentPacket.PacketStartIndex, out typeStartOffset);
+                List<NameLabel> nameLabelList = GetNameLabelList(parentPacket.ParentFrame.Data, parentPacket.PacketStartIndex, startIndex - parentPacket.PacketStartIndex, out typeStartOffset);
 
                 this.answerRequestedNameDecoded=new string[nameLabelList.Count];
                 for(int i=0; i<nameLabelList.Count; i++)
                     this.answerRequestedNameDecoded[i]=nameLabelList[i].ToString();
-                /*
-                this.answerType=ByteConverter.ToUInt16(parentPacket.ParentFrame.Data, startIndex+2);
-                this.answerClass=ByteConverter.ToUInt16(parentPacket.ParentFrame.Data, startIndex+4);
-                this.answerTimeToLive=ByteConverter.ToUInt32(parentPacket.ParentFrame.Data, startIndex+6);
-                this.answerDataLength=ByteConverter.ToUInt16(parentPacket.ParentFrame.Data, startIndex+10);
-                */
-                this.answerType = Utils.ByteConverter.ToUInt16(parentPacket.ParentFrame.Data, parentPacket.PacketStartIndex + typeStartOffset);
+
+                this.Type = Utils.ByteConverter.ToUInt16(parentPacket.ParentFrame.Data, parentPacket.PacketStartIndex + typeStartOffset);
                 this.answerClass = Utils.ByteConverter.ToUInt16(parentPacket.ParentFrame.Data, parentPacket.PacketStartIndex + typeStartOffset + 2);
                 this.answerTimeToLive = Utils.ByteConverter.ToUInt32(parentPacket.ParentFrame.Data, parentPacket.PacketStartIndex + typeStartOffset + 4);
                 this.answerDataLength = Utils.ByteConverter.ToUInt16(parentPacket.ParentFrame.Data, parentPacket.PacketStartIndex + typeStartOffset + 8);
 
-                //this.recordByteCount=12+answerDataLength;
-                this.recordByteCount=typeStartOffset-startIndex+parentPacket.PacketStartIndex+10+answerDataLength;
+                this.ByteCount = typeStartOffset - startIndex + parentPacket.PacketStartIndex + 10 + this.answerDataLength;
+                if (parentPacket.Flags.OperationCode == (byte)HeaderFlags.OperationCodes.Query) {
+                    if (this.Type == (ushort)RRTypes.CNAME) {
+                        List<NameLabel> answerRepliedName = GetNameLabelList(parentPacket.ParentFrame.Data, parentPacket.PacketStartIndex, startIndex + this.ByteCount - this.answerDataLength - parentPacket.PacketStartIndex, out typeStartOffset);
 
+                        this.answerRepliedNameDecoded = new string[answerRepliedName.Count];
+                        for (int i = 0; i < answerRepliedName.Count; i++)
+                            this.answerRepliedNameDecoded[i] = answerRepliedName[i].ToString();
+                    }
+                    else if(this.Type == (ushort)RRTypes.TXT) {
+                        List<string> txtStrings = new List<string>();
+                        for(int i =0; i < this.answerDataLength; i++) {
+                            //byte txtLength = parentPacket.ParentFrame.Data[parentPacket.PacketStartIndex + typeStartOffset + 10 + i];
+                            byte txtLength = parentPacket.ParentFrame.Data[startIndex + this.ByteCount - this.answerDataLength + i];
+                            string txtData = ASCIIEncoding.ASCII.GetString(parentPacket.ParentFrame.Data, parentPacket.PacketStartIndex + typeStartOffset + 10 + i + 1, txtLength);
+                            txtStrings.Add(txtData);
+                            i += txtLength;
+                        }
+                        this.answerRepliedNameDecoded = txtStrings.ToArray();
 
-                //kolla....
-                if (parentPacket.Flags.OperationCode == (byte)HeaderFlags.OperationCodes.Query && this.answerType != (ushort)RRTypes.CNAME) {
-                    this.answerRepliedNameDecoded = new string[answerDataLength];
-                    for (int i = 0; i < answerDataLength; i++) {
-                        //this.answerRepliedNameDecoded[i] = parentPacket.ParentFrame.Data[startIndex + 12 + i].ToString();
-                        this.answerRepliedNameDecoded[i] = parentPacket.ParentFrame.Data[startIndex + this.recordByteCount - answerDataLength + i].ToString();//the answer is at the end
+                        //TODO a series(?) of 1 byte length, then data TXT records
+                        //List<NameLabel> txtData = GetNameLabelList(parentPacket.ParentFrame.Data, parentPacket.PacketStartIndex, startIndex + this.ByteCount - this.answerDataLength - parentPacket.PacketStartIndex, out typeStartOffset);
+                        /*
+                        for (int i = 0; i < this.answerDataLength; i++) {
+                            byte length = parentPacket.ParentFrame.Data[startIndex + this.ByteCount - this.answerDataLength - parentPacket.PacketStartIndex];
+                            string txtData = 
+                        }
+                        */
+                    }
+                    else if(this.Type == (ushort)RRTypes.SRV) {
+                        //https://datatracker.ietf.org/doc/html/rfc2782
+                        ushort priority = Utils.ByteConverter.ToUInt16(parentPacket.ParentFrame.Data, startIndex + this.ByteCount - this.answerDataLength);
+                        ushort weight = Utils.ByteConverter.ToUInt16(parentPacket.ParentFrame.Data, startIndex + this.ByteCount - this.answerDataLength + 2);
+                        ushort port = Utils.ByteConverter.ToUInt16(parentPacket.ParentFrame.Data, startIndex + this.ByteCount - this.answerDataLength + 4);
+                        var target = GetNameLabelList(parentPacket.ParentFrame.Data, parentPacket.PacketStartIndex, startIndex + this.ByteCount - this.answerDataLength + 6 - parentPacket.PacketStartIndex, out _);
+                        this.answerRepliedNameDecoded = new string[target.Count];
+                        for (int i = 0; i < target.Count; i++)
+                            this.answerRepliedNameDecoded[i] = target[i].ToString();
+                    }
+                    else {
+                        this.answerRepliedNameDecoded = new string[this.answerDataLength];
+                        for (int i = 0; i < this.answerDataLength; i++) {
+                            this.answerRepliedNameDecoded[i] = parentPacket.ParentFrame.Data[startIndex + this.ByteCount - this.answerDataLength + i].ToString();//the answer is at the end
+                        }
                     }
                 }
-                else if (parentPacket.Flags.OperationCode == (byte)HeaderFlags.OperationCodes.Query && this.answerType == (ushort)RRTypes.CNAME) {
-                    //List<NameLabel> answerRepliedName = GetNameLabelList(parentPacket.ParentFrame.Data, parentPacket.PacketStartIndex, startIndex + 12 - parentPacket.PacketStartIndex, out typeStartOffset);
-                    List<NameLabel> answerRepliedName = GetNameLabelList(parentPacket.ParentFrame.Data, parentPacket.PacketStartIndex, startIndex + this.recordByteCount - answerDataLength - parentPacket.PacketStartIndex, out typeStartOffset);
-
-                    this.answerRepliedNameDecoded = new string[answerRepliedName.Count];
-                    for (int i = 0; i < answerRepliedName.Count; i++)
-                        this.answerRepliedNameDecoded[i] = answerRepliedName[i].ToString();
-                }
                 else if (parentPacket.Flags.OperationCode == (byte)HeaderFlags.OperationCodes.InverseQuery) {
-                    //nameLabelList=GetNameLabelList(parentPacket.ParentFrame.Data, startIndex+12);
                     nameLabelList = GetNameLabelList(parentPacket.ParentFrame.Data, parentPacket.PacketStartIndex, startIndex + 12 - parentPacket.PacketStartIndex, out typeStartOffset);
 
                     this.answerRepliedNameDecoded = new string[nameLabelList.Count];

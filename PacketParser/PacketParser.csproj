@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <!--<TargetFramework>netstandard2.0</TargetFramework>-->
-    <TargetFramework>net472</TargetFramework>
+  <TargetFramework>net472</TargetFramework>
     <Company>NETRESEC</Company>
     <Authors>Erik Hjelmvik</Authors>
     <AssemblyVersion>2.6.0</AssemblyVersion>
@@ -77,8 +77,8 @@
     <ProjectReference Include="..\SharedUtils\SharedUtils.csproj" />
   </ItemGroup>
 
-<!--System.Web is required when targeting net472, but not for netstandard2.0
--->
+<!--System.Web is required when targeting net472, but not for netstandard2.0-->
+
   <ItemGroup>
     <Reference Include="System.Web" />
   </ItemGroup>

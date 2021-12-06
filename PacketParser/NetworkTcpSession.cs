@@ -293,7 +293,7 @@ namespace PacketParser {
                             this.serverToClientTcpDataStream=new TcpDataStream(tcpPacket.SequenceNumber, false, this);
                         if (this.requiredNextTcpDataStreamIsClientToServer == null && this.serverToClientTcpDataStream.TotalByteCount == 0)
                             this.requiredNextTcpDataStreamIsClientToServer = false;
-                        this.serverToClientTcpDataStream.AddTcpData(tcpPacket.SequenceNumber, tcpSegmentData);
+                        this.serverToClientTcpDataStream.AddTcpData(tcpPacket.SequenceNumber, tcpSegmentData, tcpPacket.FlagBits);
                     }
                     else {
                         networkServiceMetadata.IncomingTraffic.AddTcpPayloadData(tcpSegmentData);
@@ -302,7 +302,7 @@ namespace PacketParser {
                             this.clientToServerTcpDataStream = new TcpDataStream(tcpPacket.SequenceNumber,true, this);
                         if (this.requiredNextTcpDataStreamIsClientToServer == null && this.clientToServerTcpDataStream.TotalByteCount == 0)
                             this.requiredNextTcpDataStreamIsClientToServer = true;
-                        this.clientToServerTcpDataStream.AddTcpData(tcpPacket.SequenceNumber, tcpSegmentData);
+                        this.clientToServerTcpDataStream.AddTcpData(tcpPacket.SequenceNumber, tcpSegmentData, tcpPacket.FlagBits);
                     }
                 }
                 catch(Exception ex) {
@@ -460,7 +460,7 @@ namespace PacketParser {
                 return  this.TotalByteCount<this.expectedTcpSequenceNumber-this.initialTcpSequenceNumber;
             }
 
-            public void AddTcpData(uint tcpSequenceNumber, byte[] tcpSegmentData) {
+            public void AddTcpData(uint tcpSequenceNumber, byte[] tcpSegmentData, Packets.TcpPacket.Flags tcpFlags) {
 
                 if(tcpSegmentData.Length>0) {//It is VERY important that no 0 length data arrays are added! There is otherwise a big risk for getting stuck in forever-loops etc.
 
@@ -480,14 +480,14 @@ namespace PacketParser {
                         this.expectedTcpSequenceNumber = tcpSequenceNumber;
                     }
                     //A check that the tcpSequenceNumber is a reasonable one, i.e. not smaller than expected and not too large
-                    if ((int)(expectedTcpSequenceNumber-tcpSequenceNumber)<=0 && tcpSequenceNumber-expectedTcpSequenceNumber<1234567) {
+                    if ((int)(this.expectedTcpSequenceNumber -tcpSequenceNumber)<=0 && tcpSequenceNumber-expectedTcpSequenceNumber<1234567) {
 
 
 
-                        if(!dataList.ContainsKey(tcpSequenceNumber)) {
+                        if(!this.dataList.ContainsKey(tcpSequenceNumber)) {
                             
                             //handle partially overlapping TCP segments that have arrived previously
-                            IList<uint> tcpSequenceNumbers = dataList.Keys;
+                            IList<uint> tcpSequenceNumbers = this.dataList.Keys;
                             //we wanna know if we already have an already stored sequence nr. where: new tcpSeqNr < stored tcpSeqNr < new tcpSeqNr + new tcpSeqData.Length
                             
                             /*
@@ -519,25 +519,21 @@ namespace PacketParser {
                                     tcpSegmentData = newSegmentData;
                                 }
                             }
-                            //avoid addint TCP keep-alive null-data (one byte)
-                            // a keepalive contains 0 or 1 bytes of data and has a sequence nr that is next_expected-1, never SYN/FIN/RST
-                            //if (tcpSegmentData.Length == 1 && tcpSegmentData[0] == 0)
-                            //    System.Diagnostics.Debugger.Break();
-
+                            //A keepalive contains 0 or 1 bytes of data and has a sequence nr that is next_expected-1, never SYN/FIN/RST
                             //Avoid adding TCP data for TCP-keepalives with "fake" one-byte L7 data (null value)
-                            if (tcpSegmentData.Length > 1 || tcpSegmentData[0] != 0 || this.TotalByteCount > 0) {
-                                dataList.Add(tcpSequenceNumber, tcpSegmentData);
+                            if (tcpSegmentData.Length > 1 || tcpSegmentData[0] != 0 || this.TotalByteCount > 0 || tcpFlags.Push) {
+                                this.dataList.Add(tcpSequenceNumber, tcpSegmentData);
                                 this.TotalByteCount += tcpSegmentData.Length;
                             }
-                            
-                            if(expectedTcpSequenceNumber==tcpSequenceNumber) {
-                                expectedTcpSequenceNumber+=(uint)tcpSegmentData.Length;
+
+                            if(this.expectedTcpSequenceNumber ==tcpSequenceNumber) {
+                                this.expectedTcpSequenceNumber +=(uint)tcpSegmentData.Length;
                                 //check if there are other packets that arrived too early that follows this packet
-                                while(dataList.ContainsKey(expectedTcpSequenceNumber))
-                                    expectedTcpSequenceNumber+=(uint)dataList[expectedTcpSequenceNumber].Length;
+                                while(this.dataList.ContainsKey(this.expectedTcpSequenceNumber))
+                                    this.expectedTcpSequenceNumber +=(uint)this.dataList[expectedTcpSequenceNumber].Length;
                             }
 
-                            while(dataList.Count>this.dataListMaxSize) {
+                            while(this.dataList.Count>this.dataListMaxSize) {
                                 if (!this.dataListIsTruncated) {
                                     SharedUtils.Logger.Log("Too many unparsed queued packets, queue will be truncated for : " + this.networkFlow.FiveTuple.ToString(), SharedUtils.Logger.EventLogEntryType.Warning);
 #if DEBUG
@@ -547,7 +543,7 @@ namespace PacketParser {
                                     }
 #endif
                                 }
-                                dataList.RemoveAt(0);//remove the oldest TCP data
+                                this.dataList.RemoveAt(0);//remove the oldest TCP data
                                 this.dataListIsTruncated = true;
                                 this.virtualTcpData=null;//this one has to be reset so that the virtualPacket still will work
                             }
@@ -613,7 +609,7 @@ namespace PacketParser {
                     else
                         return null;
                 }
-                else if(virtualTcpData.TryAppendNextPacket())
+                else if(this.virtualTcpData.TryAppendNextPacket())
                         return virtualTcpData;
                 else
                     return null;
@@ -711,10 +707,11 @@ namespace PacketParser {
                         maxPacketFragments = 61;//Changed 2014-04-07to handle short manual SMTP emails, such as when sending via Telnet (Example: M57 net-2009-11-16-09:24.pcap)
                     else if (this.tcpDataStream.session.protocolFinder.GetConfirmedApplicationLayerProtocol() == ApplicationLayerProtocol.Http2)
                         maxPacketFragments = 22;//Most HTTP/2 sessions use chunks up to 16384 bytes
+                    else if (this.tcpDataStream.session.protocolFinder.GetConfirmedApplicationLayerProtocol() == ApplicationLayerProtocol.Dns)
+                        maxPacketFragments = 55;//Changed 2021-06-01 to handle large TXT records sent over DNS (1-dns.txt.pcap). Normally not more than 46 packets because dns.length is u16 => 46 packets on MTU 1400
 
-
-                    if (tcpDataStream.CountBytesToRead()>this.ByteCount && tcpDataStream.CountPacketsToRead()>nPackets && nPackets<maxPacketFragments) {
-                        nPackets++;
+                    if (this.tcpDataStream.CountBytesToRead() > this.ByteCount && this.tcpDataStream.CountPacketsToRead() > this.nPackets && this.nPackets < maxPacketFragments) {
+                        this.nPackets++;
                         return true;//everything went just fine
                     }
                     else

@@ -127,9 +127,6 @@ namespace PacketParser.PacketHandlers {
                                                 matchedTuple = previousEndPoint;
                                                 if (sipPacket.From != null && sipPacket.To != null) {
                                                     this.MainPacketHandler.OnVoipCallDetected(sipPacket.SDP.IP, sipPacket.SDP.Port.Value, previousEndPoint.Item1, previousEndPoint.Item2, sipPacket.CallID, this.ExtractSipAddressFromHeader(sipPacket.From), this.ExtractSipAddressFromHeader(sipPacket.To));
-
-                                                    if (ft != null) {
-                                                        }
                                                 }
                                                 break;
                                             }

@@ -227,9 +227,9 @@ namespace PacketParser.Packets {
             }
         }//needed for OS fingerprinting
 
-        public Flags FlagBits { get { return flags; } }//needed for OS fingerprinting
+        public Flags FlagBits { get { return this.flags; } }//needed for OS fingerprinting
 
-        public int PayloadDataLength { get { return PacketEndIndex-PacketStartIndex-dataOffsetByteCount+1; } }
+        public int PayloadDataLength { get { return this.PacketEndIndex - this.PacketStartIndex - this.dataOffsetByteCount + 1; } }
 
         internal TcpPacket(Frame parentFrame, int packetStartIndex, int packetEndIndex) : base(parentFrame, packetStartIndex, packetEndIndex, "TCP") {
 
@@ -270,102 +270,106 @@ namespace PacketParser.Packets {
         private AbstractPacket GetProtocolPacket(ApplicationLayerProtocol protocol, bool clientToServer) {
             AbstractPacket packet = null;
             if (protocol == ApplicationLayerProtocol.Dns) {
-                if (DnsPacket.TryParse(ParentFrame, PacketStartIndex + dataOffsetByteCount, PacketEndIndex, true, out DnsPacket dnsPacket))
+                if (DnsPacket.TryParse(this.ParentFrame, this.PacketStartIndex + this.dataOffsetByteCount, this.PacketEndIndex, true, out DnsPacket dnsPacket))
                     return dnsPacket;
             }
             else if (protocol == ApplicationLayerProtocol.FtpControl) {
-                if (FtpPacket.TryParse(ParentFrame, PacketStartIndex + dataOffsetByteCount, PacketEndIndex, clientToServer, out packet)) {
+                if (FtpPacket.TryParse(this.ParentFrame, this.PacketStartIndex + this.dataOffsetByteCount, this.PacketEndIndex, clientToServer, out packet)) {
                     return packet;
                 }
             }
             else if (protocol == ApplicationLayerProtocol.Http) {
-                if (HttpPacket.TryParse(ParentFrame, PacketStartIndex + dataOffsetByteCount, PacketEndIndex, out packet)) {
+                if (HttpPacket.TryParse(this.ParentFrame, this.PacketStartIndex + this.dataOffsetByteCount, this.PacketEndIndex, out packet)) {
                     return packet;
                 }
             }
             else if (protocol == ApplicationLayerProtocol.Http2) {
-                if (Http2Packet.TryParse(ParentFrame, PacketStartIndex + dataOffsetByteCount, PacketEndIndex, out packet)) {
+                if (Http2Packet.TryParse(this.ParentFrame, this.PacketStartIndex + this.dataOffsetByteCount, this.PacketEndIndex, out packet)) {
                     return packet;
                 }
             }
             else if (protocol == ApplicationLayerProtocol.Irc) {
-                if (IrcPacket.TryParse(ParentFrame, PacketStartIndex + dataOffsetByteCount, PacketEndIndex, out packet)) {
+                if (IrcPacket.TryParse(this.ParentFrame, this.PacketStartIndex + this.dataOffsetByteCount, this.PacketEndIndex, out packet)) {
                     return packet;
                 }
             }
             else if (protocol == ApplicationLayerProtocol.IEC_104) {
-                if (IEC_60870_5_104Packet.TryParse(ParentFrame, PacketStartIndex + dataOffsetByteCount, PacketEndIndex, out packet)) {
+                if (IEC_60870_5_104Packet.TryParse(this.ParentFrame, this.PacketStartIndex + this.dataOffsetByteCount, this.PacketEndIndex, out packet)) {
                     return packet;
                 }
             }
             else if (protocol == ApplicationLayerProtocol.Imap) {
-                return new ImapPacket(ParentFrame, PacketStartIndex + dataOffsetByteCount, PacketEndIndex, clientToServer);
+                return new ImapPacket(this.ParentFrame, this.PacketStartIndex + this.dataOffsetByteCount, this.PacketEndIndex, clientToServer);
             }
             else if (protocol == ApplicationLayerProtocol.Kerberos) {
-                return new KerberosPacket(ParentFrame, PacketStartIndex + dataOffsetByteCount, PacketEndIndex, true);
+                return new KerberosPacket(this.ParentFrame, this.PacketStartIndex + this.dataOffsetByteCount, this.PacketEndIndex, true);
+            }
+            else if(protocol == ApplicationLayerProtocol.Lpd) {
+                if (LpdPacket.TryParse(this.ParentFrame, this.PacketStartIndex + this.dataOffsetByteCount, this.PacketEndIndex, clientToServer, out packet))
+                    return packet;
             }
             else if (protocol == ApplicationLayerProtocol.ModbusTCP) {
-                if (ModbusTcpPacket.TryParse(ParentFrame, PacketStartIndex + dataOffsetByteCount, PacketEndIndex, this.sourcePort, this.destinationPort, out packet)) {
+                if (ModbusTcpPacket.TryParse(this.ParentFrame, this.PacketStartIndex + this.dataOffsetByteCount, this.PacketEndIndex, this.sourcePort, this.destinationPort, out packet)) {
                     return packet;
                 }
             }
             else if (protocol == ApplicationLayerProtocol.NetBiosNameService) {
-                return new NetBiosNameServicePacket(ParentFrame, PacketStartIndex + dataOffsetByteCount, PacketEndIndex);
+                return new NetBiosNameServicePacket(this.ParentFrame, this.PacketStartIndex + this.dataOffsetByteCount, this.PacketEndIndex);
             }
             else if (protocol == ApplicationLayerProtocol.NetBiosSessionService) {
-                if (NetBiosSessionService.TryParse(ParentFrame, PacketStartIndex + dataOffsetByteCount, PacketEndIndex, this.sourcePort, this.destinationPort, out packet, this.IsVirtualPacketFromTrailingDataInTcpSegment)) {
+                if (NetBiosSessionService.TryParse(this.ParentFrame, this.PacketStartIndex + this.dataOffsetByteCount, this.PacketEndIndex, this.sourcePort, this.destinationPort, out packet, this.IsVirtualPacketFromTrailingDataInTcpSegment)) {
                     return packet;
                 }
             }
             else if (protocol == ApplicationLayerProtocol.OpenFlow) {
-                if (OpenFlowPacket.TryParse(ParentFrame, PacketStartIndex + dataOffsetByteCount, PacketEndIndex, out packet)) {
+                if (OpenFlowPacket.TryParse(this.ParentFrame, this.PacketStartIndex + this.dataOffsetByteCount, this.PacketEndIndex, out packet)) {
                     return packet;
                 }
             }
             else if (protocol == ApplicationLayerProtocol.Oscar) {
-                if (OscarPacket.TryParse(ParentFrame, PacketStartIndex + dataOffsetByteCount, PacketEndIndex, out packet)) {
+                if (OscarPacket.TryParse(this.ParentFrame, this.PacketStartIndex + this.dataOffsetByteCount, this.PacketEndIndex, out packet)) {
                     return packet;
                 }
             }
             else if (protocol == ApplicationLayerProtocol.OscarFileTransfer) {
-                if (OscarFileTransferPacket.TryParse(ParentFrame, PacketStartIndex + dataOffsetByteCount, PacketEndIndex, out packet)) {
+                if (OscarFileTransferPacket.TryParse(this.ParentFrame, this.PacketStartIndex + this.dataOffsetByteCount, this.PacketEndIndex, out packet)) {
                     return packet;
                 }
             }
             else if (protocol == ApplicationLayerProtocol.Pop3) {
-                return new Pop3Packet(ParentFrame, PacketStartIndex + dataOffsetByteCount, PacketEndIndex, clientToServer);
+                return new Pop3Packet(this.ParentFrame, this.PacketStartIndex + this.dataOffsetByteCount, this.PacketEndIndex, clientToServer);
             }
             else if(protocol == ApplicationLayerProtocol.Sip) {
-                return new SipPacket(ParentFrame, PacketStartIndex + DataOffsetByteCount, PacketEndIndex);
+                return new SipPacket(this.ParentFrame, this.PacketStartIndex + this.DataOffsetByteCount, this.PacketEndIndex);
             }
             else if (protocol == ApplicationLayerProtocol.Smtp) {
-                return new SmtpPacket(ParentFrame, PacketStartIndex + dataOffsetByteCount, PacketEndIndex, clientToServer);
+                return new SmtpPacket(this.ParentFrame, this.PacketStartIndex + this.dataOffsetByteCount, this.PacketEndIndex, clientToServer);
             }
             else if (protocol == ApplicationLayerProtocol.Socks) {
-                if (SocksPacket.TryParse(ParentFrame, PacketStartIndex + dataOffsetByteCount, PacketEndIndex, clientToServer, out packet)) {
+                if (SocksPacket.TryParse(this.ParentFrame, this.PacketStartIndex + this.dataOffsetByteCount, this.PacketEndIndex, clientToServer, out packet)) {
                     return packet;
                 }
             }
             else if (protocol == ApplicationLayerProtocol.SpotifyServerProtocol) {
-                if (SpotifyKeyExchangePacket.TryParse(ParentFrame, PacketStartIndex + dataOffsetByteCount, PacketEndIndex, clientToServer, out packet)) {
+                if (SpotifyKeyExchangePacket.TryParse(this.ParentFrame, this.PacketStartIndex + this.dataOffsetByteCount, this.PacketEndIndex, clientToServer, out packet)) {
                     return packet;
                 }
             }
             else if (protocol == ApplicationLayerProtocol.Ssh) {
-                if (SshPacket.TryParse(ParentFrame, PacketStartIndex + dataOffsetByteCount, PacketEndIndex, out packet)) {
+                if (SshPacket.TryParse(this.ParentFrame, this.PacketStartIndex + this.dataOffsetByteCount, this.PacketEndIndex, out packet)) {
                     return packet;
                 }
             }
             else if (protocol == ApplicationLayerProtocol.Ssl) {
-                if (SslPacket.TryParse(ParentFrame, PacketStartIndex + dataOffsetByteCount, PacketEndIndex, out packet)) {
+                if (SslPacket.TryParse(this.ParentFrame, this.PacketStartIndex + this.dataOffsetByteCount, this.PacketEndIndex, out packet)) {
                     return packet;
                 }
             }
             else if (protocol == ApplicationLayerProtocol.TabularDataStream) {
-                return new TabularDataStreamPacket(ParentFrame, PacketStartIndex + dataOffsetByteCount, PacketEndIndex);
+                return new TabularDataStreamPacket(this.ParentFrame, this.PacketStartIndex + this.dataOffsetByteCount, this.PacketEndIndex);
             }
             else if (protocol == ApplicationLayerProtocol.Tpkt) {
-                if (TpktPacket.TryParse(ParentFrame, PacketStartIndex + dataOffsetByteCount, PacketEndIndex, this, out packet)) {
+                if (TpktPacket.TryParse(ParentFrame, this.PacketStartIndex + this.dataOffsetByteCount, this.PacketEndIndex, this, out packet)) {
                     return packet;
                 }
             }
@@ -375,7 +379,7 @@ namespace PacketParser.Packets {
         internal IEnumerable<AbstractPacket> GetSubPackets(bool includeSelfReference, ISessionProtocolFinder protocolFinder, bool clientToServer) {
             if(includeSelfReference)
                 yield return this;
-            if(PacketStartIndex+dataOffsetByteCount<PacketEndIndex) {
+            if(this.PayloadDataLength > 0) {
                 AbstractPacket packet=null;
                 if(protocolFinder.GetConfirmedApplicationLayerProtocol() != ApplicationLayerProtocol.Unknown)
                     try {
@@ -414,14 +418,10 @@ namespace PacketParser.Packets {
 
 
 
-            if(PacketStartIndex+dataOffsetByteCount<PacketEndIndex) {
-                AbstractPacket packet;
-
+            if(this.PacketStartIndex + this.dataOffsetByteCount < this.PacketEndIndex) {
                 //there is no point in trying to extract the application layer protocol data here
-                packet=new RawPacket(ParentFrame, PacketStartIndex+dataOffsetByteCount, PacketEndIndex);
-                
+                AbstractPacket packet = new RawPacket(this.ParentFrame, this.PacketStartIndex + this.dataOffsetByteCount, this.PacketEndIndex);
                 yield return packet;
-                 
 
                 foreach(AbstractPacket subPacket in packet.GetSubPackets(false))
                     yield return subPacket;
@@ -440,10 +440,10 @@ namespace PacketParser.Packets {
 
             List<KeyValuePair<OptionKinds, byte[]>> optionList=new List<KeyValuePair<OptionKinds, byte[]>>();
             int i=0;
-            while(startIndex+i<this.PacketStartIndex+this.dataOffsetByteCount && startIndex+i<this.ParentFrame.Data.Length) {
-                if(this.ParentFrame.Data[startIndex+i]>8) {
+            while (startIndex + i < this.PacketStartIndex + this.dataOffsetByteCount && startIndex + i < this.ParentFrame.Data.Length) {
+                if(this.ParentFrame.Data[startIndex+i] > 8 && this.ParentFrame.Data[startIndex + i] != 34) {//34 is "Fast Open Cookie"
                     if (!this.ParentFrame.QuickParse)
-                        ParentFrame.Errors.Add(new Frame.Error(ParentFrame, startIndex+i, startIndex+i, "TCP Option Kind is larger than 8 (it is:"+this.ParentFrame.Data[startIndex+i]+")"));
+                        this.ParentFrame.Errors.Add(new Frame.Error(this.ParentFrame, startIndex+i, startIndex+i, "TCP Option Kind is larger than 8 (it is:"+this.ParentFrame.Data[startIndex+i]+")"));
                     break;
                 }
                 else{
@@ -461,17 +461,17 @@ namespace PacketParser.Packets {
                         byte optionLength=this.ParentFrame.Data[startIndex+i+1];
                         if(optionLength<2) {
                             if (!this.ParentFrame.QuickParse)
-                                ParentFrame.Errors.Add(new Frame.Error(ParentFrame, startIndex+i+1, startIndex+i+1, "TCP Option Length ("+optionLength+") is shorter than 2"));
+                                this.ParentFrame.Errors.Add(new Frame.Error(this.ParentFrame, startIndex+i+1, startIndex+i+1, "TCP Option Length ("+optionLength+") is shorter than 2"));
                             optionLength=2;
                         }
                         else if(startIndex+i+optionLength>this.PacketStartIndex+this.dataOffsetByteCount) {
                             if (!this.ParentFrame.QuickParse)
-                                ParentFrame.Errors.Add(new Frame.Error(ParentFrame, startIndex+i+1, startIndex+i+1, "TCP Option Length ("+optionLength+") makes option end outside TCP Data Offset ("+this.dataOffsetByteCount+")"));
+                                this.ParentFrame.Errors.Add(new Frame.Error(this.ParentFrame, startIndex+i+1, startIndex+i+1, "TCP Option Length ("+optionLength+") makes option end outside TCP Data Offset ("+this.dataOffsetByteCount+")"));
                             optionLength=(byte)(this.PacketStartIndex+this.dataOffsetByteCount-startIndex-i);
                         }
                         else if(optionLength>44) {
                             if (!this.ParentFrame.QuickParse)
-                                ParentFrame.Errors.Add(new Frame.Error(ParentFrame, startIndex+i+1, startIndex+i+1, "TCP Option Length ("+optionLength+") is longer than 44"));
+                                this.ParentFrame.Errors.Add(new Frame.Error(this.ParentFrame, startIndex+i+1, startIndex+i+1, "TCP Option Length ("+optionLength+") is longer than 44"));
                             optionLength=44;
                         }
                         byte[] optionData=new byte[optionLength-2];

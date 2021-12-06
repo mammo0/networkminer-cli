@@ -14,7 +14,8 @@ namespace PacketParser.PacketHandlers {
 
         public override Type ParsedType { get { return typeof(Packets.ImapPacket); } }
         public override bool CanParse(HashSet<Type> packetTypeSet) {
-            return true;//we might need to add non-parsed segments to an email
+            //we might need to add non-parsed segments to an email
+            return packetTypeSet.Contains(this.ParsedType) || packetTypeSet.Contains(typeof(Packets.TcpPacket));
         }
 
         public ApplicationLayerProtocol HandledProtocol

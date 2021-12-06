@@ -24,10 +24,11 @@ namespace PacketParser.Packets {
         public override IEnumerable<AbstractPacket> GetSubPackets(bool includeSelfReference) {
             if (includeSelfReference)
                 yield return this;
-            AbstractPacket packet = Ethernet2Packet.GetPacketForType(this.etherType, this.ParentFrame, this.PacketStartIndex + PACKET_LENGTH, this.PacketEndIndex);
-            yield return packet;
-            foreach (AbstractPacket subPacket in packet.GetSubPackets(false))
-                yield return subPacket;
+            if (Ethernet2Packet.TryGetPacketForType(this.etherType, this.ParentFrame, this.PacketStartIndex + PACKET_LENGTH, this.PacketEndIndex, out AbstractPacket packet)) {
+                yield return packet;
+                foreach (AbstractPacket subPacket in packet.GetSubPackets(false))
+                    yield return subPacket;
+            }
         }
     }
 }

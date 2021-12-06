@@ -30,7 +30,8 @@ namespace PacketParser.PacketHandlers {
         public override Type ParsedType { get { return typeof(Packets.Pop3Packet); } }
 
         public override bool CanParse(HashSet<Type> packetTypeSet) {
-            return true;//the parser will need to look for non POP3 packets to reasseble emails
+            //the parser will need to look for non POP3 packets to reasseble emails
+            return packetTypeSet.Contains(this.ParsedType) || packetTypeSet.Contains(typeof(Packets.TcpPacket));
         }
 
         public int ExtractData(NetworkTcpSession tcpSession, bool transferIsClientToServer, IEnumerable<PacketParser.Packets.AbstractPacket> packetList) {

@@ -128,12 +128,10 @@ namespace PacketParser.Mime {
                 string extendedFileId = GetMessageId(this.RootAttributes);
                 using (FileTransfer.FileStreamAssembler assembler = new FileTransfer.FileStreamAssembler(MainPacketHandler.FileStreamAssemblerList, this.fiveTuple, this.transferIsClientToServer, this.fileTransferProtocol, emlFilename, "/", emailMimeStream.Length, emailMimeStream.Length, this.protocol.ToString() + " transcript From: " + from + " To: " + to + " Subject: " + subject, extendedFileId, tcpPacket.ParentFrame.FrameNumber, tcpPacket.ParentFrame.Timestamp, this.fileAssmeblyRootLocation)) {
                     if (assembler.TryActivate()) {
-                        assembler.FileReconstructed += MainPacketHandler.OnMessageAttachmentDetected;
-                        assembler.FileReconstructed += Assembler_FileReconstructed;
+                        assembler.FileReconstructed += this.MainPacketHandler.OnMessageAttachmentDetected;
+                        assembler.FileReconstructed += this.Assembler_FileReconstructed;
                         SharedUtils.Logger.Log("Adding emailMimeStream bytes: " + emailMimeStream.Length, SharedUtils.Logger.EventLogEntryType.Information);
                         assembler.AddData(emailMimeStream.ToArray(), tcpPacket.SequenceNumber);
-                        //assembler.FinishAssembling();
-
                     }
                     else {
                         SharedUtils.Logger.Log("Unable to activate email assembler", SharedUtils.Logger.EventLogEntryType.Warning);

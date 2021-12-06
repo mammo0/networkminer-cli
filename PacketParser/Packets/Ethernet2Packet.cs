@@ -28,6 +28,17 @@ namespace PacketParser.Packets {
             PPPoE =         0x8864
         };
 
+        internal static bool TryGetPacketForType(ushort etherType, Frame parentFrame, int newPacketStartIndex, int newPacketEndIndex, out AbstractPacket packet) {
+            if (Enum.IsDefined(typeof(Ethernet2Packet.EtherTypes), etherType)) {
+                try {
+                    packet = GetPacketForType(etherType, parentFrame, newPacketStartIndex, newPacketEndIndex);
+                    return true;
+                }
+                catch { }
+            }
+            packet = null;
+            return false;
+        }
 
         internal static AbstractPacket GetPacketForType(ushort etherType, Frame parentFrame, int newPacketStartIndex, int newPacketEndIndex) {
             AbstractPacket packet;
@@ -125,11 +136,12 @@ namespace PacketParser.Packets {
         public override IEnumerable<AbstractPacket> GetSubPackets(bool includeSelfReference) {
             if(includeSelfReference)
                 yield return this;
-            if(PacketStartIndex+14<PacketEndIndex) {
-                AbstractPacket packet = GetPacketForType(this.etherType, this.ParentFrame, this.PacketStartIndex+14, this.PacketEndIndex);
-                yield return packet;
-                foreach(AbstractPacket subPacket in packet.GetSubPackets(false))
-                    yield return subPacket;
+            if (PacketStartIndex + 14 < PacketEndIndex) {
+                if (TryGetPacketForType(this.etherType, this.ParentFrame, this.PacketStartIndex + 14, this.PacketEndIndex, out AbstractPacket packet)) {
+                    yield return packet;
+                    foreach (AbstractPacket subPacket in packet.GetSubPackets(false))
+                        yield return subPacket;
+                }
             }
         }
 

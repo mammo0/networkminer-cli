@@ -19,6 +19,25 @@ namespace PacketParser.Utils {
 
         public const string PLAIN_CONTENT_TYPE_EXTENSION = "txt";
 
+        /// <summary>
+        /// Converts a byte into a printable char.
+        /// Non-printable chars are replaced by a dot: '.'
+        /// </summary>
+        /// <param name="b"></param>
+        /// <returns></returns>
+        public static string GetAsciiString(byte[] data, int offset, int length, bool displaySpacingAndLineBreaks) {
+            StringBuilder sb = new StringBuilder();
+            foreach (char c in System.Text.ASCIIEncoding.ASCII.GetString(data, offset, length)) {
+                if (displaySpacingAndLineBreaks && (c == '\n' || c == '\r' || c == '\t'))
+                    sb.Append(c);
+                else if (char.IsControl(c))
+                    sb.Append('.');
+                else
+                    sb.Append(c);
+            }
+            return sb.ToString();
+        }
+
         public static bool IsValidFilename(string filename) {
             if (filename.IndexOfAny(System.IO.Path.GetInvalidFileNameChars()) >= 0)
                 return false;

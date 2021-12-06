@@ -6,7 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 namespace SharedUtils.Pcap {
-    public class PcapFileWriter : IFrameWriter, IDisposable {
+    public class PcapFileWriter : IAsyncFrameWriter, IFrameWriter, IDisposable {
 
         private readonly SemaphoreSlim writeLock;
         private readonly bool autoFlush;
@@ -49,7 +49,7 @@ namespace SharedUtils.Pcap {
             //this.referenceTime=new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
             this.outputStream = new FileStream(filename, fileMode, fileAccess, fileShare, bufferSize, FileOptions.SequentialScan);
             
-            if(fileMode != FileMode.Append || outputStream.Position == 0) {
+            if(fileMode != FileMode.Append || this.outputStream.Position == 0) {
                 this.WritePcapHeader(dataLinkType, littleEndian);
 
             }
@@ -114,7 +114,7 @@ namespace SharedUtils.Pcap {
         }
 
         public void WriteFrame(PcapFrame frame) {
-            WriteFrame(frame, this.autoFlush);
+            this.WriteFrame(frame, this.autoFlush);
         }
         public void WriteFrame(PcapFrame frame, bool flush) {
             Tuple<uint, uint> secondsMicroseconds = this.GetSecondsMicrosecondsTuple(frame.Timestamp);
@@ -134,7 +134,7 @@ namespace SharedUtils.Pcap {
             finally {
                 this.writeLock.Release();
             }
-            FramesWritten++;
+            this.FramesWritten++;
         }
 
 
@@ -162,7 +162,15 @@ namespace SharedUtils.Pcap {
             this.FramesWritten++;
         }
 
-
+        public async Task FlushAsync() {
+            await this.writeLock.WaitAsync();
+            try {
+                await this.outputStream.FlushAsync();
+            }
+            finally {
+                this.writeLock.Release();
+            }
+        }
 
 
         public void Close() {
@@ -178,9 +186,10 @@ namespace SharedUtils.Pcap {
         }
 
         public async Task CloseAsync() {
+            await this.outputStream.FlushAsync();
+
             await this.writeLock.WaitAsync(1000);
             try {
-                await this.outputStream.FlushAsync();
                 this.outputStream.Dispose();
                 this.IsOpen = false;
             }

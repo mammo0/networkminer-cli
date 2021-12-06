@@ -125,7 +125,7 @@ namespace PacketParser.Packets {
             public MessageTypes MessageType { get; }
             public uint MessageLength { get; }
             public System.Collections.Generic.List<byte[]> CertificateList { get; }
-            public string ServerHostName { get; } = null;
+            public string ServerHostName { get; private set; } = null;
 
             public Tuple<byte, byte>[] GetSupportedSslVersions() {
                 return this.supportedSslVersions.ToArray();
@@ -212,6 +212,8 @@ namespace PacketParser.Packets {
                     ushort extensionsLength = Utils.ByteConverter.ToUInt16(parentFrame.Data, extensionIndex);
                     //int extensionIndex = PacketStartIndex + 44 + cipherSuiteLength + compressionMethodsLength;
                     extensionIndex += 2;
+                    this.ParseExtensions(parentFrame, extensionIndex, extensionsLength);
+                    /*
                     while (extensionIndex < this.PacketEndIndex && extensionIndex < PacketStartIndex + 44 + sessionIdLength + cipherSuiteLength + compressionMethodsLength + extensionsLength) {
                         ushort extensionType = Utils.ByteConverter.ToUInt16(parentFrame.Data, extensionIndex);
                         this.ExtensionTypes.Add(extensionType);
@@ -258,13 +260,82 @@ namespace PacketParser.Packets {
                                 this.supportedSslVersions.Add(new Tuple<byte, byte>(parentFrame.Data[extensionIndex + offset], parentFrame.Data[extensionIndex + offset + 1]));
                             }
                         }
-                        extensionIndex += 4 + extensionLength;
+                        
+                    extensionIndex += 4 + extensionLength;
                     }
+                    */
                 }
                 else if (this.MessageType == MessageTypes.ServerHello) {
+                    /**
+                     * https://datatracker.ietf.org/doc/html/rfc2246
+                     * struct {
+                           ProtocolVersion server_version;
+                           Random random;
+                           SessionID session_id;
+                           CipherSuite cipher_suite;
+                           CompressionMethod compression_method;
+                       }
+                    **/
                     //this.VersionMajor = parentFrame.Data[PacketStartIndex + 4];
                     //this.VersionMinor = parentFrame.Data[PacketStartIndex + 5];
-                    this.supportedSslVersions.Add(new Tuple<byte, byte>(parentFrame.Data[PacketStartIndex + 4], parentFrame.Data[PacketStartIndex + 5]));
+                    this.supportedSslVersions.Add(new Tuple<byte, byte>(parentFrame.Data[this.PacketStartIndex + 4], parentFrame.Data[this.PacketStartIndex + 5]));
+
+                    this.CipherSuites.Add(Utils.ByteConverter.ToUInt16(parentFrame.Data, this.PacketStartIndex + 39));
+                    ushort extensionsLength = Utils.ByteConverter.ToUInt16(parentFrame.Data, this.PacketStartIndex + 42);
+                    int extensionIndex = this.PacketStartIndex + 44;
+                    this.ParseExtensions(parentFrame, extensionIndex, extensionsLength);
+                    /*
+                    while (extensionIndex < this.PacketEndIndex && extensionIndex < this.PacketStartIndex + 44 + extensionsLength) {
+                        ushort extensionType = Utils.ByteConverter.ToUInt16(parentFrame.Data, extensionIndex);
+                        this.ExtensionTypes.Add(extensionType);
+                        ushort extensionLength = Utils.ByteConverter.ToUInt16(parentFrame.Data, extensionIndex + 2);
+                        if (extensionType == 0) {//Server Name Indication rfc6066
+                            if (extensionLength > 0) {
+                                ushort serverNameListLength = Utils.ByteConverter.ToUInt16(parentFrame.Data, extensionIndex + 4);
+                                int offset = 6;
+                                while (offset < serverNameListLength) {
+                                    byte serverNameType = parentFrame.Data[extensionIndex + offset];
+                                    ushort serverNameLength = Utils.ByteConverter.ToUInt16(parentFrame.Data, extensionIndex + offset + 1);
+                                    if (serverNameLength == 0)
+                                        break;
+                                    else {
+                                        if (serverNameType == 0) {//host_name(0)
+                                            this.ServerHostName = Utils.ByteConverter.ReadString(parentFrame.Data, extensionIndex + offset + 3, serverNameLength);
+                                        }
+                                        offset += serverNameLength;
+                                    }
+                                }
+                            }
+
+                        }
+                        else if (extensionType == 10) {//Eliptic Curve Groups (for JA3)
+                            ushort length = Utils.ByteConverter.ToUInt16(parentFrame.Data, extensionIndex + 4);
+                            int offset = 6;
+                            for (int i = 0; i < length; i += 2) {
+                                this.SupportedEllipticCurveGroups.Add(Utils.ByteConverter.ToUInt16(parentFrame.Data, extensionIndex + offset + i));
+                            }
+                        }
+                        else if (extensionType == 11) {//Eliptic Curve Point Formats (for JA3)
+                            byte length = parentFrame.Data[extensionIndex + 4];
+                            int offset = 5;
+                            for (int i = 0; i < length; i += 2) {
+                                this.SupportedEllipticCurvePointFormats.Add(parentFrame.Data[extensionIndex + offset + i]);
+                            }
+                        }
+                        else if (extensionType == 16) {//ALPN
+                            int index = extensionIndex + 6;
+                            while (index < extensionIndex + extensionLength + 4) {
+                                this.ApplicationLayerProtocolNegotiationStrings.Add(Utils.ByteConverter.ReadLengthValueString(parentFrame.Data, ref index, 1));
+                            }
+                        }
+                        else if (extensionType == 43) {//Supported versions
+                            for (int offset = 5; offset < extensionLength + 4; offset += 2) {
+                                this.supportedSslVersions.Add(new Tuple<byte, byte>(parentFrame.Data[extensionIndex + offset], parentFrame.Data[extensionIndex + offset + 1]));
+                            }
+                        }
+                        extensionIndex += 4 + extensionLength;
+                    }
+                    */
 
                 }
                 else if (this.MessageType == MessageTypes.Certificate) {
@@ -285,6 +356,60 @@ namespace PacketParser.Packets {
             }
             //Server Certificate: http://tools.ietf.org/html/rfc2246 7.4.2
 
+            private void ParseExtensions(PacketParser.Frame parentFrame, int extensionsStartIndex, ushort extensionsLength) {
+                int extensionIndex = extensionsStartIndex;
+                while (extensionIndex < this.PacketEndIndex && extensionIndex < extensionsStartIndex + extensionsLength) {
+                    ushort extensionType = Utils.ByteConverter.ToUInt16(parentFrame.Data, extensionIndex);
+                    this.ExtensionTypes.Add(extensionType);
+                    ushort extensionLength = Utils.ByteConverter.ToUInt16(parentFrame.Data, extensionIndex + 2);
+                    if (extensionLength > 0) {
+                        if (extensionType == 0) {//Server Name Indication rfc6066
+                            ushort serverNameListLength = Utils.ByteConverter.ToUInt16(parentFrame.Data, extensionIndex + 4);
+                            int offset = 6;
+                            while (offset < serverNameListLength) {
+                                byte serverNameType = parentFrame.Data[extensionIndex + offset];
+                                ushort serverNameLength = Utils.ByteConverter.ToUInt16(parentFrame.Data, extensionIndex + offset + 1);
+                                if (serverNameLength == 0)
+                                    break;
+                                else {
+                                    if (serverNameType == 0) {//host_name(0)
+                                        this.ServerHostName = Utils.ByteConverter.ReadString(parentFrame.Data, extensionIndex + offset + 3, serverNameLength);
+                                    }
+                                    offset += serverNameLength;
+                                }
+                            }
+
+                        }
+                        else if (extensionType == 10) {//Eliptic Curve Groups (for JA3)
+                            ushort length = Utils.ByteConverter.ToUInt16(parentFrame.Data, extensionIndex + 4);
+                            int offset = 6;
+                            for (int i = 0; i < length; i += 2) {
+                                this.SupportedEllipticCurveGroups.Add(Utils.ByteConverter.ToUInt16(parentFrame.Data, extensionIndex + offset + i));
+                            }
+                        }
+                        else if (extensionType == 11) {//Eliptic Curve Point Formats (for JA3)
+                            byte length = parentFrame.Data[extensionIndex + 4];
+                            int offset = 5;
+                            for (int i = 0; i < length; i += 2) {
+                                this.SupportedEllipticCurvePointFormats.Add(parentFrame.Data[extensionIndex + offset + i]);
+                            }
+                        }
+                        else if (extensionType == 16) {//ALPN
+                            int index = extensionIndex + 6;
+                            while (index < extensionIndex + extensionLength + 4) {
+                                this.ApplicationLayerProtocolNegotiationStrings.Add(Utils.ByteConverter.ReadLengthValueString(parentFrame.Data, ref index, 1));
+                            }
+                        }
+                        else if (extensionType == 43) {//Supported versions
+                            for (int offset = 5; offset < extensionLength + 4; offset += 2) {
+                                this.supportedSslVersions.Add(new Tuple<byte, byte>(parentFrame.Data[extensionIndex + offset], parentFrame.Data[extensionIndex + offset + 1]));
+                            }
+                        }
+                    }
+                    extensionIndex += 4 + extensionLength;
+                }
+            }
+
             public string GetJA3FingerprintFull() {
                 /**
                  * https://engineering.salesforce.com/open-sourcing-ja3-92c9e53c3c41
@@ -295,7 +420,7 @@ namespace PacketParser.Packets {
                  * 769,47–53–5–10–49161–49162–49171–49172–50–56–19–4,0–10–11,23–24–25,0
                  **/
 
-                var v = this.supportedSslVersions.First();
+                    var v = this.supportedSslVersions.First();
                 ushort version = (ushort)((v.Item1 << 8) + v.Item2);
 
                 StringBuilder sb = new StringBuilder();
@@ -311,8 +436,31 @@ namespace PacketParser.Packets {
                 return sb.ToString();
             }
 
+            public string GetJA3SFingerprintFull() {
+                /**
+                 * Version, Accepted Cipher, and List of Extensions.
+                 * It then concatenates those values together in order, using a “,” to delimit each field and a “-” to delimit each value in each field.
+                 * The field order is as follows:
+                 * TLSVersion,Cipher,Extensions
+                 * Example:
+                 * 769,47,65281–0–11–35–5–16
+                 **/
+                var v = this.supportedSslVersions.First();
+                ushort version = (ushort)((v.Item1 << 8) + v.Item2);
+                StringBuilder sb = new StringBuilder();
+                sb.Append(version.ToString());
+                sb.Append(",");
+                sb.Append(String.Join<ushort>("-", this.CipherSuites.Where(cs => !GREASE_SET.Contains(cs))));
+                sb.Append(",");
+                sb.Append(String.Join<ushort>("-", this.ExtensionTypes.Where(et => !GREASE_SET.Contains(et))));
+                return sb.ToString();
+            }
+
             public string GetJA3FingerprintHash() {
                 return Utils.ByteConverter.ToMd5HashString(this.GetJA3FingerprintFull());
+            }
+            public string GetJA3SFingerprintHash() {
+                return Utils.ByteConverter.ToMd5HashString(this.GetJA3SFingerprintFull());
             }
 
             public override IEnumerable<AbstractPacket> GetSubPackets(bool includeSelfReference) {

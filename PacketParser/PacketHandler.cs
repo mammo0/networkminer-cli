@@ -45,11 +45,12 @@ namespace PacketParser {
         private Func<DateTime, string> toCustomTimeZoneStringFunction;
 
         //private System.Collections.Generic.Queue<SharedUtils.Pcap.PacketReceivedEventArgs> receivedPacketsQueue;
-        private System.Collections.Concurrent.BlockingCollection<SharedUtils.Pcap.PacketReceivedEventArgs> receivedPacketsQueue;
+        private System.Collections.Concurrent.BlockingCollection<SharedUtils.Pcap.PacketReceivedEventArgs> receivedPacketsQueue_BC;
+        //private System.Collections.Concurrent.ConcurrentQueue<SharedUtils.Pcap.PacketReceivedEventArgs> receivedPacketsQueue;
         public const int RECEIVED_PACKETS_QUEUE_MAX_SIZE=16000;
 
         //private System.Collections.Generic.Queue<Frame> framesToParseQueue;
-        private System.Collections.Concurrent.BlockingCollection<Frame> framesToParseQueue;
+        private readonly System.Collections.Concurrent.BlockingCollection<Frame> framesToParseQueue;
         private long framesToParseQueuedByteCount;
 
         public long FramesToParseQueuedByteCount {
@@ -120,7 +121,7 @@ namespace PacketParser {
         public NetworkHostList NetworkHostList { get { return this.networkHostList; } }
         //internal NetworkMinerForm ParentForm { get { return this.parentForm; } }
         public FileTransfer.FileStreamAssemblerList FileStreamAssemblerList { get { return this.fileStreamAssemblerList; } }
-        public int PacketsInQueue { get { return this.receivedPacketsQueue.Count; } }
+        public int PacketsInQueue { get { return this.receivedPacketsQueue_BC.Count; } }
         public int FramesInQueue { get { return this.framesToParseQueue.Count; } }
 
         public List<FileTransfer.ReconstructedFile> ReconstructedFileList { get { return this.reconstructedFileList; } }
@@ -148,13 +149,17 @@ namespace PacketParser {
             get { return this.extractPartialDownloads; }
             set { this.extractPartialDownloads = value; }
         }
+        public Dictionary<FileTransfer.FileStreamTypes, FileTransfer.IFileCarver> FileCarvers {
+            get;
+            set;
+        }
 
         public void ResetCapturedData() {
-            lock (this.receivedPacketsQueue) {
+            lock (this.receivedPacketsQueue_BC) {
                 lock (this.networkHostList)
                     this.networkHostList.Clear();
-                nFramesReceived = 0;
-                nBytesReceived = 0;
+                this.nFramesReceived = 0;
+                this.nBytesReceived = 0;
                 //this.fileStreamAssemblerList.ClearAll();
                 this.networkTcpSessionList.Clear();
                 lock (Ipv4Fragments)
@@ -171,9 +176,8 @@ namespace PacketParser {
                     packetHandler.Reset();
                 this.fileStreamAssemblerList.ClearAll();
 
-                //this.receivedPacketsQueue.Clear();
-                //foreach(var packetReceivedEventArgs in this.receivedPacketsQueue.GetConsumingEnumerable()) { }
-                while (this.receivedPacketsQueue.TryTake(out var packetReceivedEventArgs)) { }
+                while (this.receivedPacketsQueue_BC.TryTake(out var packetReceivedEventArgs)) { }
+                //while (this.receivedPacketsQueue.TryDequeue(out var packetReceivedEventArgs)) { }
             }
             if (this.extraHttpPacketHandler != null)
                 this.extraHttpPacketHandler.Reset();
@@ -212,13 +216,13 @@ namespace PacketParser {
             this.dictionary=new CleartextDictionary.WordDictionary();
             this.lastBufferUsagePercent=null;
 
-            //this.receivedPacketsQueue=new Queue<SharedUtils.Pcap.PacketReceivedEventArgs>(RECEIVED_PACKETS_QUEUE_MAX_SIZE);
-            this.receivedPacketsQueue = new System.Collections.Concurrent.BlockingCollection<SharedUtils.Pcap.PacketReceivedEventArgs>(RECEIVED_PACKETS_QUEUE_MAX_SIZE);
-            //this.framesToParseQueue=new Queue<Frame>(RECEIVED_PACKETS_QUEUE_MAX_SIZE);
+            this.receivedPacketsQueue_BC = new System.Collections.Concurrent.BlockingCollection<SharedUtils.Pcap.PacketReceivedEventArgs>(RECEIVED_PACKETS_QUEUE_MAX_SIZE);
+            //this.receivedPacketsQueue = new System.Collections.Concurrent.ConcurrentQueue<SharedUtils.Pcap.PacketReceivedEventArgs>();
+
             this.framesToParseQueue = new System.Collections.Concurrent.BlockingCollection<Frame>(RECEIVED_PACKETS_QUEUE_MAX_SIZE);
-            
-            this.packetQueueConsumerThread=new System.Threading.Thread(new System.Threading.ThreadStart(delegate() { this.CreateFramesFromPacketsInPacketQueue(); }));
-            this.frameQueueConsumerThread=new System.Threading.Thread(new System.Threading.ThreadStart(delegate() { this.ParseFramesInFrameQueue(); }));
+
+            this.packetQueueConsumerThread = new System.Threading.Thread(new System.Threading.ThreadStart(delegate () { this.CreateFramesFromPacketsInPacketQueue(); }));
+            this.frameQueueConsumerThread = new System.Threading.Thread(new System.Threading.ThreadStart(delegate () { this.ParseFramesInFrameQueue(); }));
 
             //this.framesToParseQueueEvent = new System.Threading.AutoResetEvent(false);
             //this.receivedPacketsQueueEvent = new System.Threading.AutoResetEvent(false);
@@ -232,8 +236,8 @@ namespace PacketParser {
             this.osFingerprintCollectionList=new List<Fingerprints.IOsFingerprinter>();
             if (preloadedFingerprints != null)
                 this.osFingerprintCollectionList.AddRange(preloadedFingerprints);
+            this.FileCarvers = new Dictionary<FileTransfer.FileStreamTypes, FileTransfer.IFileCarver>();
 
-            
             //the ettercap fingerprints aren't needed
             try {
                 osFingerprintCollectionList.Add(new Fingerprints.EttarcapOsFingerprintCollection(this.FingerprintsPath + "etter.finger.os"));//, NetworkMiner.Fingerprints.EttarcapOsFingerprintCollection.OsFingerprintFileFormat.Ettercap)
@@ -287,6 +291,7 @@ namespace PacketParser {
             this.tcpSessionPacketHandlerList.Add(new PacketHandlers.ImapPacketHandler(this));
             this.tcpSessionPacketHandlerList.Add(new PacketHandlers.IrcPacketHandler(this));
             this.tcpSessionPacketHandlerList.Add(new PacketHandlers.KerberosPacketHandler(this));
+            this.tcpSessionPacketHandlerList.Add(new PacketHandlers.LpdPacketHandler(this));
             this.tcpSessionPacketHandlerList.Add(new PacketHandlers.NetBiosSessionServicePacketHandler(this));
             this.tcpSessionPacketHandlerList.Add(new PacketHandlers.NtlmSspPacketHandler(this));
             this.tcpSessionPacketHandlerList.Add(new PacketHandlers.Pop3PacketHandler(this));
@@ -461,15 +466,12 @@ namespace PacketParser {
         /// <param name="sender"></param>
         /// <param name="packet"></param>
         public bool TryEnqueueReceivedPacket(object sender, SharedUtils.Pcap.PacketReceivedEventArgs packet) {
-            if(this.receivedPacketsQueue.Count<RECEIVED_PACKETS_QUEUE_MAX_SIZE) {
-                /*
-                lock (this.receivedPacketsQueue)
-                    this.receivedPacketsQueue.Enqueue(packet);
-                    */
-                this.receivedPacketsQueue.Add(packet);
-                //this.receivedPacketsQueueEvent.Set();
+            if(this.receivedPacketsQueue_BC.Count<RECEIVED_PACKETS_QUEUE_MAX_SIZE) {
+                
+                this.receivedPacketsQueue_BC.Add(packet);
+                //this.receivedPacketsQueue.Enqueue(packet);
 
-                this.OnBufferUsageChanged(new Events.BufferUsageEventArgs((this.receivedPacketsQueue.Count*100)/RECEIVED_PACKETS_QUEUE_MAX_SIZE));
+                this.OnBufferUsageChanged(new Events.BufferUsageEventArgs((this.receivedPacketsQueue_BC.Count*100)/RECEIVED_PACKETS_QUEUE_MAX_SIZE));
                 //this.parentForm.SetBufferUsagePercent((this.receivedPacketsQueue.Count*100)/RECEIVED_PACKETS_QUEUE_MAX_SIZE);
                 return true;
             }
@@ -481,10 +483,10 @@ namespace PacketParser {
         }
 
         private void UpdateBufferUsagePercent() {
-            int usage=Math.Min(Math.Max(this.receivedPacketsQueue.Count, this.framesToParseQueue.Count), RECEIVED_PACKETS_QUEUE_MAX_SIZE);
+            int usage=Math.Min(Math.Max(this.receivedPacketsQueue_BC.Count, this.framesToParseQueue.Count), RECEIVED_PACKETS_QUEUE_MAX_SIZE);
             int percent=(usage*100)/RECEIVED_PACKETS_QUEUE_MAX_SIZE;
-            if(lastBufferUsagePercent==null || percent!=lastBufferUsagePercent.Value) {
-                lastBufferUsagePercent=percent;
+            if(this.lastBufferUsagePercent ==null || percent!=lastBufferUsagePercent.Value) {
+                this.lastBufferUsagePercent =percent;
                 this.OnBufferUsageChanged(new Events.BufferUsageEventArgs((usage*100)/RECEIVED_PACKETS_QUEUE_MAX_SIZE));
             }
         }
@@ -510,11 +512,19 @@ namespace PacketParser {
                         //this.receivedPacketsQueueEvent.WaitOne(1000);//one second timeout
                     }
                     */
-                    SharedUtils.Pcap.PacketReceivedEventArgs packet = receivedPacketsQueue.Take();
-                    UpdateBufferUsagePercent();
-                    Frame frame = this.GetFrame(packet);
-                    //this.ParseFrame(frame);
-                    AddFrameToFrameParsingQueue(frame);
+                    Frame frame = this.GetFrame(this.receivedPacketsQueue_BC.Take());//Take() will block until there is a packet in the queue
+                    if(frame != null)
+                        this.AddFrameToFrameParsingQueue(frame);
+                    /*
+                    if(receivedPacketsQueue.TryDequeue(out SharedUtils.Pcap.PacketReceivedEventArgs packet)) {
+                        UpdateBufferUsagePercent();
+                        Frame frame = this.GetFrame(packet);
+                        //this.ParseFrame(frame);
+                        AddFrameToFrameParsingQueue(frame);
+                    }
+                    else
+                        System.Threading.Thread.Sleep(50);
+                        */
                 }
             }
             catch(System.Threading.ThreadAbortException) {
@@ -545,9 +555,9 @@ namespace PacketParser {
             try {
                 while (true) {
                     
-                    frame = framesToParseQueue.Take();
+                    frame = this.framesToParseQueue.Take();
                     System.Threading.Interlocked.Add(ref this.framesToParseQueuedByteCount, -frame.Data.Length);
-                    UpdateBufferUsagePercent();
+                    this.UpdateBufferUsagePercent();
                     this.ParseFrame(frame);
                 }
             }
@@ -785,11 +795,10 @@ namespace PacketParser {
 
                             if (networkTcpSession != null) {
                                 //add packet to session
-                                if (!networkTcpSession.TryAddPacket(tcpPacket, sourceHost, destinationHost))
-                                    networkTcpSession = null;//the packet did apparently not belong to the TCP session
-                                else
+                                if (networkTcpSession.TryAddPacket(tcpPacket, sourceHost, destinationHost))
                                     fiveTuple = networkTcpSession.Flow.FiveTuple;
-
+                                else
+                                    networkTcpSession = null;//the packet did apparently not belong to the TCP session
                             }
 
 
@@ -839,6 +848,7 @@ namespace PacketParser {
                         }
 
                         foreach (Fingerprints.IOsFingerprinter fingerprinter in this.osFingerprintCollectionList) {
+
                             //IList<string> osList;
                             IList<PacketParser.Fingerprints.DeviceFingerprint> osList;
                             if (fingerprinter.TryGetOperatingSystems(out osList, receivedFrame.PacketList/*.Values*/)) {
@@ -920,10 +930,10 @@ namespace PacketParser {
                 NetworkTcpSession.TcpDataStream.VirtualTcpData virtualTcpData=currentStream.GetNextVirtualTcpData();
 
                 bool nextVirtualFrameIsTrailingDataInTcpSegment = false;
-                while(virtualTcpData!=null && currentStream.CountBytesToRead()>0) {
+                while(virtualTcpData!=null && currentStream.CountBytesToRead() > 0) {
                     //1: check if there is an active file stream assembly going on...
                     //   if yes: add the virtualTcpData to the stream
-                    if(fileStreamAssemblerList.ContainsAssembler(networkTcpSession.Flow.FiveTuple, transferIsClientToServer, true)) {
+                    if(this.fileStreamAssemblerList.ContainsAssembler(networkTcpSession.Flow.FiveTuple, transferIsClientToServer, true)) {
                         //this could be any type of TCP packet... but probably part of a file transfer...
                         FileTransfer.FileStreamAssembler assembler=fileStreamAssemblerList.GetAssembler(networkTcpSession.Flow.FiveTuple, transferIsClientToServer);
                         //HTTP 1.0 (but sometimes 1.1) sends a FIN flag when the last packet of a file is sent
@@ -933,11 +943,19 @@ namespace PacketParser {
                             assembler.SetRemainingBytesInFile(virtualTcpData.GetBytes(false).Length);
                             assembler.FileSegmentRemainingBytes=virtualTcpData.GetBytes(false).Length;
                         }
-                        if (assembler.FileStreamType == FileTransfer.FileStreamTypes.HttpGetChunked || assembler.FileStreamType == FileTransfer.FileStreamTypes.HttpPostMimeMultipartFormData || assembler.FileStreamType == FileTransfer.FileStreamTypes.OscarFileTransfer || assembler.FileSegmentRemainingBytes >= virtualTcpData.ByteCount || (assembler.FileContentLength == -1 && assembler.FileSegmentRemainingBytes == -1)) {
+                        if (assembler.FileStreamType == FileTransfer.FileStreamTypes.HttpGetChunked ||
+                            assembler.FileStreamType == FileTransfer.FileStreamTypes.HttpPostMimeMultipartFormData ||
+                            assembler.FileStreamType == FileTransfer.FileStreamTypes.OscarFileTransfer ||
+                            assembler.FileSegmentRemainingBytes >= virtualTcpData.ByteCount ||
+                            (assembler.FileContentLength == -1 && assembler.FileSegmentRemainingBytes == -1)) {
+
                             assembler.AddData(virtualTcpData.GetBytes(false), virtualTcpData.FirstPacketSequenceNumber);
                             currentStream.RemoveData(virtualTcpData);
                         }
-                        else if (assembler.FileSegmentRemainingBytes > 0 && assembler.FileSegmentRemainingBytes < virtualTcpData.ByteCount && assembler.FileStreamType == FileTransfer.FileStreamTypes.HttpGetNormal) {//I would love to add some more FileStreamTypes here!
+                        else if (assembler.FileSegmentRemainingBytes > 0 &&
+                            assembler.FileSegmentRemainingBytes < virtualTcpData.ByteCount &&
+                            (assembler.FileStreamType == FileTransfer.FileStreamTypes.HttpGetNormal || assembler.FileStreamType == FileTransfer.FileStreamTypes.LPD)) {//I would love to add some more FileStreamTypes here!
+
                             byte[] allBytes = virtualTcpData.GetBytes(false);
                             byte[] trimmedBytes = new byte[assembler.FileSegmentRemainingBytes];
                             Array.Copy(allBytes, trimmedBytes, trimmedBytes.Length);
@@ -973,7 +991,7 @@ namespace PacketParser {
                             foreach (var p in packetList) {
                                 packetTypeSet.Add(p.GetType());
                             }
-                            foreach (PacketHandlers.ITcpSessionPacketHandler packetHandler in tcpSessionPacketHandlerList) {
+                            foreach (PacketHandlers.ITcpSessionPacketHandler packetHandler in this.tcpSessionPacketHandlerList) {
                                 if (packetHandler.CanParse(packetTypeSet)) {
                                     parsedBytes += packetHandler.ExtractData(networkTcpSession, transferIsClientToServer, packetList);
                                 }
@@ -1013,7 +1031,7 @@ namespace PacketParser {
                 foreach (var p in receivedFrame.PacketList)
                     packetTypeSet.Add(p.GetType());
 
-                foreach (PacketHandlers.ITcpSessionPacketHandler packetHandler in tcpSessionPacketHandlerList) {
+                foreach (PacketHandlers.ITcpSessionPacketHandler packetHandler in this.tcpSessionPacketHandlerList) {
                     if (packetHandler.CanParse(packetTypeSet)) {
 
                         packetHandler.ExtractData(networkTcpSession, transferIsClientToServer, receivedFrame.PacketList/*.Values*/);
@@ -1025,25 +1043,8 @@ namespace PacketParser {
 
                 //see if there is a file stream assembler and close it
                 this.closeAssemblerIfExists(networkTcpSession.Flow.FiveTuple, true);
-                //this.closeAssemblerIfExists(sourceHost, tcpPacket.SourcePort, destinationHost, tcpPacket.DestinationPort, FiveTuple.TransportProtocol.TCP, true);
-                //close assembler in opposite direction as well
-                //this.closeAssemblerIfExists(destinationHost, tcpPacket.DestinationPort, sourceHost, tcpPacket.SourcePort, FiveTuple.TransportProtocol.TCP, true);
                 this.closeAssemblerIfExists(networkTcpSession.Flow.FiveTuple, false);
-                /*
-
-                if(fileStreamAssemblerList.ContainsAssembler(sourceHost, tcpPacket.SourcePort, destinationHost, tcpPacket.DestinationPort, true, true)) {
-                    //we have an assembler, let's close it
-                    using(FileTransfer.FileStreamAssembler assembler=fileStreamAssemblerList.GetAssembler(sourceHost, tcpPacket.SourcePort, destinationHost, tcpPacket.DestinationPort, true)) {
-                        if(assembler.IsActive && assembler.FileSegmentRemainingBytes<=0 && assembler.AssembledByteCount>0) {
-                            //I'll assume that the file transfer was OK
-                            assembler.FinishAssembling();
-                        }
-                        else {
-                            fileStreamAssemblerList.Remove(assembler, true);
-                        }
-                    }
-                }
-                */
+               
 
 
             }
@@ -1147,14 +1148,7 @@ namespace PacketParser {
             //parentForm.ShowReconstructedFile(file);
         }
         internal void AddCredential(NetworkCredential credential) {
-            /*
-            if(!credentialList.ContainsKey(credential.Key))
-                this.credentialList.Add(credential.Key, credential);
-            else
-                this.credentialList[credential.Key]=credential;
-            if(credential.Password!=null)
-                parentForm.ShowCredential(credential);
-             * */
+
             if(!credentialList.ContainsKey(credential.Key)) {
                 this.credentialList.Add(credential.Key, credential);
                 if(credential.Password!=null)

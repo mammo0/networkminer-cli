@@ -27,19 +27,22 @@ namespace PacketParser.CleartextDictionary {
             this.indexMask=indexSize-1;
 
             this.bitArray=new BitArray(indexSize, false);//2^24 bits = 16MByte
-            this.nHashFunctions=(int)(0.7*indexSize/wordList.Count);
+            if (wordList.Count == 0)
+                this.nHashFunctions = 1;
+            else
+                this.nHashFunctions=(int)(0.7*indexSize/(wordList.Count));
 
             foreach(string s in wordList)
-                AddWord(s);
+                this.AddWord(s);
             for(int i=0; i<bitArray.Length; i++)
-                if(bitArray[i])
-                    tmpStatFilledValues++;
+                if(this.bitArray[i])
+                    this.tmpStatFilledValues++;
         }
 
         public bool HasWord(string word) {
-            int[] indexes=GetIndexes(word);
+            int[] indexes= this.GetIndexes(word);
             foreach(int index in indexes)
-                if(!bitArray[index])
+                if(!this.bitArray[index])
                     return false;
             return true;
         }
@@ -50,19 +53,16 @@ namespace PacketParser.CleartextDictionary {
             //simple hash method
             for(int i=0; i<indexes.Length; i++) {
                 int hash=(word+i.ToString()).GetHashCode();
-                //indexes[i]=(hash^(hash>>16))&indexMask;
-                indexes[i] = (hash * i * 7) & indexMask;
+                indexes[i] = (hash * i * 7) & this.indexMask;
             }
-            //System.Cry
-
             return indexes;
         }
 
         private void AddWord(string word) {
             word=word.ToLower();
-            int[] indexes=GetIndexes(word);
+            int[] indexes= this.GetIndexes(word);
             foreach(int index in indexes)
-                bitArray[index]=true;
+                this.bitArray[index]=true;
             this.wordCount++;
 
 

@@ -33,6 +33,7 @@ namespace PacketParser.PacketHandlers {
             int parsedBytes = 0;
             foreach (DnsPacket dp in packetList.OfType<DnsPacket>()) {
                 parsedBytes += dp.PacketLength;
+                parsedBytes += dp.SkippedBytes;
             }
             NetworkHost sourceHost, destinationHost;
             if (transferIsClientToServer) {

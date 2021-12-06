@@ -16,6 +16,7 @@ namespace PacketParser {
         IEC_104, //TCP
         Imap, //TCP
         Kerberos, //TCP or UDP
+        Lpd,
         ModbusTCP, //TCP
         NetBiosNameService, //TCP or UDP
         NetBiosDatagramService, //UDP

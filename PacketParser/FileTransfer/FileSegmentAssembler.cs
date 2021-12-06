@@ -79,40 +79,12 @@ namespace PacketParser.FileTransfer {
             this.fiveTuple = networkTcpSession.Flow.FiveTuple;
             this.transferIsClientToServer = transferIsClientToServer;
 
-            /*
-            if (this.fileTransferIsServerToClient) {
-                this.sourceHost = networkTcpSession.ServerHost;
-                this.destinationHost = networkTcpSession.ClientHost;
-                this.sourcePort = networkTcpSession.ServerTcpPort;
-                this.destinationPort = networkTcpSession.ClientTcpPort;
-            }
-            else {
-                this.sourceHost = networkTcpSession.ClientHost;
-                this.destinationHost = networkTcpSession.ServerHost;
-                this.sourcePort = networkTcpSession.ClientTcpPort;
-                this.destinationPort = networkTcpSession.ServerTcpPort;
-            }*/
-
-            /*
-            this.filePath = filePath;
-            this.uniqueFileId = uniqueFileId;
-            this.parentAssemblerList = parentAssemblerList;
-            this.fileStreamAssemblerList = fileStreamAssemblerList;
-            this.fileStreamType = fileStreamType;
-            this.details = details;
-            */
         }
 
         internal FileSegmentAssembler(string fileOutputDirectory, bool transferIsClientToServer, string filePath, string uniqueFileId, FileTransfer.FileStreamAssemblerList fileStreamAssemblerList, PopularityList<string, PacketParser.FileTransfer.FileSegmentAssembler> parentAssemblerList, FileStreamTypes fileStreamType, string details, FiveTuple fiveTuple, string serverHostname)
             : this(fileOutputDirectory, filePath, uniqueFileId, fileStreamAssemblerList, parentAssemblerList, fileStreamType, details, serverHostname) {
             this.fiveTuple = fiveTuple;
             this.transferIsClientToServer = transferIsClientToServer;
-            /*
-            this.sourceHost = sourceHost;
-            this.destinationHost = destinationHost;
-            this.sourcePort = sourcePort;
-            this.destinationPort = destinationPort;
-            */
         }
 
         private FileSegmentAssembler(string fileOutputDirectory, string filePath, string uniqueFileId, FileTransfer.FileStreamAssemblerList fileStreamAssemblerList, PopularityList<string, PacketParser.FileTransfer.FileSegmentAssembler> parentAssemblerList, FileStreamTypes fileStreamType, string details, string serverHostname) {

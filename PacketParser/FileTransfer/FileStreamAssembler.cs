@@ -6,6 +6,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace PacketParser.FileTransfer {
@@ -30,6 +31,8 @@ namespace PacketParser.FileTransfer {
             "ps1", "psc1", "application", "gadget", "msp", "hta", "cpl", "msc",
             "ws", "wsf", "wsc", "wsh", "ps1xml", "ps2", "ps2xml", "psc1", "psc2", "msh", "msh1", "msh2", "mshxml", "msh1xml", "msh2xml"
         };
+
+        public static IReadOnlyCollection<string> ExecutableExtensions = new HashSet<string>(executableExtensions);
 
         public enum FileAssmeblyRootLocation { cache, source, destination };
 
@@ -57,6 +60,107 @@ namespace PacketParser.FileTransfer {
         private static readonly char[] DIRECTORY_SEPARATORS={ '\\', '/' };
         private static readonly string[] FORBIDDEN_NAMES = { "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
             "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9" };
+
+        public static string GetExtensionFromHeader(byte[] header) {
+            if (header.Length >= 8) {
+                ulong headerValue = Utils.ByteConverter.ToUInt64(header, 0, false);
+                for (int i = 8; i > 3 && headerValue > 0; i--) {
+                    if (FileHeaders.ContainsKey(headerValue))
+                        return FileHeaders[headerValue];
+                    headerValue >>= 8;
+                }
+            }
+            return null;
+        }
+
+        //https://en.wikipedia.org/wiki/List_of_file_signatures
+        private static readonly Dictionary<UInt64, string> FileHeaders = new Dictionary<UInt64, string> {
+            { 0x667479703367, "3gp" },
+            { 0x377ABCAF271C, "7z" },
+            { 0x4D534346, "cab" },
+            { 0x49536328, "cab" },
+            { 0x5F434153455F, "cas" },
+            { 0x4349534F, "cso" },
+            { 0x504D4F43434D4F43, "dat" },
+            { 0x213C617263683E0A, "deb" },
+            { 0x6465780A30333500, "dex" },
+            { 0xD0CF11E0A1B1, "doc" },
+            { 0xD0CF11E0A1B11AE1, "doc" },
+            { 0x504B030414000600, "docx" },
+            { 0x4d5a9000, "exe" }, //could also be .dll
+            { 0x4d5a8000, "exe" }, //could also be .dll
+            { 0x4d5a5000, "exe" }, //could also be .dll
+            { 0x7F454C46, "elf" },
+            { 0x474946383761, "gif" },
+            { 0x474946383961, "gif" },
+            //{ 0x3c3f786d6c20, "html"},//"<?xml " this could also be SVG!
+            { 0x3c21444f43545950, "html" }, //"<!DOCTYP" which should be followed by "E html>"
+            { 0x3c68746d6c, "html" }, //"<html
+            { 0x3c48544d4c, "html" }, //"<HTML"
+            { 0x504943540008, "img" },
+            { 0x514649FB, "img" },
+            { 0x53434D49, "img" },
+            { 0x4344303031, "iso" },
+            { 0x00000100, "ico" },
+            { 0x4A4152435300, "jar" },
+            { 0x5F27A889, "jar" },
+            { 0xFFD8FFDB, "jpg" },
+            { 0xFFD8FFE000104A46, "jpg" },
+            { 0x49460001FFD8FFEE, "jpg" },
+            { 0xFFD8FFE00010, "jpg" },
+            { 0xFFD8FFE135FE, "jpg" },
+            { 0xFFD8FFE1, "jpg"},
+            //{ 0xD8FFE000104A4649, "jpg" },//broken jpg?
+            { 0x4C5A4950, "lz" },
+            { 0x04224D18, "lz4" },
+            { 0x1A45DFA393428288, "mkv" },
+            { 0xFFFE23006C006900, "mof" },
+            { 0x4944330300000000, "mp3" },
+            { 0xfffb906400000000, "mp3" },
+            { 0xfffb90440000, "mp3" },
+            { 0x0000001466747970, "mp4" },//ISO(?)
+            { 0x0000001866747970, "mp4" },
+            { 0x0000001C66747970, "mp4" },
+            { 0x000001BA, "mpg" },
+            { 0x000001B3, "mpg" },
+            { 0x4F676753, "ogg" },
+            { 0xD4C3B2A1, "pcap" },
+            { 0xA1B2C3D4, "pcap" },
+            { 0x4D3CB2A1, "pcap" },
+            { 0xA1B23C4D, "pcap" },
+            { 0x0A0D0D0A, "pcapng" },
+            { 0x25504446, "pdf" },
+            { 0x255044462D, "pdf" },
+            { 0x3C3F706870, "php" },//<?php
+            { 0x89504E470D0A1A0A, "png" },
+            { 0x526172211A0700, "rar" },
+            { 0x526172211A070100, "rar" },
+            { 0xEDABEEDB, "rpm" },
+            { 0x46575304, "swf" },
+            { 0x46575305, "swf" },
+            { 0x46575306, "swf" },
+            { 0x46575307, "swf" },
+            { 0x46575308, "swf" },
+            { 0x46575309, "swf" },
+            { 0x25215053, "ps" },
+            { 0x7573746172003030, "tar" },
+            { 0x7573746172202000, "tar" },
+            { 0x49492A00, "tiff" },
+            { 0x4D4D002A, "tiff" },
+            { 0x1A45DFA3, "webm" },
+            { 0x4D5357494D, "wim" },
+            //{ 0x52494646, "wav" },//could also be avi
+            { 0x3026B275, "wma" },
+            { 0x3026B2758E66CF11, "wmv" },
+            { 0x0000002066747970, "m4a" },
+            { 0x78617221, "xar" },
+            { 0xFD377A585A00, "xz" },
+            { 0x504B0304, "zip" },
+            { 0x504B0506, "zip" },
+            { 0x504B0708, "zip" },
+            { 0x504B030414000100, "zip" },
+            {0, null }
+        };
 
         private FileStreamAssemblerList parentAssemblerList;
         //private NetworkHost sourceHost, destinationHost;
@@ -115,12 +219,13 @@ namespace PacketParser.FileTransfer {
                     return this.fiveTuple.ClientPort;
             }
         }
+        internal string ExtensionFromHeader { get; private set; } = null;
         internal string Filename {
-            get { return filename; }
+            get { return this.filename; }
             set {
-                filename =value;
+                this.filename =value;
                 if(this.fileLocation != null && this.fileLocation.Length > 0 && this.filename != null)
-                    FixFilenameAndLocation(ref this.filename, ref this.fileLocation);
+                    FixFilenameAndLocation(ref this.filename, ref this.fileLocation, this.ExtensionFromHeader);
             }
         }
         internal string FileLocation { get { return this.fileLocation; } }
@@ -225,7 +330,7 @@ namespace PacketParser.FileTransfer {
             //Or: http://blogs.msdn.com/bclteam/archive/2007/02/13/long-paths-in-net-part-1-of-3-kim-hamilton.aspx
 
             //see if there is any fileLocation info in the filename and move it to the fileLocation
-            FixFilenameAndLocation(ref this.filename, ref this.fileLocation);
+            FixFilenameAndLocation(ref this.filename, ref this.fileLocation, this.ExtensionFromHeader);
             SharedUtils.Logger.Log("Creating FileStreamAssembler for file " + this.filename, SharedUtils.Logger.EventLogEntryType.Information);
 
 
@@ -249,7 +354,7 @@ namespace PacketParser.FileTransfer {
             return System.Web.HttpUtility.UrlEncode(s);
         }
 
-        internal static void FixFilenameAndLocation(ref string filename, ref string fileLocation){
+        internal static void FixFilenameAndLocation(ref string filename, ref string fileLocation, string extensionFromHeader = null) {
             if(filename.Contains("/")) {
                 fileLocation=filename.Substring(0, filename.LastIndexOf('/')+1);
                 filename=filename.Substring(filename.LastIndexOf('/')+1);
@@ -266,7 +371,9 @@ namespace PacketParser.FileTransfer {
                 filename=filename.Remove(filename.IndexOfAny(DIRECTORY_SEPARATORS), 1);
             while(filename.StartsWith("."))
                 filename=filename.Substring(1);
-            if(filename.Length>32) {//not allowed by Windows to be more than 260 characters
+            if (!string.IsNullOrEmpty(extensionFromHeader) && filename.EndsWith(".octet-stream", StringComparison.InvariantCultureIgnoreCase))
+                filename = filename.Substring(0, filename.Length - 12) + extensionFromHeader;
+            if (filename.Length>32) {//not allowed by Windows to be more than 260 characters
                 //I want to make sure I keep the extension when the filename is cut...
                 int extensionPosition=filename.LastIndexOf('.');
                 if(extensionPosition<0 || extensionPosition<=filename.Length-20)
@@ -275,6 +382,7 @@ namespace PacketParser.FileTransfer {
                     filename=filename.Substring(0, 20-filename.Length+extensionPosition)+filename.Substring(extensionPosition);
             }
 
+            //FILE LOCATION
             fileLocation=System.Web.HttpUtility.UrlDecode(fileLocation);
             fileLocation = fileLocation.Replace("..", "_");
             
@@ -296,6 +404,8 @@ namespace PacketParser.FileTransfer {
                 fileLocation = fileLocation.Substring(0, fileLocation.Length - 1);
             //char[] directorySeparators={'/','\\'};
             fileLocation =fileLocation.TrimEnd(DIRECTORY_SEPARATORS);
+            
+
             if(fileLocation.Length>40)//248 characters totally (directory + file name) is the maximum allowed
                 fileLocation=fileLocation.Substring(0, 40).TrimEnd(DIRECTORY_SEPARATORS);
         }
@@ -353,8 +463,8 @@ namespace PacketParser.FileTransfer {
             if(parentAssemblerList.PacketHandler.DefangExecutableFiles) {
                 
                 foreach (string ext in executableExtensions)
-                    if (filename.EndsWith("." + ext))
-                        filename = filename + "_";//defanged by adding "_" after the extension
+                    if (filename.EndsWith("." + ext, StringComparison.InvariantCultureIgnoreCase))
+                        filename += "_";//defanged by adding "_" after the extension
             }
 
             //sanitize file location
@@ -362,6 +472,16 @@ namespace PacketParser.FileTransfer {
             fileLocation = fileLocation.Replace("/./", "/").Replace("\\.\\", "\\");//replace "/dir/./sub/" with "/dir/sub"
             while (fileLocation.EndsWith("."))
                 fileLocation = fileLocation.Substring(0, fileLocation.Length - 1);
+            //remove leading and trainling spaces in directories
+            fileLocation = fileLocation.Trim();
+            while(fileLocation.Contains("/ "))
+                fileLocation = fileLocation.Replace("/ ", "/");
+            while (fileLocation.Contains(" /"))
+                fileLocation = fileLocation.Replace(" /", "/");
+            while (fileLocation.Contains("\\ "))
+                fileLocation = fileLocation.Replace("\\ ", "\\");
+            while (fileLocation.Contains(" \\"))
+                fileLocation = fileLocation.Replace(" \\", "\\");
 
             if (fileLocation.IndexOfAny(System.IO.Path.GetInvalidPathChars()) >= 0) {
                 foreach (char c in System.IO.Path.GetInvalidPathChars())
@@ -388,8 +508,8 @@ namespace PacketParser.FileTransfer {
                 protocolString = "MIME_form-data";
             else if (fileStreamType == FileStreamTypes.HttpPostMimeFileData)
                 protocolString = "MIME_file-data";
-            else if (fileStreamType == FileStreamTypes.HttpPostMms)
-                protocolString = "HTTP_POST_MMS";
+            else if (fileStreamType == FileStreamTypes.HttpPostUpload)
+                protocolString = "HTTP_POST";
             else if (fileStreamType == FileStreamTypes.OscarFileTransfer)
                 protocolString = "OSCAR";
             else if (fileStreamType == FileStreamTypes.POP3)
@@ -400,6 +520,8 @@ namespace PacketParser.FileTransfer {
                 protocolString = "IMAP";
             else if (fileStreamType == FileStreamTypes.RTP)
                 protocolString = "RTP_VoIP";
+            else if (fileStreamType == FileStreamTypes.LPD)
+                protocolString = "LPD";
             else
                 throw new Exception("File transfer protocol not implemented yet");
 
@@ -517,11 +639,11 @@ namespace PacketParser.FileTransfer {
             if(this.fiveTuple.Transport != FiveTuple.TransportProtocol.TCP)
                 throw new Exception("No TCP packets accepted, only " + this.fiveTuple.Transport.ToString());
             if(tcpPacket.PayloadDataLength>0)
-                AddData(tcpPacket.GetTcpPacketPayloadData(), tcpPacket.SequenceNumber);
+                this.AddData(tcpPacket.GetTcpPacketPayloadData(), tcpPacket.SequenceNumber);
         }
 
         internal void AddData(byte[] packetData, ushort packetNumber) {
-            AddData(packetData, (uint)packetNumber);
+            this.AddData(packetData, (uint)packetNumber);
         }
         internal void AddData(byte[] packetData, uint tcpPacketSequenceNumber){
 
@@ -532,17 +654,24 @@ namespace PacketParser.FileTransfer {
 
                 if(packetData.Length<=0)
                     return;//don't do anything with empty packets...
-                if(tcpPacketBufferWindow.ContainsKey(tcpPacketSequenceNumber))
+                if(this.tcpPacketBufferWindow.ContainsKey(tcpPacketSequenceNumber))
                     return;//we already have the packet (I'm not putting any effort into seeing if they are different and which one is correct)
                 if(this.FileStreamType!=FileStreamTypes.HttpGetChunked && this.FileStreamType!=FileStreamTypes.TFTP && this.FileContentLength!=-1) {
-                    if(fileSegmentRemainingBytes<packetData.Length) {
+                    if(this.fileSegmentRemainingBytes <packetData.Length) {
                         //throw new Exception("Assembler is only expecting data segment length up to "+fileSegmentRemainingBytes+" bytes");
                         this.parentAssemblerList.PacketHandler.OnAnomalyDetected("Assembler is only expecting data segment length up to "+fileSegmentRemainingBytes+" bytes");
                         return;
                     }
-                    fileSegmentRemainingBytes-=packetData.Length;
+                    this.fileSegmentRemainingBytes -= packetData.Length;
                 }
-                tcpPacketBufferWindow.Add(tcpPacketSequenceNumber, packetData);
+
+                this.tcpPacketBufferWindow.Add(tcpPacketSequenceNumber, packetData);
+                if(this.ExtensionFromHeader == null && this.tcpPacketBufferWindow.Count < 5 && this.tcpPacketBufferWindow.Values.First() == packetData) {
+                    this.ExtensionFromHeader = GetExtensionFromHeader(packetData);
+                    
+                    if(!string.IsNullOrEmpty(this.ExtensionFromHeader) && !this.filename.EndsWith(this.ExtensionFromHeader, StringComparison.InvariantCultureIgnoreCase))
+                        FixFilenameAndLocation(ref this.filename, ref this.fileLocation, this.ExtensionFromHeader);
+                }
                 this.assembledByteCount+=packetData.Length;
 
                 //in order to improve performance I could ofcourse have a separate thread doing all the file operations
@@ -550,26 +679,27 @@ namespace PacketParser.FileTransfer {
                 //A smaller number gives better performance (both memory and CPU wise) while a larger number gives better tolerance to out-of-order (i.e. non-sequential) TCP packets
 
                 //If this valus is changed, then also make sure to revise "dataListMaxSize" in NetworkTcpSession.TcpDataStream and possibly also "maxPacketFragments" in NetworkTcpSession.VirtualTcpData.TryAppendNextPacket()
-                while(tcpPacketBufferWindow.Count>64) {
-                    uint key=tcpPacketBufferWindow.Keys[0];
-                    this.fileStream.Write(tcpPacketBufferWindow[key], 0, tcpPacketBufferWindow[key].Length);
-                    tcpPacketBufferWindow.Remove(key);
+                while(this.tcpPacketBufferWindow.Count>64) {
+                    uint key= this.tcpPacketBufferWindow.Keys[0];
+                    this.fileStream.Write(this.tcpPacketBufferWindow[key], 0, this.tcpPacketBufferWindow[key].Length);
+                    this.tcpPacketBufferWindow.Remove(key);
                 }
 
 
                 if((this.FileStreamType==FileStreamTypes.HttpGetNormal
                     /*|| this.FileStreamType==FileStreamTypes.SMB*/
                     || this.FileStreamType == FileStreamTypes.IMAP
+                    || this.FileStreamType == FileStreamTypes.LPD
                     || this.FileStreamType == FileStreamTypes.POP3
-                    || this.FileStreamType==FileStreamTypes.SMTP
-                    || this.fileStreamType==FileStreamTypes.TlsCertificate
-                    || this.fileStreamType==FileStreamTypes.FTP
-                    || this.fileStreamType==FileStreamTypes.HttpPostMimeMultipartFormData
-                    || this.fileStreamType==FileStreamTypes.HttpPostMimeFileData
-                    || this.fileStreamType == FileStreamTypes.HttpPostMms
-                    || this.fileStreamType==FileStreamTypes.OscarFileTransfer)
-                    && assembledByteCount>=fileContentLength && fileContentLength!=-1) {//we have received the whole file
-                    FinishAssembling();
+                    || this.FileStreamType == FileStreamTypes.SMTP
+                    || this.fileStreamType == FileStreamTypes.TlsCertificate
+                    || this.fileStreamType == FileStreamTypes.FTP
+                    || this.fileStreamType == FileStreamTypes.HttpPostMimeMultipartFormData
+                    || this.fileStreamType == FileStreamTypes.HttpPostMimeFileData
+                    || this.fileStreamType == FileStreamTypes.HttpPostUpload
+                    || this.fileStreamType == FileStreamTypes.OscarFileTransfer)
+                    && this.assembledByteCount >= this.fileContentLength && this.fileContentLength != -1) {//we have received the whole file
+                    this.FinishAssembling();
                 }
                 else if(this.FileStreamType!=FileStreamTypes.HttpGetChunked && this.FileStreamType!=FileStreamTypes.TFTP && FileSegmentRemainingBytes==0) {
                     this.isActive=false;//deactivate (only for SMB?)
@@ -582,7 +712,7 @@ namespace PacketParser.FileTransfer {
                             if(packetData[packetData.Length-chunkTrailer.Length+i]!=chunkTrailer[i])
                                 packetDataHasChunkTrailer=false;
                         if(packetDataHasChunkTrailer)
-                            FinishAssembling();
+                            this.FinishAssembling();
 
                     }
 
@@ -602,21 +732,21 @@ namespace PacketParser.FileTransfer {
             this.isActive = false;
             if (this.fileStream != null) {
                 try {
-                    foreach (byte[] data in tcpPacketBufferWindow.Values)
+                    foreach (byte[] data in this.tcpPacketBufferWindow.Values)
                         this.fileStream.Write(data, 0, data.Length);
                     this.fileStream.Flush();
                 }
                 catch (Exception ex) {
-                    if (fileStream != null)
-                        parentAssemblerList.PacketHandler.OnAnomalyDetected("Error writing final data to file \"" + fileStream.Name + "\".\n" + ex.Message);
+                    if (this.fileStream != null)
+                        this.parentAssemblerList.PacketHandler.OnAnomalyDetected("Error writing final data to file \"" + fileStream.Name + "\".\n" + ex.Message);
                     else
-                        parentAssemblerList.PacketHandler.OnAnomalyDetected("Error writing final data to file \"" + this.filename + "\".\n" + ex.Message);
+                        this.parentAssemblerList.PacketHandler.OnAnomalyDetected("Error writing final data to file \"" + this.filename + "\".\n" + ex.Message);
                 }
             }
-            tcpPacketBufferWindow.Clear();
-            parentAssemblerList.Remove(this, false);
+            this.tcpPacketBufferWindow.Clear();
+            this.parentAssemblerList.Remove(this, false);
 
-            (string destinationPath, Uri destinationRelativeUri) = GetFilePath(this.fileAssmeblyRootLocation);
+            (string destinationPath, Uri destinationRelativeUri) = this.GetFilePath(this.fileAssmeblyRootLocation);
 
             /*
 #if DEBUG
@@ -788,25 +918,47 @@ namespace PacketParser.FileTransfer {
                     }
                 }
                 if (System.IO.File.Exists(destinationPath)) {
-                    /*
-                    try {
-                        System.IO.File.SetLastWriteTime(destinationPath, this.timestamp);
-                    }
-                    catch (Exception e) {
-                        this.parentAssemblerList.PacketHandler.OnAnomalyDetected("Error timestomping reconstructed file: " + e.Message);
-                    }
-                    */
 
                     try {
 
 
-                        ReconstructedFile completedFile = new ReconstructedFile(destinationPath, destinationRelativeUri, this.fiveTuple, this.transferIsClientToServer, fileStreamType, details, this.initialFrameNumber, this.timestamp, this.serverHostname);
+                        ReconstructedFile completedFile = new ReconstructedFile(destinationPath, destinationRelativeUri, this.fiveTuple, this.transferIsClientToServer, fileStreamType, details, this.initialFrameNumber, this.timestamp, this.serverHostname, this.ExtensionFromHeader);
 
                         //only report on partial files (from range requests) if settings say so
-                        if (parentAssemblerList.PacketHandler.ExtractPartialDownloads || this.contentRange == null || completedFile.FileSize == contentRange.Total) {
-                            parentAssemblerList.PacketHandler.AddReconstructedFile(completedFile);
-                            if (this.FileReconstructed != null)
-                                this.FileReconstructed(this.extendedFileId, completedFile);
+                        if (this.parentAssemblerList.PacketHandler.ExtractPartialDownloads || this.contentRange == null || completedFile.FileSize == contentRange.Total) {
+                            this.parentAssemblerList.PacketHandler.AddReconstructedFile(completedFile);
+                            this.FileReconstructed?.Invoke(this.extendedFileId, completedFile);
+
+                            if(this.parentAssemblerList.PacketHandler.FileCarvers.ContainsKey(completedFile.FileStreamType)) {
+                                foreach(var (extension, startPosition, length) in this.parentAssemblerList.PacketHandler.FileCarvers[completedFile.FileStreamType].GetCarvedFileIndices(completedFile.FilePath)) {
+                                    ReconstructedFile carvedFile;
+                                    using (var inFile = System.IO.File.OpenRead(completedFile.FilePath)) {
+                                        string carvedPath = completedFile.FilePath + "." + extension;
+                                        using (var outFile = System.IO.File.OpenWrite(carvedPath)) {
+                                            inFile.Position = startPosition;
+                                            if(startPosition + length < inFile.Length) {
+                                                byte[] buffer = new byte[16 * 1024];
+                                                int read;
+                                                long bytesWritten = 0;
+                                                while ((read = inFile.Read(buffer, 0, buffer.Length)) > 0) {
+                                                    if(bytesWritten + read >= length) {
+                                                        outFile.Write(buffer, 0, (int)(length - bytesWritten));
+                                                        break;
+                                                    }
+                                                    outFile.Write(buffer, 0, read);
+                                                    bytesWritten += read;
+                                                }
+                                            }
+                                            else {
+                                                inFile.CopyTo(outFile);
+                                            }
+                                            carvedFile = new ReconstructedFile(carvedPath, completedFile.RelativeUri, completedFile.FiveTuple, completedFile.TransferIsClientToServer, completedFile.FileStreamType, completedFile.Details, completedFile.InitialFrameNumber, completedFile.Timestamp, completedFile.ServerHostname, this.ExtensionFromHeader);
+                                            this.parentAssemblerList.PacketHandler.AddReconstructedFile(carvedFile);
+                                            this.FileReconstructed?.Invoke(this.extendedFileId, carvedFile);
+                                        }
+                                    }
+                                }
+                            }
                         }
 
                         //reassemble file from HTTP range replies like "HTTP/1.1 206 Partial Content"
@@ -841,8 +993,7 @@ namespace PacketParser.FileTransfer {
                                     }
                                     */
                                     parentAssemblerList.PacketHandler.AddReconstructedFile(reconstructedFile);
-                                    if (this.FileReconstructed != null)
-                                        this.FileReconstructed(this.extendedFileId, reconstructedFile);
+                                    this.FileReconstructed?.Invoke(this.extendedFileId, reconstructedFile);
                                 }
                             }
                         }

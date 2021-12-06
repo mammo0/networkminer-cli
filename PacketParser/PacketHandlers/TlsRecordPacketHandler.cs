@@ -180,10 +180,12 @@ namespace PacketParser.PacketHandlers {
                 System.Collections.Specialized.NameValueCollection param = new System.Collections.Specialized.NameValueCollection();
                 param.Add("JA3 Signature", handshake.GetJA3FingerprintFull());
                 string ja3Hash = handshake.GetJA3FingerprintHash();
-                if(this.ja3Fingerprints.ContainsKey(ja3Hash))
+                if (this.ja3Fingerprints.ContainsKey(ja3Hash)) {
                     sourceHost.AddJA3Hash(ja3Hash, this.ja3Fingerprints[ja3Hash]);
+                }
                 else
                     sourceHost.AddJA3Hash(ja3Hash);
+                //sourceHost.AddNumberedExtraDetail("JA3 Hash", ja3Hash);
                 param.Add("JA3 Hash", ja3Hash);
                 if (handshake.ServerHostName != null) {
                     destinationHost.AddHostName(handshake.ServerHostName, handshake.PacketTypeDescription);
@@ -191,9 +193,18 @@ namespace PacketParser.PacketHandlers {
                 }
                 base.MainPacketHandler.OnParametersDetected(new Events.ParametersEventArgs(handshake.ParentFrame.FrameNumber, fiveTuple, transferIsClientToServer, param, handshake.ParentFrame.Timestamp, "TLS Client Hello"));
             }
+            else if(handshake.MessageType == Packets.TlsRecordPacket.HandshakePacket.MessageTypes.ServerHello) {
+                System.Collections.Specialized.NameValueCollection param = new System.Collections.Specialized.NameValueCollection();
+                param.Add("JA3S Signature", handshake.GetJA3SFingerprintFull());
+                string ja3Hash = handshake.GetJA3SFingerprintHash();
+                sourceHost.AddJA3SHash(ja3Hash);
+                param.Add("JA3S Hash", ja3Hash);
+                base.MainPacketHandler.OnParametersDetected(new Events.ParametersEventArgs(handshake.ParentFrame.FrameNumber, fiveTuple, transferIsClientToServer, param, handshake.ParentFrame.Timestamp, "TLS Server Hello"));
+            }
             else if (handshake.MessageType == Packets.TlsRecordPacket.HandshakePacket.MessageTypes.Certificate)
                 for (int i = 0; i < handshake.CertificateList.Count; i++) {
                     byte[] certificate = handshake.CertificateList[i];
+                    string UNKNOWN_SUBJECT_STRING = "Unknown_x509_Certificate_Subject";
                     string x509CertSubject;
                     System.Security.Cryptography.X509Certificates.X509Certificate x509Cert = null;
                     try {
@@ -202,7 +213,7 @@ namespace PacketParser.PacketHandlers {
                     }
                     catch(Exception e) {
                         SharedUtils.Logger.Log("Unable to parse X.509 Subject in " + tcpPacket.ParentFrame.ToString() + ". " + e.ToString(), SharedUtils.Logger.EventLogEntryType.Information);
-                        x509CertSubject = "Unknown_x509_Certificate_Subject";
+                        x509CertSubject = UNKNOWN_SUBJECT_STRING;
                         x509Cert = null;
                     }
                     if (x509CertSubject.Contains("CN="))
@@ -219,7 +230,15 @@ namespace PacketParser.PacketHandlers {
                     while (x509CertSubject.EndsWith(".") || x509CertSubject.EndsWith(" "))
                         x509CertSubject=x509CertSubject.Substring(0, x509CertSubject.Length-1);
                         */
+
                     string filename = x509CertSubject + ".cer";
+                    if(string.IsNullOrEmpty(x509CertSubject) || x509CertSubject == "*" || x509CertSubject == UNKNOWN_SUBJECT_STRING) {
+                        if (x509Cert != null)
+                            filename = x509Cert.GetCertHashString() + ".cer";
+                        else if (!string.IsNullOrEmpty(handshake.ServerHostName))
+                            filename = handshake.ServerHostName + ".cer";
+                    }
+                        
                     string fileLocation = "/";
                     string details;
                     if (x509Cert != null)

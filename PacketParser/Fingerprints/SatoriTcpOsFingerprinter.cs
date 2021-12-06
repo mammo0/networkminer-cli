@@ -14,12 +14,14 @@ using System.IO;
 namespace PacketParser.Fingerprints {
     public class SatoriTcpOsFingerprinter : IOsFingerprinter, IComparable<IOsFingerprinter>, IComparable {
         private List<TcpFingerprint> fingerprintList;
+        private TcpFingerprint[][] tcpFlagsFingerprintList;
 
         public double Confidence { get; }
 
         public SatoriTcpOsFingerprinter(string satoriTcpXmlFilename, double confidence = 0.4) {
             this.Confidence = confidence;
             fingerprintList=new List<TcpFingerprint>();
+            this.tcpFlagsFingerprintList = new TcpFingerprint[256][];
             System.IO.FileStream fileStream=new FileStream(satoriTcpXmlFilename, FileMode.Open, FileAccess.Read);
 
             System.Xml.XmlDocument tcpXml=new System.Xml.XmlDocument();
@@ -41,8 +43,6 @@ namespace PacketParser.Fingerprints {
 
                 }
             }
-
-
         }
 
         public int CompareTo(object obj) {
@@ -57,8 +57,6 @@ namespace PacketParser.Fingerprints {
         }
 
         #region IOsFingerprinter Members
-
-
 
         //public bool TryGetOperatingSystems(out IList<string> osList, IEnumerable<Packets.AbstractPacket> packetList) {
         public bool TryGetOperatingSystems(out IList<DeviceFingerprint> osList, IEnumerable<Packets.AbstractPacket> packetList) {
@@ -75,28 +73,47 @@ namespace PacketParser.Fingerprints {
                 }
 
                 if(tcpPacket!=null && ipPacket != null) {
-
-                    //osList=new List<string>();
-                    osList = new List<DeviceFingerprint>();
-                    int osListWeight=3;//in order to avoid getting hits on tests with weight 1 and 2
-
-                    foreach(TcpFingerprint f in this.fingerprintList) {
-                        int w=f.GetHighestMatchWeight(tcpPacket, ipPacket);
-                        if(w>osListWeight) {
-                            osListWeight=w;
-                            osList.Clear();
-                            //osList.Add(f.ToString());
-                            osList.Add(new DeviceFingerprint(f.ToString()));
+                    if(this.tcpFlagsFingerprintList[tcpPacket.FlagsRaw] == null) {
+                        List<TcpFingerprint> list = new List<TcpFingerprint>();
+                        foreach (TcpFingerprint f in this.fingerprintList) {
+                            if (f.ContainsFingerprintsForTcpFlags(tcpPacket))
+                                list.Add(f);
                         }
-                        else if(w==osListWeight)
-                            //osList.Add(f.ToString());
-                            osList.Add(new DeviceFingerprint(f.ToString()));
+                        this.tcpFlagsFingerprintList[tcpPacket.FlagsRaw] = list.ToArray();
                     }
-                    if(osList.Count>0) {
-                        //packetList=osList;
-                        return true;
+                    /*
+                    if(!this.tcpFlagsFingerprintList.ContainsKey(tcpPacket.FlagsRaw)) {
+                        List<TcpFingerprint> list = new List<TcpFingerprint>();
+                        foreach (TcpFingerprint f in this.fingerprintList) {
+                            if (f.ContainsFingerprintsForTcpFlags(tcpPacket))
+                                list.Add(f);
+                        }
+                        this.tcpFlagsFingerprintList.Add(tcpPacket.FlagsRaw, list.ToArray());
                     }
+                    */
 
+                    if (this.tcpFlagsFingerprintList[tcpPacket.FlagsRaw].Length > 0) {
+                        //osList=new List<string>();
+                        osList = new List<DeviceFingerprint>();
+                        int osListWeight = 3;//in order to avoid getting hits on tests with weight 1 and 2
+
+                        foreach (TcpFingerprint f in this.tcpFlagsFingerprintList[tcpPacket.FlagsRaw]) {
+                            int w = f.GetHighestMatchWeight(tcpPacket, ipPacket);
+                            if (w > osListWeight) {
+                                osListWeight = w;
+                                osList.Clear();
+                                //osList.Add(f.ToString());
+                                osList.Add(new DeviceFingerprint(f.ToString()));
+                            }
+                            else if (w == osListWeight)
+                                //osList.Add(f.ToString());
+                                osList.Add(new DeviceFingerprint(f.ToString()));
+                        }
+                        if (osList.Count > 0) {
+                            //packetList=osList;
+                            return true;
+                        }
+                    }
                 }
             }
             catch(Exception e){
@@ -117,11 +134,13 @@ namespace PacketParser.Fingerprints {
 
             private string os, osClass;
             private List<Test> testList;
+            private Test[][] tcpFlagsTestLists;
 
             internal TcpFingerprint(string os, string osClass) {
                 this.os=os;
                 this.osClass=osClass;
                 this.testList=new List<Test>();
+                this.tcpFlagsTestLists = new Test[256][];
             }
 
             public override string ToString() {
@@ -138,15 +157,30 @@ namespace PacketParser.Fingerprints {
             }
 
             internal void AddTest(XPathNavigator testNavigator) {
-                testList.Add(new Test(testNavigator.Clone(), this.osClass, this.os));
+                this.testList.Add(new Test(testNavigator.Clone(), this.osClass, this.os));
+            }
+
+            public bool ContainsFingerprintsForTcpFlags(Packets.TcpPacket tcpPacket) {
+                if (this.tcpFlagsTestLists[tcpPacket.FlagsRaw] == null) {
+                    List<Test> list = new List<Test>();
+                    foreach (Test t in this.testList) {
+                        if (t.TcpFlagsMatch(tcpPacket))
+                            list.Add(t);
+                    }
+                    this.tcpFlagsTestLists[tcpPacket.FlagsRaw] = list.ToArray();
+                }
+                return this.tcpFlagsTestLists[tcpPacket.FlagsRaw].Length > 0;
             }
 
             //returns -1 if there was no match
             internal int GetHighestMatchWeight(Packets.TcpPacket tcpPacket, Packets.IPv4Packet ipPacket) {
                 int highestWeight=-1;
-                foreach(Test t in testList) {
-                    if(t.Weight>=3 && t.Weight>highestWeight && t.Matches(tcpPacket, ipPacket))
-                        highestWeight=t.Weight;
+
+                if (this.ContainsFingerprintsForTcpFlags(tcpPacket)) {
+                    var flagsTestList = this.tcpFlagsTestLists[tcpPacket.FlagsRaw];
+                    foreach (Test t in flagsTestList)
+                        if (t.Weight >= 3 && t.Weight > highestWeight && t.Matches(tcpPacket, ipPacket))
+                            highestWeight = t.Weight;
                 }
                 return highestWeight;
             }
@@ -184,14 +218,21 @@ namespace PacketParser.Fingerprints {
 
                 }
 
-                internal bool Matches(Packets.TcpPacket tcpPacket, Packets.IPv4Packet ipPacket) {
-
-                    
+                internal bool TcpFlagsMatch(Packets.TcpPacket tcpPacket) {
                     if (tcpPacket.FlagBits.Synchronize != this.tcpflags.Contains('S'))
                         return false;
                     else if (tcpPacket.FlagBits.Acknowledgement != this.tcpflags.Contains('A'))
                         return false;
                     else if (tcpPacket.FlagBits.Fin != this.tcpflags.Contains('F'))
+                        return false;
+                    else
+                        return true;
+                }
+
+                internal bool Matches(Packets.TcpPacket tcpPacket, Packets.IPv4Packet ipPacket) {
+
+
+                    if (!this.TcpFlagsMatch(tcpPacket))
                         return false;
                     else if (this.p0fFingerprint == null)
                         return false;

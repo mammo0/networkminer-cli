@@ -1,16 +1,65 @@
+NetworkMiner 2.7.1
+	* PacketHandler.cs: Fixed bug related to live sniffing. Thanks to Jeff Rivett for
+	  reporting the issue!
+
+NetworkMiner 2.7
+    * WinPCapWrapper.cs: Changed int pointers to 64 bit values in order to handle WinPcap
+	  and npcap drivers correctly.
+	  Thanks to Jeff Rivett for reporting the issue!
+
+	* Smb2PacketHandler.cs: Added requested SMB2 filename info from SMB2 Create Requests
+	  and error messages from negative SMB2 responses to Parameters tab.
+
+	* Smb2Packet.cs: Better extraction of SMB2 file transfers by extracting End-of-File
+	  values from Smb2CreateResponse.
+
+	* LpdPacket.cs: Added support for Line Printer Daemon Protocol (RFC1179).
+	  Thanks to Hayo Brouwer (of Ricoh) for helping out with capture files!
+
+	* NetworkTcpSession.cs: Modified TCP Keepalive handling to support protocols
+	  that transmit 1 byte TCP payloads containing a 0x00 byte (like LPD).
+
+	* TcpPacket.cs: Changed GetSubPackets function to allow application layer packets
+	  with only one byte of L7 data to be returned.
+
+	* SatoriTcpOsFingerprinter.cs: Improved performance by indexing fingerprints based
+	  on TCP flags.
+
+	* HttpPacketHandler.cs: Generic extraction of files sent with HTTP POST, including
+	  WAP.MMS messages. More files are now extracted from HTTP POST uploads.
+
+	* DnsPacket.cs: Added extraction of TXT records to DNS tab
+
+	* DnsPacket.cs: Added extraction of SRV records to DNS tab
+
+	* NetworkMinerForm.cs: Double-clicking on a file now opens up the file details window
+
+	* ExtractedFileDetailsForm.cs: Added hex viewer to file details window
+
+	* FileStreamAssembler.cs: The file extension is now identified based on the contents
+	  of the file's header (fewer "octet-stream" files, more ".exe" and ".zip" etc.)
+
+	* NetworkMinerForm.cs: Added warning message when trying to open/run an executable
+	  file with right-click -> "Open file"
+
+	* TlsRecordPacket.cs: Extraction of JA3S hashes from TLS Server Hello packets to
+	  Parameters tab and Host Details
+
+	* PcapParser.cs: Added support for nanosecond PCAP files
+
 
 NetworkMiner 2.6
 
-	* KerberosPacketHandler.cs: Better extraction of Salt from Kerberos ERROR packets.
+   * KerberosPacketHandler.cs: Better extraction of Salt from Kerberos ERROR packets.
 
-	* NtlmSspPacketHandler.cs: Added John-the-Ripper formated extraction of LanMan, NTLMv1
-	  and NTLMv2 challenge/response hashes
-	  LanMan example: $LM$A9C604D244C4E99D
-	  NTLMv1 example: $NETNTLM$1122334455667788$B2B2220790F40C88BCFF347C652F67A7C4A70D3BEBD70233
-	  NTLMv2 example: $NETNTLMv2$NTLMV2TESTWORKGROUP$1122334455667788$07659A550D5E9D02996DFD95C87EC1D5$0101000000000000006CF6385B74CA01B3610B02D99732DD000000000200120057004F0052004B00470052004F00550050000100200044004100540041002E00420049004E0043002D0053004500430055005200490000000000
-	  - LM (hashcat "-m 3000")
-	  - NETNTLM (hashcat "-m 5500")
-	  - NETNTLMv2 (hashcat "-m 5600")
+   * NtlmSspPacketHandler.cs: Added John-the-Ripper formated extraction of LanMan, NTLMv1
+     and NTLMv2 challenge/response hashes
+     LanMan example: $LM$A9C604D244C4E99D
+     NTLMv1 example: $NETNTLM$1122334455667788$B2B2220790F40C88BCFF347C652F67A7C4A70D3BEBD70233
+     NTLMv2 example: $NETNTLMv2$NTLMV2TESTWORKGROUP$1122334455667788$07659A550D5E9D02996DFD95C87EC1D5$0101000000000000006CF6385B74CA01B3610B02D99732DD000000000200120057004F0052004B00470052004F00550050000100200044004100540041002E00420049004E0043002D0053004500430055005200490000000000
+     - LM (hashcat "-m 3000")
+     - NETNTLM (hashcat "-m 5500")
+     - NETNTLMv2 (hashcat "-m 5600")
 
    * HttpPakcetHandler.cs: Improved extraction of json data sent in HTTP(2) POST requests.
      Now with support for Content-Encoding: gzip
@@ -47,7 +96,7 @@ NetworkMiner 2.6
      attachment filenames.
 
    * SipPacketHandler.cs: SIP chat messages [RFC3428] are extracted to the "Messages" tab.
-     Audio extraction of VoIP calls is still a feature that is exlusively available only
+     Audio extraction of VoIP calls is still a feature that is exclusively available only
 	 in NetworkMiner Professional though.
 
    * HttpPacketHandler.cs and Http2PacketHandler.cs: The HTTP header "Accept-Language" and
