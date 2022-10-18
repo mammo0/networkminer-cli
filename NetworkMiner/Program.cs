@@ -5,7 +5,6 @@
 //
 
 using PacketParser;
-using PacketParser.FileTransfer;
 using SharedUtils;
 using SharedUtils.Pcap;
 using System;
@@ -13,7 +12,6 @@ using System.IO;
 using System.Reflection;
 using System.Diagnostics;
 using System.Globalization;
-using System.Threading.Tasks;
 
 namespace NetworkMiner {
     public static class Program {
@@ -23,7 +21,7 @@ namespace NetworkMiner {
         /// <summary>
         /// The main entry point for the application.
         /// </summary>
-        static async Task Main(string[] args) {
+        static void Main(string[] args) {
             // first set up the logger
             SetupLogger("NetworkMiner");
 
@@ -104,23 +102,23 @@ namespace NetworkMiner {
             PcapFileReader pcapReader = null;
             try {
                 using (pcapReader = new PcapFileReader(filePath)) {
-                DateTime parsingStartTime = DateTime.Now;
-                Logger.Log(filePath + " start parsing " + parsingStartTime.ToString(), Logger.EventLogEntryType.Information);
-                Console.WriteLine("Start parsing " + filePath);
+                    DateTime parsingStartTime = DateTime.Now;
+                    Logger.Log(filePath + " start parsing " + parsingStartTime.ToString(), Logger.EventLogEntryType.Information);
+                    Console.WriteLine("Start parsing " + filePath);
 
-                int enqueuedFramesSinceLastWait = 0;
+                    int enqueuedFramesSinceLastWait = 0;
 
-                foreach (PcapFrame pcapPacket in pcapReader.PacketEnumerator()) {
+                    foreach (PcapFrame pcapPacket in pcapReader.PacketEnumerator()) {
                         try {
-                    Frame frame = packetHandler.GetFrame(pcapPacket.Timestamp, pcapPacket.Data, pcapPacket.DataLinkType);
-                    packetHandler.AddFrameToFrameParsingQueue(frame);
-                    enqueuedFramesSinceLastWait++;
-                    int newPercentRead = pcapReader.GetPercentRead(packetHandler.FramesToParseQueuedByteCount);
-                    if (newPercentRead != percentRead) {
-                        percentRead = newPercentRead;
+                            Frame frame = packetHandler.GetFrame(pcapPacket.Timestamp, pcapPacket.Data, pcapPacket.DataLinkType);
+                            packetHandler.AddFrameToFrameParsingQueue(frame);
+                            enqueuedFramesSinceLastWait++;
+                            int newPercentRead = pcapReader.GetPercentRead(packetHandler.FramesToParseQueuedByteCount);
+                            if (newPercentRead != percentRead) {
+                                percentRead = newPercentRead;
 
-                        // output percent
-                        Console.WriteLine("Progress: " + percentRead + "%");
+                                // output percent
+                                Console.WriteLine("Progress: " + percentRead + "%");
                             }
                         } catch (Exception frameException) {
                             Logger.Log(frameException.GetType().ToString() + " when reading frame: " + frameException.Message, Logger.EventLogEntryType.Error);
@@ -128,23 +126,23 @@ namespace NetworkMiner {
                             throw frameException;
 #endif
                     }
-                }
-                Logger.Log(enqueuedFramesSinceLastWait + " frames read in " + DateTime.Now.Subtract(parsingStartTime).ToString(), Logger.EventLogEntryType.Information);
-
-                while (packetHandler.FramesInQueue > 0) {//just to make sure we dont finish too early
-                    System.Threading.Thread.Sleep(200);
-
-                    int newPercentRead = pcapReader.GetPercentRead(packetHandler.FramesToParseQueuedByteCount);
-                    if (newPercentRead != percentRead) {
-                        percentRead = newPercentRead;
-
-                        // output percent
-                        Console.WriteLine("Progress: " + percentRead + "%");
                     }
-                }
-                TimeSpan parsingTimeTotal = DateTime.Now.Subtract(parsingStartTime);
-                Logger.Log(filePath + " parsed in " + parsingTimeTotal.ToString(), Logger.EventLogEntryType.Information);
-                Console.WriteLine("Finished parsing " + filePath);
+                    Logger.Log(enqueuedFramesSinceLastWait + " frames read in " + DateTime.Now.Subtract(parsingStartTime).ToString(), Logger.EventLogEntryType.Information);
+
+                    while (packetHandler.FramesInQueue > 0) {//just to make sure we dont finish too early
+                        System.Threading.Thread.Sleep(200);
+
+                        int newPercentRead = pcapReader.GetPercentRead(packetHandler.FramesToParseQueuedByteCount);
+                        if (newPercentRead != percentRead) {
+                            percentRead = newPercentRead;
+
+                            // output percent
+                            Console.WriteLine("Progress: " + percentRead + "%");
+                        }
+                    }
+                    TimeSpan parsingTimeTotal = DateTime.Now.Subtract(parsingStartTime);
+                    Logger.Log(filePath + " parsed in " + parsingTimeTotal.ToString(), Logger.EventLogEntryType.Information);
+                    Console.WriteLine("Finished parsing " + filePath);
                 }
             } catch (InvalidDataException ex) {
                     Logger.Log("LoadPcapFile1: " + ex.Message, SharedUtils.Logger.EventLogEntryType.Warning);
