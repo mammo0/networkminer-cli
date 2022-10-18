@@ -2,8 +2,11 @@ name: Build Mono
 
 on:
   push:
+    branches:
+      - master
     tags:
       - 'v*'
+    pull_request:
 
 jobs:
   build:
@@ -17,6 +20,7 @@ jobs:
     - name: Build application
       run: msbuild -restore -p:Configuration=Release NetworkMiner.sln
     - name: ZIP binaries
+      if: startsWith(github.event.ref, 'refs/tags')
       run: |
         pushd NetworkMiner/bin/Release
         zip -r $RELEASE_ZIP ./
@@ -24,6 +28,7 @@ jobs:
         mv NetworkMiner/bin/Release/$RELEASE_ZIP ./
         zip $RELEASE_ZIP README.md ChangeLog LICENSE.txt  # add README, ChangeLog and LICENSE
     - name: Create GH Release
+      if: startsWith(github.event.ref, 'refs/tags')
       id: create_release
       uses: actions/create-release@v1
       env:
@@ -34,6 +39,7 @@ jobs:
         draft: false
         prerelease: false
     - name: Upload GH Release Asset
+      if: startsWith(github.event.ref, 'refs/tags')
       id: upload_release_asset 
       uses: actions/upload-release-asset@v1
       env:
