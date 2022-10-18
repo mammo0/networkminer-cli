@@ -59,40 +59,40 @@ namespace NetworkMiner {
 
         public static void SetupLogger(string applicationName) {
 
-            SharedUtils.Logger.ApplicationName = applicationName;
+            Logger.ApplicationName = applicationName;
 
             foreach (string arg in Environment.GetCommandLineArgs()) {
                 if (arg.Equals("--debug", StringComparison.InvariantCultureIgnoreCase)) {
-                    SharedUtils.Logger.CurrentLogLevel = SharedUtils.Logger.LogLevel.Debug;
-                    SharedUtils.Logger.LogToConsole = true;
+                    Logger.CurrentLogLevel = Logger.LogLevel.Debug;
+                    Logger.LogToConsole = true;
                 }
                 else if (arg.Equals("--eventlog", StringComparison.InvariantCultureIgnoreCase)) {
                     System.Diagnostics.EventLog applicationEventLog = new System.Diagnostics.EventLog("Application");
                     applicationEventLog.Source = applicationName;
 
-                    SharedUtils.Logger.CurrentLogLevel = SharedUtils.Logger.LogLevel.Debug;
-                    SharedUtils.Logger.EnableEventLog((message, eventLogEntryType) => applicationEventLog.WriteEntry(message, (System.Diagnostics.EventLogEntryType)eventLogEntryType));
+                    Logger.CurrentLogLevel = Logger.LogLevel.Debug;
+                    Logger.EnableEventLog((message, eventLogEntryType) => applicationEventLog.WriteEntry(message, (System.Diagnostics.EventLogEntryType)eventLogEntryType));
                 }
                 else if (arg.Equals("--filelog", StringComparison.InvariantCultureIgnoreCase)) {
-                    SharedUtils.Logger.CurrentLogLevel = SharedUtils.Logger.LogLevel.Debug;
-                    SharedUtils.Logger.LogToFile = true;
+                    Logger.CurrentLogLevel = Logger.LogLevel.Debug;
+                    Logger.LogToFile = true;
                 }
             }
 #if DEBUG
-            SharedUtils.Logger.CurrentLogLevel = SharedUtils.Logger.LogLevel.Debug;
-            SharedUtils.Logger.LogToConsole = true;
-            //SharedUtils.Logger.EnableEventLog();
-            SharedUtils.Logger.LogToFile = true;
+            Logger.CurrentLogLevel = Logger.LogLevel.Debug;
+            Logger.LogToConsole = true;
+            //Logger.EnableEventLog();
+            Logger.LogToFile = true;
 #endif
 
             FileVersionInfo productInfo = FileVersionInfo.GetVersionInfo(EXE_PATH);
-            SharedUtils.Logger.Log("Environment.Is64BitOperatingSystem = " + Environment.Is64BitOperatingSystem.ToString(), SharedUtils.Logger.EventLogEntryType.Information);
-            SharedUtils.Logger.Log("Environment.Is64BitProcess = " + Environment.Is64BitProcess.ToString(), SharedUtils.Logger.EventLogEntryType.Information);
-            SharedUtils.Logger.Log(productInfo.ProductName + " " + productInfo.ProductVersion, SharedUtils.Logger.EventLogEntryType.Information);
-            SharedUtils.Logger.Log("Application.ExecutablePath = " + EXE_PATH, SharedUtils.Logger.EventLogEntryType.Information);
-            SharedUtils.Logger.Log("Application.CurrentCulture = " + CultureInfo.CurrentCulture, SharedUtils.Logger.EventLogEntryType.Information);
-            SharedUtils.Logger.Log("Environment.Version = " + Environment.Version, SharedUtils.Logger.EventLogEntryType.Information);//4.0.30319.42000 =  .NET Framework 4.6, its point releases, and the .NET Framework 4.7
-            SharedUtils.Logger.Log("Starting application", SharedUtils.Logger.EventLogEntryType.Information);
+            Logger.Log("Environment.Is64BitOperatingSystem = " + Environment.Is64BitOperatingSystem.ToString(), Logger.EventLogEntryType.Information);
+            Logger.Log("Environment.Is64BitProcess = " + Environment.Is64BitProcess.ToString(), Logger.EventLogEntryType.Information);
+            Logger.Log(productInfo.ProductName + " " + productInfo.ProductVersion, Logger.EventLogEntryType.Information);
+            Logger.Log("Application.ExecutablePath = " + EXE_PATH, Logger.EventLogEntryType.Information);
+            Logger.Log("Application.CurrentCulture = " + CultureInfo.CurrentCulture, Logger.EventLogEntryType.Information);
+            Logger.Log("Environment.Version = " + Environment.Version, Logger.EventLogEntryType.Information);//4.0.30319.42000 =  .NET Framework 4.6, its point releases, and the .NET Framework 4.7
+            Logger.Log("Starting application", Logger.EventLogEntryType.Information);
 
         }
 
