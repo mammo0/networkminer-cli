@@ -17,9 +17,66 @@ namespace PacketParser {
             return finder.GetProbableApplicationLayerProtocols();
         }
 
+        private static readonly (ApplicationLayerProtocol protocol, HashSet<ushort> serverPorts)[] PROTOCOL_PORTS = {
+            (ApplicationLayerProtocol.Http,
+                new HashSet<ushort> {
+                    80,
+                    631,//IPP
+                    3000,//WEBrick
+                    5985,
+                    8000,//WEBrick
+                    8080,
+                    3128,//TCP 3128 = Squid proxy: http://www.squid-cache.org/Doc/config/http_port/
+                    10080,
+                    11371
+                }
+            ),
+            (ApplicationLayerProtocol.Ssl,
+                new HashSet<ushort> {//From: http://www.rickk.com/sslwrap/
+                    443,//https 443/tcp     # http protocol over TLS/SSL
+                    465,//smtps 465/tcp     # smtp protocol over TLS/SSL
+                    563,//nntps 563/tcp     # nttp protocol over TLS/SSL
+                    614,//sshell 	614 	tcp 	SSLshell
+                    636,//ldaps 	636 	tcp 	ldap protocol over TLS/SSL (was sldap)
+                    853,//dns over tls
+                    989,//ftps-data 989/tcp # ftp protocol, data, over TLS/SSL
+                    990,//ftps 990/tcp      # ftp protocol, control, over TLS/SSL
+                    992,//telnets 992/tcp   # telnet protocol over TLS/SSL
+                    993,//imaps 993/tcp     # imap4 protocol over TLS/SSL
+                    994,//ircs 994/tcp      # irc protocol over TLS/SSL
+                    995,//pop3s 995/tcp     # POP3 protocol over TLS/SSL
+                    5061,
+                    5223,
+                    5986,
+                    8170,
+                    8443,
+                    9001,
+                    9030,
+                    10443
+                }
+            ),
+        (ApplicationLayerProtocol.Meterpreter,
+                new HashSet<ushort> {
+                    3333,
+                    4444,
+                    4445,
+                    4446,
+                    4447,
+                    4448,
+                    4449,
+                    5555,
+                    6666,
+                    7777,
+                    8888,
+                    9999
+                }
+            )
+        };
+
 
         private List<ApplicationLayerProtocol> probableProtocols;
         private ApplicationLayerProtocol confirmedProtocol;
+        
 
         private NetworkFlow flow;
         private NetworkHost client;
@@ -91,9 +148,6 @@ namespace PacketParser {
 
             this.packetHandler = packetHandler;
 
-            
-
-
             if (this.serverPort == 21 || this.serverPort == 8021) 
                 this.probableProtocols.Add(ApplicationLayerProtocol.FtpControl);
             if(this.serverPort==22)
@@ -102,15 +156,19 @@ namespace PacketParser {
                 this.probableProtocols.Add(ApplicationLayerProtocol.Smtp);
             if (this.serverPort == 53)
                 this.probableProtocols.Add(ApplicationLayerProtocol.Dns);
+            /*
             if (this.serverPort == 80 ||
                 this.serverPort == 631 || //IPP
+                this.serverPort == 3000 || //WEBrick
                 this.serverPort == 5985 ||
+                this.serverPort == 8000 || //WEBrick
                 this.serverPort == 8080 ||
                 this.serverPort == 3128 ||
                 this.ServerPort == 10080 ||
                 this.serverPort == 11371) { //TCP 3128 = Squid proxy: http://www.squid-cache.org/Doc/config/http_port/
                 this.probableProtocols.Add(ApplicationLayerProtocol.Http);
             }
+            */
             if (this.serverPort == 80 || this.serverPort == 10080)
                 this.probableProtocols.Add(ApplicationLayerProtocol.Http2);
             if (this.serverPort == 88 || this.clientPort == 88)
@@ -125,6 +183,7 @@ namespace PacketParser {
                 this.probableProtocols.Add(ApplicationLayerProtocol.Imap);
             if(this.serverPort==139 || this.clientPort==139)
                 this.probableProtocols.Add(ApplicationLayerProtocol.NetBiosSessionService);
+            /*
             if(
                 this.serverPort==443 ||
                 this.serverPort==465 ||
@@ -145,24 +204,8 @@ namespace PacketParser {
                 this.serverPort==9001 ||
                 this.serverPort==9030 ||
                 this.serverPort == 10443) {
-                /*From: http://www.rickk.com/sslwrap/
-                 * 
-                 * According to IANA, the following port numbers have been assigned for SSL:
-                 * https 443/tcp     # http protocol over TLS/SSL
-                 * smtps 465/tcp     # smtp protocol over TLS/SSL
-                 * nntps 563/tcp     # nttp protocol over TLS/SSL
-                 * sshell 	614 	tcp 	SSLshell
-                 * ldaps 	636 	tcp 	ldap protocol over TLS/SSL (was sldap)
-                 * telnets 992/tcp   # telnet protocol over TLS/SSL
-                 * imaps 993/tcp     # imap4 protocol over TLS/SSL
-                 * ircs 994/tcp      # irc protocol over TLS/SSL
-                 * pop3s 995/tcp     # POP3 protocol over TLS/SSL
-                 * ftps-data 989/tcp # ftp protocol, data, over TLS/SSL
-                 * ftps 990/tcp      # ftp protocol, control, over TLS/SSL
-                 * 
-                 * */
                 this.probableProtocols.Add(ApplicationLayerProtocol.Ssl);
-            }
+            }*/
             if(this.serverPort==445 || this.clientPort==445)
                 this.probableProtocols.Add(ApplicationLayerProtocol.NetBiosSessionService);
             if (this.ServerPort == 515)
@@ -193,7 +236,11 @@ namespace PacketParser {
                 this.probableProtocols.Add(ApplicationLayerProtocol.IEC_104);
             if (this.serverPort == 502 || this.clientPort == 502)
                 this.probableProtocols.Add(ApplicationLayerProtocol.ModbusTCP);
-            
+
+            foreach((ApplicationLayerProtocol protocol, HashSet<ushort> portSet) in PROTOCOL_PORTS) {
+                if (portSet.Contains(this.serverPort))
+                    this.probableProtocols.Add(protocol);
+            }
         }
 
         public void AddPacket(PacketParser.Packets.TcpPacket tcpPacket, NetworkHost source, NetworkHost destination) {

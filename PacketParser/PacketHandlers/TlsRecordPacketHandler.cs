@@ -7,6 +7,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Linq;
 
 namespace PacketParser.PacketHandlers {
     class TlsRecordPacketHandler : AbstractPacketHandler, ITcpSessionPacketHandler {
@@ -21,7 +22,9 @@ namespace PacketParser.PacketHandlers {
          **/
         private PopularityList<FiveTuple, Tuple<List<Packets.TlsRecordPacket>, List<Packets.TlsRecordPacket>>> tlsRecordFragmentCache;
 
-        private Dictionary<string, string> ja3Fingerprints;
+        private List<Dictionary<string, string>> ja3Fingerprints;
+        private Dictionary<string, string> abuseChX509CertificateFingerprints;
+        private bool verifyX509Certificates = false;
 
         public override Type ParsedType { get { return typeof(Packets.TlsRecordPacket); } }
 
@@ -29,11 +32,18 @@ namespace PacketParser.PacketHandlers {
             get { return ApplicationLayerProtocol.Ssl; }
         }
 
-        public TlsRecordPacketHandler(PacketHandler mainPacketHandler)
+        
+
+        public TlsRecordPacketHandler(PacketHandler mainPacketHandler, bool verifyX509Certificates = false)
             : base(mainPacketHandler) {
 
+            this.verifyX509Certificates = verifyX509Certificates;
             this.tlsRecordFragmentCache = new PopularityList<FiveTuple, Tuple<List<Packets.TlsRecordPacket>, List<Packets.TlsRecordPacket>>>(100);
-            this.ja3Fingerprints = Fingerprints.Ja3FingerprintDictionaryFactory.CreateDictionary(base.MainPacketHandler.FingerprintsPath + "ja3fingerprint.json");
+            this.ja3Fingerprints = new List<Dictionary<string, string>> {
+                Fingerprints.DictionaryFactory.CreateDictionaryFromCsv(base.MainPacketHandler.FingerprintsPath + "ja3_fingerprints.csv", 0, 3),//https://sslbl.abuse.ch/blacklist/ja3_fingerprints.csv
+                Fingerprints.DictionaryFactory.CreateDictionaryFromTrisulJa3Json(base.MainPacketHandler.FingerprintsPath + "ja3fingerprint.json")
+            };
+            this.abuseChX509CertificateFingerprints = Fingerprints.DictionaryFactory.CreateDictionaryFromCsv(base.MainPacketHandler.FingerprintsPath + "sslblacklist.csv", 1, 2);//https://sslbl.abuse.ch/blacklist/sslblacklist.csv
         }
 
         #region ITcpSessionPacketHandler Members
@@ -180,9 +190,9 @@ namespace PacketParser.PacketHandlers {
                 System.Collections.Specialized.NameValueCollection param = new System.Collections.Specialized.NameValueCollection();
                 param.Add("JA3 Signature", handshake.GetJA3FingerprintFull());
                 string ja3Hash = handshake.GetJA3FingerprintHash();
-                if (this.ja3Fingerprints.ContainsKey(ja3Hash)) {
-                    sourceHost.AddJA3Hash(ja3Hash, this.ja3Fingerprints[ja3Hash]);
-                }
+                var matchingDict = this.ja3Fingerprints.Where(f => f.ContainsKey(ja3Hash)).FirstOrDefault();
+                if(matchingDict != null)
+                    sourceHost.AddJA3Hash(ja3Hash, matchingDict[ja3Hash]);
                 else
                     sourceHost.AddJA3Hash(ja3Hash);
                 //sourceHost.AddNumberedExtraDetail("JA3 Hash", ja3Hash);
@@ -275,9 +285,15 @@ namespace PacketParser.PacketHandlers {
                     this.addParameters(parameters, x509Cert.Issuer, "Certificate Issuer");
 
 
+                    string certHash = x509Cert.GetCertHashString().ToLower();
+                    if(!string.IsNullOrEmpty(certHash) && this.abuseChX509CertificateFingerprints.ContainsKey(certHash)) {
+                        string botnet = this.abuseChX509CertificateFingerprints[certHash];
+                        //TODO: Change formatting into something like: "X.509 thumbprint 1 : 6ece5ece4192683d2d84e25b0ba7e04f9cb7eb7c = AKBuilder C&C (Abuse.ch SSLBL)"
+                        sourceHost.AddNumberedExtraDetail("Abuse.ch SSLBL " + botnet + " match", certHash);
+                    }
 
                     //parameters.Add("Certificate Issuer", x509Cert.Issuer);
-                    parameters.Add("Certificate Hash", x509Cert.GetCertHashString());
+                    parameters.Add("Certificate Hash", certHash);
                     parameters.Add("Certificate valid from", x509Cert.GetEffectiveDateString());
                     parameters.Add("Certificate valid to", x509Cert.GetExpirationDateString());
                     parameters.Add("Certificate Serial", x509Cert.GetSerialNumberString());
@@ -298,11 +314,13 @@ namespace PacketParser.PacketHandlers {
                             }
                         }
 
-                        if (cert2.Verify())
-                            parameters.Add("Certificate valid", "TRUE");
-                        else
-                            parameters.Add("Certificate valid", "FALSE");
-
+                        //verifying certificates is a slow call this might block the parser thread for some time!
+                        if (this.verifyX509Certificates) {
+                            if (cert2.Verify())
+                                parameters.Add("Certificate valid", "TRUE");
+                            else
+                                parameters.Add("Certificate valid", "FALSE");
+                        }
                     }
                     catch (Exception e) {
                         SharedUtils.Logger.Log("Unable to parse X509Certificate2 in " + tcpPacket.ParentFrame.ToString() + ". " + e.ToString(), SharedUtils.Logger.EventLogEntryType.Information);

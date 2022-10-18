@@ -282,7 +282,7 @@ namespace SharedUtils {
                                     if (logToEventLog && eventLogWriteEntryAction != null)
                                         eventLogWriteEntryAction("Saving debug log to " + LogFilePath, EventLogEntryType.Information);
                                     else
-                                        ConsoleLog("Saving debug log to " + LogFilePath);
+                                        StdErrLog("Saving debug log to " + LogFilePath);
                                 }
                                 catch { }
                             }
@@ -309,6 +309,15 @@ namespace SharedUtils {
             }
         }
 
+        [Obsolete("Avoid using this synchronous method, please use DebugLogAsync instead.", false)]
+        public static void DebugLog(string message) {
+            fileLogAsync(message, "DEBUG").Wait();
+        }
+
+        public static async System.Threading.Tasks.Task DebugLogAsync(string message) {
+            await fileLogAsync(message, "DEBUG");
+        }
+
         private static async System.Threading.Tasks.Task fileLogAsync(string message, string entryType = "DEBUG") {
             if (CurrentLogLevel == LogLevel.Debug) {
 
@@ -321,11 +330,22 @@ namespace SharedUtils {
 
                             if (debugLogEventCount == 0) {
                                 try {
-                                    string path = stream.GetType().GetField("m_FullPath", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).GetValue(stream).ToString();
+                                    //string path = stream.GetType().GetField("m_FullPath", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)?.GetValue(stream)?.ToString();
+                                    string path = stream.GetType().GetField("_fullPath", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)?.GetValue(stream)?.ToString();
                                     if (logToEventLog && eventLogWriteEntryAction != null)
-                                        await System.Threading.Tasks.Task.Run(() => eventLogWriteEntryAction("Saving debug log to " + path, EventLogEntryType.Information));
+                                    {
+                                        if (string.IsNullOrEmpty(path))
+                                            await System.Threading.Tasks.Task.Run(() => eventLogWriteEntryAction("No path found for debug log file.", EventLogEntryType.Error));
+                                        else
+                                            await System.Threading.Tasks.Task.Run(() => eventLogWriteEntryAction("Saving debug log to " + path, EventLogEntryType.Information));
+                                    }
                                     else
-                                        await ConsoleLogAsync("Saving debug log to " + path, EventLogEntryType.Information);
+                                    {
+                                        if (string.IsNullOrEmpty(path))
+                                            await StdErrLogAsync("No path found for debug log file.", EventLogEntryType.Error);
+                                        else
+                                            await StdErrLogAsync("Saving debug log to " + path, EventLogEntryType.Information);
+                                    }
                                 }
                                 catch { }
                             }

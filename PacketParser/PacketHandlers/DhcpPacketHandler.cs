@@ -43,9 +43,11 @@ namespace PacketParser.PacketHandlers {
                 destinationHost.MacAddress=dhcpPacket.ClientMacAddress;
             }
 
-            if(dhcpPacket.OpCode==Packets.DhcpPacket.OpCodeValue.BootReply && (dhcpPacket.GatewayIpAddress!=null && dhcpPacket.GatewayIpAddress!=System.Net.IPAddress.None && dhcpPacket.GatewayIpAddress.Address>0))
-                if (!sourceHost.ExtraDetailsList.ContainsKey("Default Gateway"))
-                    destinationHost.ExtraDetailsList["Default Gateway"]=dhcpPacket.GatewayIpAddress.ToString();
+            if (dhcpPacket.OpCode == Packets.DhcpPacket.OpCodeValue.BootReply && (dhcpPacket.GatewayIpAddress != null && dhcpPacket.GatewayIpAddress != System.Net.IPAddress.None && dhcpPacket.GatewayIpAddress.Address > 0))
+                lock (sourceHost.ExtraDetailsList) {
+                    if (!sourceHost.ExtraDetailsList.ContainsKey("Default Gateway"))
+                        destinationHost.ExtraDetailsList["Default Gateway"] = dhcpPacket.GatewayIpAddress.ToString();
+                }
 
 
             System.Collections.Specialized.NameValueCollection optionParameterList = new System.Collections.Specialized.NameValueCollection();

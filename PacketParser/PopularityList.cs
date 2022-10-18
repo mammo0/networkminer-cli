@@ -82,10 +82,12 @@ namespace PacketParser {
         /// O(log(n))
         /// </summary>
         /// <param name="key"></param>
-        public void Remove(TKey key) {
+        public void Remove(TKey key, bool triggerPopularityLost = false) {
             LinkedListNode<KeyValuePair<TKey, TValue>> llNode=sortedList[key];//O(log(n))
             this.linkedList.Remove(llNode);//O(1)
             this.sortedList.Remove(key);//O(log(n))
+            if(triggerPopularityLost)
+                this.PopularityLost?.Invoke(key, llNode.Value.Value);
         }
 
 
@@ -102,11 +104,14 @@ namespace PacketParser {
                 return llNode.Value.Value;
             }
             set {
-                LinkedListNode<KeyValuePair<TKey, TValue>> llNode = this.sortedList[key];//O(log(n))
-                this.linkedList.Remove(llNode);//O(1)
-                this.linkedList.AddFirst(llNode);//O(1)
-                llNode.Value=new KeyValuePair<TKey, TValue>(key, value);
-                //llNode.Value.Value=value;
+                if (this.sortedList.ContainsKey(key)) {
+                    LinkedListNode<KeyValuePair<TKey, TValue>> llNode = this.sortedList[key];//O(log(n))
+                    this.linkedList.Remove(llNode);//O(1)
+                    this.linkedList.AddFirst(llNode);//O(1)
+                    llNode.Value = new KeyValuePair<TKey, TValue>(key, value);
+                }
+                else
+                    this.Add(key, value);
             }
         }
 

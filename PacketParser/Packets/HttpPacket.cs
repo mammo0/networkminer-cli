@@ -17,61 +17,36 @@ namespace PacketParser.Packets {
     public class HttpPacket : AbstractPacket, ISessionPacket{
         //200818: Added WebDAV methods COPY, LOCK, MKCOL, MOVE, PROPFIND, PROPPATCH and UNLOCK
         public enum RequestMethods { GET, HEAD, POST, PUT, DELETE, TRACE, OPTIONS, CONNECT, COPY, LOCK, MKCOL, MOVE, PROPFIND, PROPPATCH, UNLOCK, none }
-        internal enum ContentEncodings { Gzip, Compress, Deflate, Identity }//Identity is default
+        internal enum ContentEncodings { Gzip, Compress, Deflate, Identity, Brotli }//Identity is default
 
-        //general variables
-        private bool messageTypeIsRequest;
-        private List<string> headerFields;
-        private byte[] messageBody;//the content
-        private List<AbstractPacket> subPackets;
+        private readonly List<AbstractPacket> subPackets;
 
         //request variables
-        private RequestMethods requestMethod;//this one is "none" unless the message is a request message
-        private string requestedHost;
-        private string requestedFileName;
-        private string userAgentBanner;//client or requester web browser or spider. See: http://en.wikipedia.org/wiki/User_agent
-
-        //reply variables
-        private string statusCode;//3 digit status number, if first digit is 2 then it is "OK"
-        private string statusMessage;//A string like "OK" or "Found"
-        private string serverBanner;//server or reply web server. See: http://www.blackhat.com/presentations/bh-asia-02/bh-asia-02-grossman.pdf or http://www.blackhat.com/presentations/bh-usa-03/bh-us-03-shah/bh-us-03-shah.ppt
-        private string contentType;
-        private long contentLength;//defined in # bytes for "Content-Lenght" as in RFC2616
-        private string contentEncoding;//this could be for example GZIP, see: http://www.faqs.org/rfcs/rfc1952.html
-        private string contentDisposition;
-        private string cookie;
-        private string transferEncoding;//if encoding is "chunked" (such as for www.ripe.net) I will have to deal with: http://tools.ietf.org/html/rfc2616#section-3.6.1 Why can't people simply rely on TCP sequencing???
-        private string wwwAuthenticateRealm;//Used to be wwwAuthenticateBasicRealm
-        private string authorizationCredentialsUsername;
-        private string authorizationCredentailsPassword;
-
-        private string contentDispositionFilename;
-        private FileTransfer.ContentRange contentRange;
+        private readonly RequestMethods requestMethod;//this one is "none" unless the message is a request message
 
         public string AcceptLanguage { get; set; } = null;
-        public bool MessageTypeIsRequest { get { return this.messageTypeIsRequest; } }
+        public bool MessageTypeIsRequest { get; }
         public RequestMethods RequestMethod { get { return this.requestMethod; } }
-        internal string RequestedHost { get { return requestedHost; } }
-        public string RequestedFileName { get { return this.requestedFileName; } }
-        internal string UserAgentBanner { get { return this.userAgentBanner; } }
-        public string StatusCode { get { return this.statusCode; } }
-        public string StatusMessage { get { return this.statusMessage; } }
-        public string ServerBanner { get { return this.serverBanner; } }
-        public string ContentType { get { return this.contentType; } }
-        public long ContentLength { get { return this.contentLength; } }
-        public string ContentEncoding { get { return this.contentEncoding; } }
-        public string ContentDisposition { get { return this.contentDisposition; } }
-        public string Cookie { get { return this.cookie; } }
-        public string TransferEncoding { get { return this.transferEncoding; } }
-        public List<string> HeaderFields { get { return this.headerFields; } }
-        internal string WwwAuthenticateRealm { get { return this.wwwAuthenticateRealm; } }//Used to be WwwAuthenticateBasicRealm
-        internal string AuthorizationCredentialsUsername { get { return this.authorizationCredentialsUsername; } }
-        internal string AuthorizationCredentialsPassword { get { return this.authorizationCredentailsPassword; } }
-
-        internal string ContentDispositionFilename { get { return this.contentDispositionFilename; } }
-        internal FileTransfer.ContentRange ContentRange { get { return this.contentRange; } }
-
-        internal byte[] MessageBody { get { return this.messageBody; } }
+        internal string RequestedHost { get; private set; }
+        internal ushort? RequestedPort { get; private set; }
+        public string RequestedFileName { get; }
+        internal string UserAgentBanner { get; private set; }
+        public string StatusCode { get; }
+        public string StatusMessage { get; }
+        public string ServerBanner { get; private set; }//server or reply web server. See: http://www.blackhat.com/presentations/bh-asia-02/bh-asia-02-grossman.pdf or http://www.blackhat.com/presentations/bh-usa-03/bh-us-03-shah/bh-us-03-shah.ppt
+        public string ContentType { get; private set; }
+        public long ContentLength { get; private set; }//defined in # bytes for "Content-Lenght" as in RFC2616
+        public string ContentEncoding { get; private set; }//this could be for example GZIP, see: http://www.faqs.org/rfcs/rfc1952.html
+        public string ContentDisposition { get; private set; }
+        public string Cookie { get; private set; }
+        public string TransferEncoding { get; private set; }//if encoding is "chunked" (such as for www.ripe.net) I will have to deal with: http://tools.ietf.org/html/rfc2616#section-3.6.1 Why can't people simply rely on TCP sequencing???
+        public List<string> HeaderFields { get; }
+        internal string WwwAuthenticateRealm { get; private set; }//Used to be WwwAuthenticateBasicRealm
+        internal string AuthorizationCredentialsUsername { get; private set; }
+        internal string AuthorizationCredentialsPassword { get; private set; }
+        internal string ContentDispositionFilename { get; private set; }
+        internal FileTransfer.ContentRange ContentRange { get; private set; }
+        internal byte[] MessageBody { get; }
         /*
         public override 
             LÄGG TILL EN PACKET FACTORY TILL VARJE PAKET_KLASS OCH LÅT DEN GÖRA EN ENKEL KOLL ATT PAKETET KAN PARSAS!
@@ -124,24 +99,24 @@ namespace PacketParser.Packets {
              * 
              * */
             this.subPackets = new List<AbstractPacket>();
-            this.headerFields = new List<string>();
-            this.requestedHost = null;
-            this.requestedFileName = null;
-            this.userAgentBanner = null;
-            this.statusCode = null;
-            this.statusMessage = null;
-            this.serverBanner = null;
-            this.contentType = null;
-            this.contentLength = -1;//instead of null
-            this.contentEncoding = null;
-            this.cookie = null;
-            this.transferEncoding = null;
-            this.wwwAuthenticateRealm = null;
-            this.authorizationCredentialsUsername = null;
-            this.authorizationCredentailsPassword = null;
+            this.HeaderFields = new List<string>();
+            this.RequestedHost = null;
+            this.RequestedFileName = null;
+            this.UserAgentBanner = null;
+            this.StatusCode = null;
+            this.StatusMessage = null;
+            this.ServerBanner = null;
+            this.ContentType = null;
+            this.ContentLength = -1;//instead of null
+            this.ContentEncoding = null;
+            this.Cookie = null;
+            this.TransferEncoding = null;
+            this.WwwAuthenticateRealm = null;
+            this.AuthorizationCredentialsUsername = null;
+            this.AuthorizationCredentialsPassword = null;
             this.PacketHeaderIsComplete = false;
-            this.contentDispositionFilename = null;
-            this.contentRange = null;
+            this.ContentDispositionFilename = null;
+            this.ContentRange = null;
 
             int dataIndex = packetStartIndex;
 
@@ -157,42 +132,42 @@ namespace PacketParser.Packets {
 
             //if (Enum.TryParse<RequestMethods>(startLine.Split(' ').First()?.ToUpper(), out this.requestMethod)) {
             if (Enum.TryParse<RequestMethods>(Utils.StringManglerUtil.GetFirstPart(startLine, ' ')?.ToUpper(), out this.requestMethod)) {
-                this.messageTypeIsRequest = true;
+                this.MessageTypeIsRequest = true;
             }
             else if (startLine.StartsWith("GET")) {
-                this.messageTypeIsRequest = true;
+                this.MessageTypeIsRequest = true;
                 this.requestMethod = RequestMethods.GET;
             }
             else if (startLine.StartsWith("HEAD")) {
-                this.messageTypeIsRequest = true;
+                this.MessageTypeIsRequest = true;
                 this.requestMethod = RequestMethods.HEAD;
             }
             else if (startLine.StartsWith("POST")) {
-                this.messageTypeIsRequest = true;
+                this.MessageTypeIsRequest = true;
                 this.requestMethod = RequestMethods.POST;
             }
             else if (startLine.StartsWith("PUT")) {
-                this.messageTypeIsRequest = true;
+                this.MessageTypeIsRequest = true;
                 this.requestMethod = RequestMethods.PUT;
             }
             else if (startLine.StartsWith("DELETE")) {
-                this.messageTypeIsRequest = true;
+                this.MessageTypeIsRequest = true;
                 this.requestMethod = RequestMethods.DELETE;
             }
             else if (startLine.StartsWith("TRACE")) {
-                this.messageTypeIsRequest = true;
+                this.MessageTypeIsRequest = true;
                 this.requestMethod = RequestMethods.TRACE;
             }
             else if (startLine.StartsWith("OPTIONS")) {
-                this.messageTypeIsRequest = true;
+                this.MessageTypeIsRequest = true;
                 this.requestMethod = RequestMethods.OPTIONS;
             }
             else if (startLine.StartsWith("CONNECT")) {
-                this.messageTypeIsRequest = true;
+                this.MessageTypeIsRequest = true;
                 this.requestMethod = RequestMethods.CONNECT;
             }
             else if (startLine.StartsWith("HTTP")) {
-                this.messageTypeIsRequest = false;
+                this.MessageTypeIsRequest = false;
                 this.requestMethod = RequestMethods.none;
             }
             else
@@ -205,7 +180,7 @@ namespace PacketParser.Packets {
                 if(headerLine==null)
                     break;//this.packetHeaderIsComplete will NOT be true!
                 else if(headerLine.Length>0) {
-                    this.headerFields.Add(headerLine);
+                    this.HeaderFields.Add(headerLine);
                     this.ExtractHeaderField(headerLine);
                 }
                 else {//headerLine.Length==0
@@ -215,20 +190,20 @@ namespace PacketParser.Packets {
             }
 
             //see if there is a message-body
-            if(this.PacketHeaderIsComplete && this.messageTypeIsRequest && (requestMethod == RequestMethods.HEAD || requestMethod == RequestMethods.GET)) {
+            if(this.PacketHeaderIsComplete && this.MessageTypeIsRequest && (requestMethod == RequestMethods.HEAD || requestMethod == RequestMethods.GET)) {
                 //this part is important in case there are chained (queued) requests as in HTTP 1.1
-                this.messageBody = null;
+                this.MessageBody = null;
                 this.PacketEndIndex = dataIndex - 1;
             }
             else if(this.PacketHeaderIsComplete && dataIndex<=packetEndIndex) {//we have a body!
-                if (this.contentLength > 0 && this.contentLength < packetEndIndex - dataIndex + 1) {
-                    this.messageBody = new byte[this.contentLength];
-                    this.PacketEndIndex = (int)(dataIndex + this.contentLength - 1);
+                if (this.ContentLength > 0 && this.ContentLength < packetEndIndex - dataIndex + 1) {
+                    this.MessageBody = new byte[this.ContentLength];
+                    this.PacketEndIndex = (int)(dataIndex + this.ContentLength - 1);
                 }
                 else {
-                    this.messageBody = new byte[packetEndIndex - dataIndex + 1];
+                    this.MessageBody = new byte[packetEndIndex - dataIndex + 1];
                 }
-                Array.Copy(parentFrame.Data, dataIndex, this.messageBody, 0, this.messageBody.Length);
+                Array.Copy(parentFrame.Data, dataIndex, this.MessageBody, 0, this.MessageBody.Length);
                 /*
                 for(int i=0; i<this.messageBody.Length; i++)
                     this.messageBody[i]=parentFrame.Data[dataIndex+i];
@@ -236,12 +211,12 @@ namespace PacketParser.Packets {
                 
             }
             else {
-                this.messageBody=null;
+                this.MessageBody=null;
             }
 
 
             //now extract some interresting information from the packet
-            if(this.messageTypeIsRequest) {//REQUEST
+            if(this.MessageTypeIsRequest) {//REQUEST
                 //if clause commented out 200818
                 //if (this.requestMethod == RequestMethods.GET || this.requestMethod == RequestMethods.POST || this.requestMethod == RequestMethods.HEAD || this.requestMethod == RequestMethods.OPTIONS) {
                 int requestUriOffset = this.requestMethod.ToString().Length + 1;
@@ -250,10 +225,10 @@ namespace PacketParser.Packets {
                     fileURI=fileURI.Substring(0, fileURI.IndexOf(" HTTP"));
                 }
                 if(fileURI?.Length>0) {//If it is the index-file the URI will be just "/"
-                    this.requestedFileName=fileURI;
+                    this.RequestedFileName=fileURI;
                 }
                 else
-                    this.requestedFileName=null;
+                    this.RequestedFileName=null;
                 //}
                 /*
                 else if(this.requestMethod==RequestMethods.POST) {
@@ -268,56 +243,63 @@ namespace PacketParser.Packets {
             }
             else {//REPLY
                 if(startLine.StartsWith("HTTP/1.")) {
-                    this.statusCode=startLine.Substring(9, 3);
+                    this.StatusCode=startLine.Substring(9, 3);
                     if (startLine.Length > 12)
-                        this.statusMessage = startLine.Substring(12).Trim();
+                        this.StatusMessage = startLine.Substring(12).Trim();
                 }
             }
         }
 
         private void ExtractHeaderField(string headerField) {
             if (headerField.StartsWith("Host: ")) {//look for the host
-                this.requestedHost = headerField.Substring(6).Trim();
+                this.RequestedHost = headerField.Substring(6).Trim();
+                if(this.RequestedHost?.Contains(':') == true) {
+                    string[] hostAndPort = this.RequestedHost.Split(':');
+                    if (UInt16.TryParse(hostAndPort[1], out ushort port)) {
+                        this.RequestedPort = port;
+                        this.RequestedHost = hostAndPort[0];
+                    }
+                }
                 if (!this.ParentFrame.QuickParse)
                     base.Attributes.Add("Requested Host", headerField.Substring(6).Trim());
             }
             else if (headerField.StartsWith("User-Agent: ", StringComparison.OrdinalIgnoreCase)) {
-                this.userAgentBanner = headerField.Substring(12).Trim();
+                this.UserAgentBanner = headerField.Substring(12).Trim();
                 if (!this.ParentFrame.QuickParse)
-                    base.Attributes.Add("User-Agent", this.userAgentBanner = headerField.Substring(12).Trim());
+                    base.Attributes.Add("User-Agent", this.UserAgentBanner = headerField.Substring(12).Trim());
             }
             else if (headerField.StartsWith("Server: ", StringComparison.OrdinalIgnoreCase)) {
-                this.serverBanner = headerField.Substring(8).Trim();
+                this.ServerBanner = headerField.Substring(8).Trim();
                 if (!this.ParentFrame.QuickParse)
-                    this.Attributes.Add("Server banner", this.serverBanner = headerField.Substring(8).Trim());
+                    this.Attributes.Add("Server banner", this.ServerBanner = headerField.Substring(8).Trim());
             }
             else if (headerField.StartsWith("Cookie: ", StringComparison.OrdinalIgnoreCase)) {
                 //http://www.w3.org/Protocols/rfc2109/rfc2109
-                this.cookie = headerField.Substring(8).Trim();
+                this.Cookie = headerField.Substring(8).Trim();
                 if (!this.ParentFrame.QuickParse)
-                    this.Attributes.Add("Cookie", this.cookie);
+                    this.Attributes.Add("Cookie", this.Cookie);
             }
             else if (headerField.StartsWith("Set-Cookie: ", StringComparison.OrdinalIgnoreCase)) {
-                if (String.IsNullOrEmpty(this.cookie))
-                    this.cookie = headerField.Substring(12).Trim();
+                if (String.IsNullOrEmpty(this.Cookie))
+                    this.Cookie = headerField.Substring(12).Trim();
                 else
-                    this.cookie += "; " + headerField.Substring(12).Trim();
+                    this.Cookie += "; " + headerField.Substring(12).Trim();
                 if (!this.ParentFrame.QuickParse)
-                    this.Attributes.Add("Cookie", this.cookie);
+                    this.Attributes.Add("Cookie", this.Cookie);
             }
             else if (headerField.StartsWith("Content-Type: ", StringComparison.OrdinalIgnoreCase))
-                this.contentType = headerField.Substring(14).Trim();
+                this.ContentType = headerField.Substring(14).Trim();
             else if (headerField.StartsWith("Content-Length: ", StringComparison.OrdinalIgnoreCase))
-                this.contentLength = Convert.ToInt64(headerField.Substring(16).Trim());
+                this.ContentLength = Convert.ToInt64(headerField.Substring(16).Trim());
             else if (headerField.StartsWith("Content-Encoding: ", StringComparison.OrdinalIgnoreCase))
-                this.contentEncoding = headerField.Substring(18).Trim();
+                this.ContentEncoding = headerField.Substring(18).Trim();
             else if (headerField.StartsWith("Transfer-Encoding: ", StringComparison.OrdinalIgnoreCase))
-                this.transferEncoding = headerField.Substring(19).Trim();
+                this.TransferEncoding = headerField.Substring(19).Trim();
             else if (headerField.StartsWith("WWW-Authenticate: ", StringComparison.OrdinalIgnoreCase) && headerField.Contains("realm=\"")) {
                 int realmStart = headerField.IndexOf("realm=\"") + 7;
                 int realmEnd = headerField.IndexOf('\"', realmStart);
                 if (realmStart >= 0 && realmEnd > 0)
-                    this.wwwAuthenticateRealm = headerField.Substring(realmStart, realmEnd - realmStart).Trim();
+                    this.WwwAuthenticateRealm = headerField.Substring(realmStart, realmEnd - realmStart).Trim();
             }
             else if(headerField.StartsWith("WWW-Authenticate: Negotiate ", StringComparison.InvariantCultureIgnoreCase)) {
                 try {
@@ -335,7 +317,7 @@ namespace PacketParser.Packets {
                 }
             }
             else if (headerField.StartsWith("Proxy-Authenticate: Basic realm=", StringComparison.OrdinalIgnoreCase))
-                this.wwwAuthenticateRealm = headerField.Substring(33, headerField.Length - 34).Trim();
+                this.WwwAuthenticateRealm = headerField.Substring(33, headerField.Length - 34).Trim();
             else if (headerField.StartsWith("Authorization: Basic ", StringComparison.OrdinalIgnoreCase)) {
                 try {
                     string base64string = headerField.Substring(21).Trim();
@@ -346,11 +328,11 @@ namespace PacketParser.Packets {
                     //string s=System.Text.Encoding.Unicode.GetString(bArray);
                     string s = sb.ToString();
                     if (s.Contains(":")) {
-                        this.authorizationCredentialsUsername = s.Substring(0, s.IndexOf(':'));
+                        this.AuthorizationCredentialsUsername = s.Substring(0, s.IndexOf(':'));
                         if (s.IndexOf(':') + 1 < s.Length)
-                            this.authorizationCredentailsPassword = s.Substring(s.IndexOf(':') + 1);
+                            this.AuthorizationCredentialsPassword = s.Substring(s.IndexOf(':') + 1);
                         else
-                            this.authorizationCredentailsPassword = "";
+                            this.AuthorizationCredentialsPassword = "";
                     }
                 }
                 catch (Exception e) {
@@ -374,12 +356,12 @@ namespace PacketParser.Packets {
                             string name = parts[0].Trim();
                             string value = parts[1].Trim(new char[] { ' ', '\"', '\'' });
                             if (name.Equals("username", StringComparison.InvariantCultureIgnoreCase)) {
-                                this.authorizationCredentialsUsername = value;
-                                if (this.authorizationCredentailsPassword == null)
-                                    this.authorizationCredentailsPassword = "N/A";
+                                this.AuthorizationCredentialsUsername = value;
+                                if (this.AuthorizationCredentialsPassword == null)
+                                    this.AuthorizationCredentialsPassword = "N/A";
                             }
                             else if (name.Equals("realm", StringComparison.InvariantCultureIgnoreCase))
-                                this.wwwAuthenticateRealm = value;
+                                this.WwwAuthenticateRealm = value;
                         }
                     }
                 }
@@ -405,14 +387,14 @@ namespace PacketParser.Packets {
                 }
             }
             else if (headerField.StartsWith("Content-Disposition:", StringComparison.OrdinalIgnoreCase)) {
-                this.contentDisposition = headerField.Substring(20).Trim();
+                this.ContentDisposition = headerField.Substring(20).Trim();
                 if (headerField.Contains("filename=")) {
                     string filename = headerField.Substring(headerField.IndexOf("filename=") + 9);
                     filename = filename.Trim();
                     if (filename.StartsWith("\"") && filename.IndexOf('\"', 1) > 0)//get the string inside the quotations
                         filename = filename.Substring(1, filename.IndexOf('\"', 1) - 1);
                     if (filename.Length > 0)
-                        this.contentDispositionFilename = filename;
+                        this.ContentDispositionFilename = filename;
                 }
                 else if (headerField.Contains("filename*=")) {
                     //Example: Content-Disposition: inline; filename*=UTF-8''944.png
@@ -432,7 +414,7 @@ namespace PacketParser.Packets {
                                 if (filename.StartsWith("\"") && filename.IndexOf('\"', 1) > 0)//get the string inside the quotations
                                     filename = filename.Substring(1, filename.IndexOf('\"', 1) - 1);
                                 if (filename.Length > 0)
-                                    this.contentDispositionFilename = filename;
+                                    this.ContentDispositionFilename = filename;
                             }
                             catch (Exception e) {
                                 SharedUtils.Logger.Log("Error parsing file name with charset \"" + charset + "\" in " + this.ParentFrame.ToString() + ". " + e.ToString(), SharedUtils.Logger.EventLogEntryType.Warning);
@@ -449,7 +431,7 @@ namespace PacketParser.Packets {
                 if (rangeMatch.Success) {
                     long start, end, total;
                     if (Int64.TryParse(rangeMatch.Groups["start"].Value, out start) && Int64.TryParse(rangeMatch.Groups["end"].Value, out end) && Int64.TryParse(rangeMatch.Groups["total"].Value, out total)) {
-                        this.contentRange = new FileTransfer.ContentRange() { Start = start, End = end, Total = total };
+                        this.ContentRange = new FileTransfer.ContentRange() { Start = start, End = end, Total = total };
                     }
                 }
             }
@@ -544,8 +526,8 @@ namespace PacketParser.Packets {
         /// </summary>
         /// <returns></returns>
         internal System.Collections.Specialized.NameValueCollection GetQuerystringData() {
-            if(requestedFileName!=null && requestedFileName.Contains("?")) {
-                return GetUrlEncodedNameValueCollection(requestedFileName.Substring(requestedFileName.IndexOf('?')+1), false);
+            if(RequestedFileName!=null && RequestedFileName.Contains("?")) {
+                return GetUrlEncodedNameValueCollection(RequestedFileName.Substring(RequestedFileName.IndexOf('?')+1), false);
             }
             else
                 return null;
@@ -556,25 +538,25 @@ namespace PacketParser.Packets {
         internal System.Collections.Generic.List<Mime.MultipartPart> GetFormData() {
             System.Collections.Generic.List<Mime.MultipartPart> returnMultiPartData=new List<Mime.MultipartPart>();
 
-            if(this.RequestMethod!=RequestMethods.POST || this.messageBody==null || this.messageBody.Length<=0 || this.contentType==null)
+            if(this.RequestMethod!=RequestMethods.POST || this.MessageBody==null || this.MessageBody.Length<=0 || this.ContentType==null)
                 return returnMultiPartData;
-            else if(this.contentType.ToLower(System.Globalization.CultureInfo.InvariantCulture).StartsWith("application/x-www-form-urlencoded")) {
-                Mime.MultipartPart mimeMultipart = new Mime.MultipartPart(GetUrlEncodedNameValueCollection(Utils.ByteConverter.ReadString(this.messageBody), true));
+            else if(this.ContentType.ToLower(System.Globalization.CultureInfo.InvariantCulture).StartsWith("application/x-www-form-urlencoded")) {
+                Mime.MultipartPart mimeMultipart = new Mime.MultipartPart(GetUrlEncodedNameValueCollection(Utils.ByteConverter.ReadString(this.MessageBody), true));
 
                 returnMultiPartData.Add(mimeMultipart);
                 return returnMultiPartData;
             }
-            else if(this.contentType.ToLower(System.Globalization.CultureInfo.InvariantCulture).StartsWith("multipart/form-data")) {
+            else if(this.ContentType.ToLower(System.Globalization.CultureInfo.InvariantCulture).StartsWith("multipart/form-data")) {
                 //http://www.ietf.org/rfc/rfc2388.txt
                 //http://www.w3.org/TR/html4/interact/forms.html#h-17.13.4
                 //wireshark: \epan\dissectors\packet-multipart.c
                 //The content "multipart/form-data" follows the rules of all multipart MIME data streams as outlined in [RFC2045]. 
                 //see if there is a boundary in the Content-Type definition
 
-                string contentTypeEnding=contentType.Substring(21);
+                string contentTypeEnding=ContentType.Substring(21);
                 if(contentTypeEnding.StartsWith("boundary=")) {
                     string boundary=contentTypeEnding.Substring(9);
-                    foreach(Mime.MultipartPart part in Mime.PartBuilder.GetParts(this.messageBody, boundary))
+                    foreach(Mime.MultipartPart part in Mime.PartBuilder.GetParts(this.MessageBody, boundary))
                         returnMultiPartData.Add(part);
                     return returnMultiPartData;
                     
@@ -586,11 +568,11 @@ namespace PacketParser.Packets {
         }
 
         internal bool ContentIsComplete() {
-            if(this.contentLength==0)
+            if(this.ContentLength==0)
                 return true;
-            if(this.messageBody==null)
+            if(this.MessageBody==null)
                 return false;
-            return this.messageBody.Length>=this.contentLength;
+            return this.MessageBody.Length>=this.ContentLength;
         }
 
         public override IEnumerable<AbstractPacket> GetSubPackets(bool includeSelfReference) {

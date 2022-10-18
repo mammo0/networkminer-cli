@@ -11,37 +11,49 @@ using System.Text;
 
 namespace PacketParser {
     public class NetworkHostList {
-        private SortedDictionary<uint, NetworkHost> networkHostDictionary;
+        private readonly SortedDictionary<uint, NetworkHost> networkHostDictionary;
 
-        public int Count { get { return networkHostDictionary.Count; } }
-        public ICollection<NetworkHost> Hosts { get { return networkHostDictionary.Values; } }
+        public int Count {
+            get {
+                lock(this.networkHostDictionary)
+                    return networkHostDictionary.Count;
+            }
+        }
+        public ICollection<NetworkHost> Hosts {
+            get {
+                lock(this.networkHostDictionary)
+                    return networkHostDictionary.Values;
+            }
+        }
 
         internal NetworkHostList() {
-            this.networkHostDictionary=new SortedDictionary<uint, NetworkHost>();
+            this.networkHostDictionary = new SortedDictionary<uint, NetworkHost>();
         }
 
         internal void Clear() {
-            this.networkHostDictionary.Clear();
+            lock(this.networkHostDictionary)
+                this.networkHostDictionary.Clear();
         }
 
         internal bool ContainsIP(IPAddress ip) {
             uint ipUint = Utils.ByteConverter.ToUInt32(ip);
-            return networkHostDictionary.ContainsKey(ipUint);
+            lock (this.networkHostDictionary)
+                return networkHostDictionary.ContainsKey(ipUint);
         }
 
         internal void Add(NetworkHost host) {
-            //NetworkHost host=new NetworkHost(ip);
-            //uint ipUint=ByteConverter.ToUInt32(host.IPAddress);
-            this.networkHostDictionary.Add(Utils.ByteConverter.ToUInt32(host.IPAddress), host);
+            lock(this.networkHostDictionary)
+                this.networkHostDictionary.Add(Utils.ByteConverter.ToUInt32(host.IPAddress), host);
         }
 
-        internal NetworkHost GetNetworkHost(IPAddress ip) {
+        public NetworkHost GetNetworkHost(IPAddress ip) {
             uint ipUint = Utils.ByteConverter.ToUInt32(ip);
-            if(networkHostDictionary.ContainsKey(ipUint))
-                return networkHostDictionary[ipUint];
-            else
-                return null;
+            lock (this.networkHostDictionary) {
+                if (this.networkHostDictionary.ContainsKey(ipUint))
+                    return networkHostDictionary[ipUint];
+                else
+                    return null;
+            }
         }
-
     }
 }

@@ -136,7 +136,14 @@ namespace PacketParser.Utils {
             return returnArray;
         }
 
-
+        public static ushort ToUInt16(IEnumerable<byte> data, long offset, int modulus, bool dataIsLittleEndian) {
+            byte[] byteBuffer = new byte[2];
+            byteBuffer[0] = data.ElementAt<byte>((int)(offset % modulus));
+            byteBuffer[1] = data.ElementAt<byte>((int)((offset + 1) % modulus));
+            if (dataIsLittleEndian != BitConverter.IsLittleEndian)
+                Array.Reverse(byteBuffer);
+            return BitConverter.ToUInt16(byteBuffer, 0);
+        }
 
         public static ushort ToUInt16(byte[] value) {
             return (ushort)ToUInt32(value, 0, 2, false);

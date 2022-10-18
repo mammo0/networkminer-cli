@@ -46,13 +46,13 @@ namespace PacketParser {
             if (printClientFirst) {
                 if(this.clientServerString == null) {
                     StringBuilder sb = new StringBuilder();
-                    sb.Append(this.ClientHost.ToString());
+                    sb.Append(this.ClientHost.IPAddress.ToString());
                     sb.Append(" ");
                     sb.Append(this.Transport.ToString());
                     sb.Append(" ");
                     sb.Append(this.ClientPort);
                     sb.Append(" - ");
-                    sb.Append(this.ServerHost.ToString());
+                    sb.Append(this.ServerHost.IPAddress.ToString());
                     sb.Append(" ");
                     sb.Append(this.Transport.ToString());
                     sb.Append(" ");
@@ -64,13 +64,13 @@ namespace PacketParser {
             else {//print server first
                 if (this.serverClientString == null) {
                     StringBuilder sb = new StringBuilder();
-                    sb.Append(this.ServerHost.ToString());
+                    sb.Append(this.ServerHost.IPAddress.ToString());
                     sb.Append(" ");
                     sb.Append(this.Transport.ToString());
                     sb.Append(" ");
                     sb.Append(this.ServerPort);
                     sb.Append(" - ");
-                    sb.Append(this.ClientHost.ToString());
+                    sb.Append(this.ClientHost.IPAddress.ToString());
                     sb.Append(" ");
                     sb.Append(this.Transport.ToString());
                     sb.Append(" ");

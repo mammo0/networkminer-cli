@@ -25,7 +25,8 @@ namespace PacketParser.Packets {
             xHayesTunnel =  0x8130,//Hayes Microcomputer Products, Ltd. (formerly Waterloo Microsystems, Inc.) (5ACD839C)
             IPv6 =          0x86dd,
             MPLS =          0x8847,
-            PPPoE =         0x8864
+            PPPoE =         0x8864,
+            ERSPAN =        0x88be
         };
 
         internal static bool TryGetPacketForType(ushort etherType, Frame parentFrame, int newPacketStartIndex, int newPacketEndIndex, out AbstractPacket packet) {
@@ -67,6 +68,9 @@ namespace PacketParser.Packets {
                 }
                 else if (etherType == (ushort)Ethernet2Packet.EtherTypes.PPPoE) {
                     packet = new PointToPointOverEthernetPacket(parentFrame, newPacketStartIndex, newPacketEndIndex);
+                }
+                else if (etherType == (ushort)Ethernet2Packet.EtherTypes.ERSPAN) {
+                    packet = new Erspan(parentFrame, newPacketStartIndex, newPacketEndIndex);
                 }
                 else if (etherType == (ushort)Ethernet2Packet.EtherTypes.xHayesTunnel) {
                     packet = new Ethernet2Packet(parentFrame, newPacketStartIndex + 4, newPacketEndIndex);

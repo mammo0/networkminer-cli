@@ -1,3 +1,35 @@
+NetworkMiner 2.7.3
+	* TcpPortProtocolFinder.cs: Port 3000 and 8000 configured as be parsed as HTTP
+	  in order to support WEBrick traffic. Feature added thanks to RangeForce and
+	  @mttaggart.
+	* NetworkHost.cs: Added lock to all code using ExtraDetailsList to avoid
+	  "collection modified" exceptions.
+	* MeterpreterPacket.cs: Meterpreter payloads from common LPORT values for
+	  reverse_tcp like 4444 are now extracted to disk as DLL files.
+	* LinuxCookedCapture2.cs: Added support for SLL2 / Linux cooked capture v2 frames.
+	* TlsRecordPacket.cs: Fixed bug in JA3 Signature when client supports more than one
+	  EC point format.
+	* TlsRecordPacketHandler.cs: Added botnet JA3 hashes from Abuse.ch
+	* TlsRecordPacketHandler.cs: Added botnet SSL x509 cert hashes from Abuse.ch
+	* DnsPacketHandler.cs: Extraction of DNSBL lookup info to Parameters tab and Host details
+	* SmtpPacketHandler.cs: Improved extraction of SMTP credentials
+	* TlsRecordPacket.cs: Faster parsing of TLS encrypted traffic
+	* HttpPacketHandler.cs: Added support for HTTP CONNECT request method to parse proxied
+	  traffic.
+	* NetworkMinerForm.cs: NetworkMiner's GUI no longer reloads between each PCAP file when
+	  multiple files are loaded at once.
+
+NetworkMiner 2.7.2
+    * FtpPacket.cs: Added support for additional FTP commands, such as AUTH.
+	* EtlParser.cs: NetworkMiner now supports reading of ETL files created with
+	  "netsh trace start" and "pktmon start --capture"! This feature is only
+	  available in Windows though, since we're relying on Windows specific API calls for
+	  parsing ETL files.
+	* Erspan.cs: Added support for ERSPAN. Thanks to Markus Schewe for the feature request!
+	* NetworkMinerForm.cs: Parameters tab now has a context menu entry for
+	  "Submit value to CyberChef", which sends the parameter value to
+	  https://gchq.github.io/CyberChef/
+
 NetworkMiner 2.7.1
 	* PacketHandler.cs: Fixed bug related to live sniffing. Thanks to Jeff Rivett for
 	  reporting the issue!

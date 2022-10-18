@@ -17,30 +17,24 @@ namespace PacketParser.Mime {
             return sb.ToString();
         }
 
-        
 
-        public string From { get { return this.from; } }
-        public string To { get { return this.to; } }
-        public string Subject { get { return this.subject; } }
-        public string MessageID { get { return this.messageId; } }
-        public string DateString { get { return this.date; } }
+
+        public string From { get; }
+        public string To { get; }
+        public string Subject { get; }
+        public string MessageID { get; }
+        public string DateString { get; }
         public IEnumerable<FileTransfer.ReconstructedFile> Attachments { get { return this.attachments; } }
         public System.Collections.Specialized.NameValueCollection RootAttributes { get; }
 
         internal readonly PacketHandler MainPacketHandler;
-
-        private string from;
-        private string to;
-        private string subject;
-        private string messageId;
-        private string date;//Date: Fri, 1 Aug 2003 14:17:51 -0700
-        private FileTransfer.FileStreamTypes fileTransferProtocol;
-        private ApplicationLayerProtocol protocol;
-        private List<FileTransfer.ReconstructedFile> attachments;
+        private readonly FileTransfer.FileStreamTypes fileTransferProtocol;
+        private readonly ApplicationLayerProtocol protocol;
+        private readonly List<FileTransfer.ReconstructedFile> attachments;
         //private bool reassembleFileAtSourceHost;
-        private FileTransfer.FileStreamAssembler.FileAssmeblyRootLocation fileAssmeblyRootLocation;
-        private FiveTuple fiveTuple;
-        private bool transferIsClientToServer;
+        private readonly FileTransfer.FileStreamAssembler.FileAssmeblyRootLocation fileAssmeblyRootLocation;
+        private readonly FiveTuple fiveTuple;
+        private readonly bool transferIsClientToServer;
 
         public Email(System.IO.MemoryStream emailMimeStream, PacketHandler mainPacketHandler, Packets.TcpPacket tcpPacket, bool transferIsClientToServer, NetworkTcpSession tcpSession, ApplicationLayerProtocol protocol, FileTransfer.FileStreamAssembler.FileAssmeblyRootLocation fileAssmeblyRootLocation = FileTransfer.FileStreamAssembler.FileAssmeblyRootLocation.destination) {
             SharedUtils.Logger.Log("Extracting Email from MIME data in " + tcpPacket.ParentFrame.ToString(), SharedUtils.Logger.EventLogEntryType.Information);
@@ -60,11 +54,11 @@ namespace PacketParser.Mime {
             this.transferIsClientToServer = transferIsClientToServer;
 
             this.attachments = new List<FileTransfer.ReconstructedFile>();
-            this.from = null;
-            this.to = null;
-            this.subject = null;
-            this.messageId = null;
-            this.date = null;//Date: Fri, 1 Aug 2003 14:17:51 -0700
+            this.From = null;
+            this.To = null;
+            this.Subject = null;
+            this.MessageID = null;
+            this.DateString = null;//Date: Fri, 1 Aug 2003 14:17:51 -0700
             Encoding customEncoding = null;
             this.RootAttributes = null;
             bool messageSentToPacketHandler = false;
@@ -77,11 +71,11 @@ namespace PacketParser.Mime {
 
                 if (this.RootAttributes == null) {
 
-                    from = multipart.Attributes["From"];
-                    to = multipart.Attributes["To"];
-                    subject = multipart.Attributes["Subject"];
-                    messageId = multipart.Attributes["Message-ID"];
-                    date = multipart.Attributes["Date"];
+                    this.From = multipart.Attributes["From"];
+                    this.To = multipart.Attributes["To"];
+                    this.Subject = multipart.Attributes["Subject"];
+                    this.MessageID = multipart.Attributes["Message-ID"];
+                    this.DateString = multipart.Attributes["Date"];
                     this.RootAttributes = multipart.Attributes;
                 }
                 if (multipart.Attributes["charset"] != null) {
@@ -93,40 +87,39 @@ namespace PacketParser.Mime {
                     }
                 }
                 
-                this.parseMultipart(multipart, this.RootAttributes, tcpPacket, ref messageSentToPacketHandler, customEncoding, emailMimeStream.Length, from, to, subject, messageId);
+                this.parseMultipart(multipart, this.RootAttributes, tcpPacket, ref messageSentToPacketHandler, customEncoding, emailMimeStream.Length, From, To, Subject, MessageID);
 
             }
             
-            if(!messageSentToPacketHandler && from != null && to != null) {
+            if(!messageSentToPacketHandler && this.From != null && this.To != null) {
                 //send message to PacketHandler with force
                 if (this.transferIsClientToServer)
-                    this.MainPacketHandler.OnMessageDetected(new PacketParser.Events.MessageEventArgs(this.protocol, this.fiveTuple.ClientHost, this.fiveTuple.ServerHost, tcpPacket.ParentFrame.FrameNumber, tcpPacket.ParentFrame.Timestamp, from, to, subject, "", customEncoding, this.RootAttributes, emailMimeStream.Length));
+                    this.MainPacketHandler.OnMessageDetected(new PacketParser.Events.MessageEventArgs(this.protocol, this.fiveTuple.ClientHost, this.fiveTuple.ServerHost, tcpPacket.ParentFrame.FrameNumber, tcpPacket.ParentFrame.Timestamp, this.From, this.To, this.Subject, "", customEncoding, this.RootAttributes, emailMimeStream.Length));
                 else
-                    this.MainPacketHandler.OnMessageDetected(new PacketParser.Events.MessageEventArgs(this.protocol, this.fiveTuple.ServerHost, this.fiveTuple.ClientHost, tcpPacket.ParentFrame.FrameNumber, tcpPacket.ParentFrame.Timestamp, from, to, subject, "", customEncoding, this.RootAttributes, emailMimeStream.Length));
+                    this.MainPacketHandler.OnMessageDetected(new PacketParser.Events.MessageEventArgs(this.protocol, this.fiveTuple.ServerHost, this.fiveTuple.ClientHost, tcpPacket.ParentFrame.FrameNumber, tcpPacket.ParentFrame.Timestamp, this.From, this.To, this.Subject, "", customEncoding, this.RootAttributes, emailMimeStream.Length));
 
                 messageSentToPacketHandler = true;
             }
 
             //create an .eml file with the whole DATA portion
             string emlFilename = null;
-            if (subject != null && subject.Length > 3) {
-                emlFilename = Utils.StringManglerUtil.ConvertToFilename(subject, 10);
+            if (this.Subject != null && Subject.Length > 3) {
+                emlFilename = Utils.StringManglerUtil.ConvertToFilename(this.Subject, 10);
 
             }
             if (emlFilename == null || emlFilename.Length == 0) {
-                if (messageId != null && messageId.Length > 3) {
-                    emlFilename = Utils.StringManglerUtil.ConvertToFilename(messageId, 10);
+                if (this.MessageID != null && this.MessageID.Length > 3) {
+                    emlFilename = Utils.StringManglerUtil.ConvertToFilename(MessageID, 10);
                 }
                 else
                     emlFilename = "message_" + tcpSession.GetHashCode().ToString("X8");
             }
 
-
-            emlFilename = emlFilename + ".eml";
+            emlFilename += ".eml";
 
             if (this.RootAttributes != null) {
                 string extendedFileId = GetMessageId(this.RootAttributes);
-                using (FileTransfer.FileStreamAssembler assembler = new FileTransfer.FileStreamAssembler(MainPacketHandler.FileStreamAssemblerList, this.fiveTuple, this.transferIsClientToServer, this.fileTransferProtocol, emlFilename, "/", emailMimeStream.Length, emailMimeStream.Length, this.protocol.ToString() + " transcript From: " + from + " To: " + to + " Subject: " + subject, extendedFileId, tcpPacket.ParentFrame.FrameNumber, tcpPacket.ParentFrame.Timestamp, this.fileAssmeblyRootLocation)) {
+                using (FileTransfer.FileStreamAssembler assembler = new FileTransfer.FileStreamAssembler(MainPacketHandler.FileStreamAssemblerList, this.fiveTuple, this.transferIsClientToServer, this.fileTransferProtocol, emlFilename, "/", emailMimeStream.Length, emailMimeStream.Length, this.protocol.ToString() + " transcript From: " + From + " To: " + To + " Subject: " + Subject, extendedFileId, tcpPacket.ParentFrame.FrameNumber, tcpPacket.ParentFrame.Timestamp, this.fileAssmeblyRootLocation)) {
                     if (assembler.TryActivate()) {
                         assembler.FileReconstructed += this.MainPacketHandler.OnMessageAttachmentDetected;
                         assembler.FileReconstructed += this.Assembler_FileReconstructed;
@@ -199,7 +192,11 @@ namespace PacketParser.Mime {
                     }
                 }
             }
-            else if (!attachment && contentType == null || !attachment && contentType != null && (contentType.Equals("text/plain", StringComparison.InvariantCultureIgnoreCase) || !messageSentToPacketHandler && contentType.Equals("text/html", StringComparison.InvariantCultureIgnoreCase))) {
+            else if (!attachment && contentType == null ||
+                !attachment && contentType != null &&
+                (contentType.Equals("text/plain", StringComparison.InvariantCultureIgnoreCase) ||
+                    contentType.Equals("text", StringComparison.InvariantCultureIgnoreCase) ||
+                    !messageSentToPacketHandler && contentType.Equals("text/html", StringComparison.InvariantCultureIgnoreCase))) {
                 //print the data as text
                 //string textData = null;
                 byte[] textDataBytes = null;

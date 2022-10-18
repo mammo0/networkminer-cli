@@ -89,33 +89,29 @@ namespace PacketParser.Packets {
             this.replyList = new List<KeyValuePair<int, string>>();
 
             if(clientToServer) {
-                int index=PacketStartIndex;
+                int index= this.PacketStartIndex;
 
                 while(index < packetEndIndex && this.requestCommandAndArgumentList.Count < 1000) {
 
                     string line = Utils.ByteConverter.ReadLine(parentFrame.Data, ref index);
-
+                    if (string.IsNullOrEmpty(line))
+                        break;
 
                     string requestCommand = null;
                     string requestArgument = null;
 
                     if(line.Contains(" ")) {
                         requestCommand=line.Substring(0, line.IndexOf(' '));
-                        //requestComandAndArgument.Key=line.Substring(0, line.IndexOf(' '));
                         if(line.Length>line.IndexOf(' ')+1) {
                             requestArgument=line.Substring(line.IndexOf(' ')+1);
-                            //requestComandAndArgument.Value=line.Substring(line.IndexOf(' ')+1);
                         }
                         else {
                             requestArgument="";
-                            //requestComandAndArgument.Value="";
                         }
                     }
                     else if(line.Length == 4) {
                         requestCommand = line;
-                        //requestComandAndArgument.Key = line;
                         requestArgument = "";
-                        //requestComandAndArgument.Value = "";
                     }
                     else if(Enum.IsDefined(typeof(ClientCommands), line)) {
                         requestCommand = line;
@@ -136,10 +132,11 @@ namespace PacketParser.Packets {
                 int index=PacketStartIndex;
                 while(index < packetEndIndex && this.replyList.Count < 1000) {
                     string replyArgument;
-                    int replyCode;
                     string line = Utils.ByteConverter.ReadLine(parentFrame.Data, ref index);//I'll only look in the first line
+                    if (string.IsNullOrEmpty(line))
+                        break;
                     string first3bytes=line.Substring(0, 3);
-                    if(!Int32.TryParse(first3bytes, out replyCode))
+                    if(!Int32.TryParse(first3bytes, out int replyCode))
                         break;
                     else if(line.Length>4)
                         replyArgument=line.Substring(4);

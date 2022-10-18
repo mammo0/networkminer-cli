@@ -14,7 +14,17 @@ namespace SharedUtils.Pcap {
     //based on: http://www.codeproject.com/csharp/csevents01.asp
     public class PacketReceivedEventArgs : EventArgs {
 
-        public enum PacketTypes { NullLoopback, Ethernet2Packet, IPv4Packet, IPv6Packet, IEEE_802_11Packet, IEEE_802_11RadiotapPacket, CiscoHDLC, LinuxCookedCapture, PrismCaptureHeader };
+        public enum PacketTypes {
+            NullLoopback,
+            Ethernet2Packet,
+            IPv4Packet,
+            IPv6Packet,
+            IEEE_802_11Packet,
+            IEEE_802_11RadiotapPacket,
+            CiscoHDLC,
+            LinuxCookedCapture,
+            LinuxCookedCapture2,
+            PrismCaptureHeader };
 
         private byte[] data;
         private DateTime timestamp;

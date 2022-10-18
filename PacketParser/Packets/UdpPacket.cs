@@ -63,114 +63,114 @@ namespace PacketParser.Packets {
 
                     if (l7Protocol == ApplicationLayerProtocol.Dns) {//DNS or Multicast DNS http://www.multicastdns.org/
                     try {
-                        packet = new DnsPacket(ParentFrame, PacketStartIndex + 8, PacketEndIndex);
+                        packet = new DnsPacket(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex);
                     }
                     catch (Exception e) {
                         //SharedUtils.Logger.Log("Error parsing DNS packet in UDP payload in " + this.ParentFrame.ToString() + ". " + e.ToString(), SharedUtils.Logger.EventLogEntryType.Information);
                         if (!this.ParentFrame.QuickParse)
-                            ParentFrame.Errors.Add(new Frame.Error(ParentFrame, PacketStartIndex + 8, PacketEndIndex, "Cannot parse DNS packet (" + e.Message + ")"));
-                        packet = new RawPacket(ParentFrame, PacketStartIndex + 8, PacketEndIndex);
+                            this.ParentFrame.Errors.Add(new Frame.Error(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex, "Cannot parse DNS packet (" + e.Message + ")"));
+                        packet = new RawPacket(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex);
                     }
                 }
                 else if (l7Protocol == ApplicationLayerProtocol.Dhcp) {
                     try {
-                        packet = new DhcpPacket(ParentFrame, PacketStartIndex + 8, PacketEndIndex);
+                        packet = new DhcpPacket(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex);
                     }
                     catch (Exception e) {
                         if (!this.ParentFrame.QuickParse)
-                            ParentFrame.Errors.Add(new Frame.Error(ParentFrame, PacketStartIndex + 8, PacketEndIndex, "Cannot parse DHCP (or BOOTP) protocol: " + e.Message));
-                        packet = new RawPacket(ParentFrame, PacketStartIndex + 8, PacketEndIndex);
+                            this.ParentFrame.Errors.Add(new Frame.Error(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex, "Cannot parse DHCP (or BOOTP) protocol: " + e.Message));
+                        packet = new RawPacket(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex);
                     }
 
                 }
                 else if (l7Protocol == ApplicationLayerProtocol.Tftp) {
                     try {
-                        packet = new TftpPacket(ParentFrame, PacketStartIndex + 8, PacketEndIndex);
+                        packet = new TftpPacket(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex);
                     }
                     catch (Exception e) {
                         if (!this.ParentFrame.QuickParse)
-                            ParentFrame.Errors.Add(new Frame.Error(ParentFrame, PacketStartIndex + 8, PacketEndIndex, "Cannot parse NetBiosNameServicePacket packet (" + e.Message + ")"));
-                        packet = new RawPacket(ParentFrame, PacketStartIndex + 8, PacketEndIndex);
+                            this.ParentFrame.Errors.Add(new Frame.Error(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex, "Cannot parse NetBiosNameServicePacket packet (" + e.Message + ")"));
+                        packet = new RawPacket(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex);
                     }
                 }
                 else if (l7Protocol == ApplicationLayerProtocol.NetBiosNameService) {
                     try {
-                        packet = new NetBiosNameServicePacket(ParentFrame, PacketStartIndex + 8, PacketEndIndex);
+                        packet = new NetBiosNameServicePacket(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex);
                     }
                     catch (Exception e) {
                         if (!this.ParentFrame.QuickParse)
-                            ParentFrame.Errors.Add(new Frame.Error(ParentFrame, PacketStartIndex + 8, PacketEndIndex, "Cannot parse NetBiosNameServicePacket packet (" + e.Message + ")"));
-                        packet = new RawPacket(ParentFrame, PacketStartIndex + 8, PacketEndIndex);
+                            this.ParentFrame.Errors.Add(new Frame.Error(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex, "Cannot parse NetBiosNameServicePacket packet (" + e.Message + ")"));
+                        packet = new RawPacket(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex);
                     }
                 }
                 else if (l7Protocol == ApplicationLayerProtocol.Kerberos) {
                     try {
-                        packet = new KerberosPacket(ParentFrame, PacketStartIndex + 8, PacketEndIndex, false);
+                        packet = new KerberosPacket(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex, false);
                     }
                     catch (Exception e) {
                         if (!this.ParentFrame.QuickParse)
-                            ParentFrame.Errors.Add(new Frame.Error(ParentFrame, PacketStartIndex + 8, PacketEndIndex, "Cannot parse NetBiosNameServicePacket packet (" + e.Message + ")"));
+                            this.ParentFrame.Errors.Add(new Frame.Error(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex, "Cannot parse NetBiosNameServicePacket packet (" + e.Message + ")"));
                         packet = new RawPacket(ParentFrame, PacketStartIndex + 8, PacketEndIndex);
                     }
                 }
                 else if (l7Protocol == ApplicationLayerProtocol.NetBiosDatagramService) {
                     try {
-                        packet = new NetBiosDatagramServicePacket(ParentFrame, PacketStartIndex + 8, PacketEndIndex);
+                        packet = new NetBiosDatagramServicePacket(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex);
                     }
                     catch (Exception e) {
                         if (!this.ParentFrame.QuickParse)
-                            ParentFrame.Errors.Add(new Frame.Error(ParentFrame, PacketStartIndex + 8, PacketEndIndex, "Cannot parse NetBiosDatagramServicePacket packet (" + e.Message + ")"));
-                        packet = new RawPacket(ParentFrame, PacketStartIndex + 8, PacketEndIndex);
+                            this.ParentFrame.Errors.Add(new Frame.Error(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex, "Cannot parse NetBiosDatagramServicePacket packet (" + e.Message + ")"));
+                        packet = new RawPacket(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex);
                     }
                 }
                 else if (l7Protocol == ApplicationLayerProtocol.Snmp) {
                     try {
-                        packet = new SnmpPacket(ParentFrame, PacketStartIndex + 8, PacketEndIndex);
+                        packet = new SnmpPacket(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex);
                     }
                     catch (Exception e) {
                         if (!this.ParentFrame.QuickParse)
-                            ParentFrame.Errors.Add(new Frame.Error(ParentFrame, PacketStartIndex + 8, PacketEndIndex, "Cannot parse SNMP packet (" + e.Message + ")"));
-                        packet = new RawPacket(ParentFrame, PacketStartIndex + 8, PacketEndIndex);
+                            this.ParentFrame.Errors.Add(new Frame.Error(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex, "Cannot parse SNMP packet (" + e.Message + ")"));
+                        packet = new RawPacket(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex);
                     }
                 }
                 else if (l7Protocol == ApplicationLayerProtocol.Syslog) {
                     try {
-                        packet = new SyslogPacket(ParentFrame, PacketStartIndex + 8, PacketEndIndex);
+                        packet = new SyslogPacket(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex);
                     }
                     catch (Exception e) {
                         if (!this.ParentFrame.QuickParse)
-                            ParentFrame.Errors.Add(new Frame.Error(ParentFrame, PacketStartIndex + 8, PacketEndIndex, "Cannot parse Syslog packet (" + e.Message + ")"));
-                        packet = new RawPacket(ParentFrame, PacketStartIndex + 8, PacketEndIndex);
+                            this.ParentFrame.Errors.Add(new Frame.Error(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex, "Cannot parse Syslog packet (" + e.Message + ")"));
+                        packet = new RawPacket(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex);
                     }
                 }
                 else if (l7Protocol == ApplicationLayerProtocol.Upnp) {
                     try {
-                        packet = new UpnpPacket(ParentFrame, PacketStartIndex + 8, PacketEndIndex);
+                        packet = new UpnpPacket(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex);
                     }
                     catch (Exception e) {
                         if (!this.ParentFrame.QuickParse)
-                            ParentFrame.Errors.Add(new Frame.Error(ParentFrame, PacketStartIndex + 8, PacketEndIndex, "Cannot parse UPnP packet (" + e.Message + ")"));
+                            this.ParentFrame.Errors.Add(new Frame.Error(ParentFrame, PacketStartIndex + 8, PacketEndIndex, "Cannot parse UPnP packet (" + e.Message + ")"));
                         packet = new RawPacket(ParentFrame, PacketStartIndex + 8, PacketEndIndex);
                     }
                 }
                 else if (l7Protocol == ApplicationLayerProtocol.Sip) {
                     try {
-                        packet = new SipPacket(ParentFrame, PacketStartIndex + 8, PacketEndIndex);
+                        packet = new SipPacket(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex);
                     }
                     catch (Exception e) {
                         if (!this.ParentFrame.QuickParse)
-                            ParentFrame.Errors.Add(new Frame.Error(ParentFrame, PacketStartIndex + 8, PacketEndIndex, "Cannot parse SIP packet (" + e.Message + ")"));
-                        packet = new RawPacket(ParentFrame, PacketStartIndex + 8, PacketEndIndex);
+                            this.ParentFrame.Errors.Add(new Frame.Error(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex, "Cannot parse SIP packet (" + e.Message + ")"));
+                        packet = new RawPacket(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex);
                     }
                 }
                 else if(l7Protocol == ApplicationLayerProtocol.Rtp) {
                     try {
-                        packet = new RtpPacket(ParentFrame, PacketStartIndex + 8, PacketEndIndex);
+                        packet = new RtpPacket(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex);
                     }
                     catch (Exception e) {
                         if (!this.ParentFrame.QuickParse)
-                            ParentFrame.Errors.Add(new Frame.Error(ParentFrame, PacketStartIndex + 8, PacketEndIndex, "Cannot parse RTP packet (" + e.Message + ")"));
-                        packet = new RawPacket(ParentFrame, PacketStartIndex + 8, PacketEndIndex);
+                            this.ParentFrame.Errors.Add(new Frame.Error(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex, "Cannot parse RTP packet (" + e.Message + ")"));
+                        packet = new RawPacket(this.ParentFrame, PacketStartIndex + 8, this.PacketEndIndex);
                     }
                 }
                 else if (l7Protocol == ApplicationLayerProtocol.VXLAN) {
@@ -179,12 +179,12 @@ namespace PacketParser.Packets {
                     }
                     catch (Exception e) {
                         if (!this.ParentFrame.QuickParse)
-                            ParentFrame.Errors.Add(new Frame.Error(ParentFrame, PacketStartIndex + 8, PacketEndIndex, "Cannot parse VXLAN packet (" + e.Message + ")"));
-                        packet = new RawPacket(ParentFrame, PacketStartIndex + 8, PacketEndIndex);
+                            this.ParentFrame.Errors.Add(new Frame.Error(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex, "Cannot parse VXLAN packet (" + e.Message + ")"));
+                        packet = new RawPacket(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex);
                     }
                 }
                 else {
-                    packet = new RawPacket(ParentFrame, PacketStartIndex + 8, PacketEndIndex);
+                    packet = new RawPacket(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex);
                 }
                 yield return packet;
                 foreach(AbstractPacket subPacket in packet.GetSubPackets(false))

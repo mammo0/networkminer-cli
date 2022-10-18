@@ -123,24 +123,31 @@ namespace PacketParser.PacketHandlers {
                 if (smtpPacket.ClientToServer) {
 
                     if(smtpSession.State == SmtpSession.SmtpState.Username) {
-                        string base64Username = smtpPacket.ReadLine().Trim();
-                        
-                        try {
-                            byte[] usernameBytes = System.Convert.FromBase64String(base64Username);
-                            smtpSession.Username = System.Text.ASCIIEncoding.ASCII.GetString(usernameBytes);
-                        }
-                        catch(FormatException e) {
-                            SharedUtils.Logger.Log("Error parsing SMTP username as ASCII in " + smtpPacket.ParentFrame.ToString() + ". " + e.ToString(), SharedUtils.Logger.EventLogEntryType.Information);
+                        string base64Username = smtpPacket.ReadLine()?.Trim();
+                        if (base64Username == null)
+                            return 0;
+                        else {
+                            try {
+                                byte[] usernameBytes = System.Convert.FromBase64String(base64Username);
+                                smtpSession.Username = System.Text.ASCIIEncoding.ASCII.GetString(usernameBytes);
+                            }
+                            catch (FormatException e) {
+                                SharedUtils.Logger.Log("Error parsing SMTP username as ASCII in " + smtpPacket.ParentFrame.ToString() + ". " + e.ToString(), SharedUtils.Logger.EventLogEntryType.Information);
+                            }
                         }
                     }
                     else if(smtpSession.State == SmtpSession.SmtpState.Password) {
-                        string base64Password = smtpPacket.ReadLine().Trim();
-                        try {
-                            byte[] passwordBytes = System.Convert.FromBase64String(base64Password);
-                            smtpSession.Password = System.Text.ASCIIEncoding.ASCII.GetString(passwordBytes);
-                        }
-                        catch(FormatException e) {
-                            SharedUtils.Logger.Log("Error parsing SMTP password as ASCII in " + smtpPacket.ParentFrame.ToString() + ". " + e.ToString(), SharedUtils.Logger.EventLogEntryType.Information);
+                        string base64Password = smtpPacket.ReadLine()?.Trim();
+                        if (base64Password == null)
+                            return 0;
+                        else {
+                            try {
+                                byte[] passwordBytes = System.Convert.FromBase64String(base64Password);
+                                smtpSession.Password = System.Text.ASCIIEncoding.ASCII.GetString(passwordBytes);
+                            }
+                            catch (FormatException e) {
+                                SharedUtils.Logger.Log("Error parsing SMTP password as ASCII in " + smtpPacket.ParentFrame.ToString() + ". " + e.ToString(), SharedUtils.Logger.EventLogEntryType.Information);
+                            }
                         }
                     }
                     else if(smtpSession.State == SmtpSession.SmtpState.Data) {
@@ -223,9 +230,17 @@ namespace PacketParser.PacketHandlers {
                 else {//server to client
                     foreach(KeyValuePair<int, string> replyCodeAndArgument in smtpPacket.Replies) {
                         if(replyCodeAndArgument.Key == 334) { //AUTH LOGIN
-                            if(replyCodeAndArgument.Value.Equals("VXNlcm5hbWU6"))
+                            if(replyCodeAndArgument.Value.Equals("VXNlcm5hbWU6"))//Username:
                                 smtpSession.State = SmtpSession.SmtpState.Username;
-                            else if(replyCodeAndArgument.Value.Equals("UGFzc3dvcmQ6"))
+                            else if (replyCodeAndArgument.Value.Equals("VXNlcm5hbWU="))//Username
+                                smtpSession.State = SmtpSession.SmtpState.Username;
+                            else if (replyCodeAndArgument.Value.Equals("VXNlcm5hbWU"))
+                                smtpSession.State = SmtpSession.SmtpState.Username;
+                            else if(replyCodeAndArgument.Value.Equals("UGFzc3dvcmQ6"))//Password:
+                                smtpSession.State = SmtpSession.SmtpState.Password;
+                            else if (replyCodeAndArgument.Value.Equals("UGFzc3dvcmQ="))//Password
+                                smtpSession.State = SmtpSession.SmtpState.Password;
+                            else if (replyCodeAndArgument.Value.Equals("UGFzc3dvcmQ"))
                                 smtpSession.State = SmtpSession.SmtpState.Password;
                         }
                         else if(replyCodeAndArgument.Key == 235) { //AUTHENTICATION SUCCESSFUL 

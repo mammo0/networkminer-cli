@@ -54,6 +54,8 @@ namespace PacketParser.Packets {
                 packetType = typeof(Packets.NullLoopbackPacket);
             else if (dataLinkType == PcapFrame.DataLinkTypeEnum.WTAP_ENCAP_ERF)
                 packetType = typeof(Packets.ErfFrame);
+            else if (dataLinkType == PcapFrame.DataLinkTypeEnum.WTAP_ENCAP_LINUX_SLL2)
+                packetType = typeof(Packets.LinuxCookedCapture2);
             return packetType;
         }
 
@@ -88,6 +90,8 @@ namespace PacketParser.Packets {
                     packet = new Packets.NullLoopbackPacket(parentFrame, startIndex, endIndex);
                 else if (packetType.Equals(typeof(Packets.ErfFrame)))
                     packet = new Packets.ErfFrame(parentFrame, startIndex, endIndex);
+                else if (packetType.Equals(typeof(Packets.LinuxCookedCapture2)))
+                    packet = new Packets.LinuxCookedCapture2(parentFrame, startIndex, endIndex);
 
                 if (packet == null)
                     return false;

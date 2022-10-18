@@ -33,8 +33,10 @@ namespace PacketParser.PacketHandlers {
                 if(p.GetType()==typeof(Packets.SpotifyKeyExchangePacket)) {
                     Packets.SpotifyKeyExchangePacket spotifyPacket=(Packets.SpotifyKeyExchangePacket)p;
                     if(spotifyPacket.IsClientToServer) {
-                        if(!tcpSession.ClientHost.ExtraDetailsList.ContainsKey("Spotify application OS"))
-                            tcpSession.ClientHost.ExtraDetailsList.Add("Spotify application OS", spotifyPacket.ClientOperatingSystem);
+                        lock (tcpSession.ClientHost.ExtraDetailsList) {
+                            if (!tcpSession.ClientHost.ExtraDetailsList.ContainsKey("Spotify application OS"))
+                                tcpSession.ClientHost.ExtraDetailsList.Add("Spotify application OS", spotifyPacket.ClientOperatingSystem);
+                        }
                         NetworkCredential nc=new NetworkCredential(tcpSession.ClientHost, tcpSession.ServerHost, spotifyPacket.PacketTypeDescription, spotifyPacket.ClientUsername, spotifyPacket.ParentFrame.Timestamp);
                         nc.Password="Client DH public key: "+spotifyPacket.PublicKeyHexString;
                         base.MainPacketHandler.AddCredential(nc);

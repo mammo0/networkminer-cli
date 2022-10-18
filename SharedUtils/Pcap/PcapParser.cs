@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace SharedUtils.Pcap {
@@ -10,6 +11,16 @@ namespace SharedUtils.Pcap {
         public const uint LIBPCAP_MAGIC_NUMBER = 0xa1b2c3d4;
         public const uint PCAP_MODIFIED_MAGIC = 0xa1b2cd34;
         public const uint NANOSECOND_PCAP_MACIC = 0xa1b23c4d;
+
+        public static readonly HashSet<uint> PCAP_MAGIC_NUMBERS = new HashSet<uint> {
+            LIBPCAP_MAGIC_NUMBER,
+            BitConverter.ToUInt32(BitConverter.GetBytes(LIBPCAP_MAGIC_NUMBER).Reverse().ToArray(), 0),
+            PCAP_MODIFIED_MAGIC,
+            BitConverter.ToUInt32(BitConverter.GetBytes(PCAP_MODIFIED_MAGIC).Reverse().ToArray(), 0),
+            NANOSECOND_PCAP_MACIC,
+            BitConverter.ToUInt32(BitConverter.GetBytes(NANOSECOND_PCAP_MACIC).Reverse().ToArray(), 0)
+        };
+
 
         //private System.IO.Stream pcapStream;
         //private PcapStreamReader.AbortReadingDelegate abortReading;

@@ -31,15 +31,10 @@ namespace PacketParser {
 
     public class PacketHandler {
         internal static PopularityList<string, List<Packets.IPv4Packet>> Ipv4Fragments = new PopularityList<string,List<Packets.IPv4Packet>>(1024);
-
-        private NetworkHostList networkHostList;
         private long nFramesReceived, nBytesReceived;
-        private List<Fingerprints.IOsFingerprinter> osFingerprintCollectionList;
         private CleartextDictionary.WordDictionary dictionary;
         
         private PopularityList<int, NetworkTcpSession> networkTcpSessionList;
-        private FileTransfer.FileStreamAssemblerList fileStreamAssemblerList;
-        private List<FileTransfer.ReconstructedFile> reconstructedFileList;
         private SortedList<string, NetworkCredential> credentialList;
         //TODO: Add PopularityList of type <FileSegmentAssembler>
         private Func<DateTime, string> toCustomTimeZoneStringFunction;
@@ -64,11 +59,6 @@ namespace PacketParser {
 
         private int? lastBufferUsagePercent;
 
-        //configurable settings
-        private string outputDirectory;
-        private bool defangExecutableFiles;
-        private bool extractPartialDownloads = true;//defaults to true
-
         //Packet handlers
         private List<PacketHandlers.IPacketHandler> nonIpPacketHandlerList;//protocols in frames without IP packets
         private List<PacketHandlers.IPacketHandler> packetHandlerList;
@@ -77,14 +67,6 @@ namespace PacketParser {
         //Threads
         private System.Threading.Thread packetQueueConsumerThread;
         private System.Threading.Thread frameQueueConsumerThread;
-
-        //Protocol Finder Factory
-        private ISessionProtocolFinderFactory protocolFinderFactory;
-
-        //Packet filter
-        private IPacketFilter inputFilter = null;
-
-        private PacketHandlers.IHttpPacketHandler extraHttpPacketHandler = null;
 
         //System.Threading.AutoResetEvent framesToParseQueueEvent, receivedPacketsQueueEvent;
         //private Utils.QueueThresholdSignaller<Frame> framesToParseThresholdSignaller = null;
@@ -112,43 +94,28 @@ namespace PacketParser {
         public event UnhandledExceptionEventHandler UnhandledException;
         public event Action<string> InsufficientWritePermissionsDetected;
 
-        public byte[][] KeywordList { set { this.keywordList=value; } }
-        public int CleartextSearchModeSelectedIndex { set { this.cleartextSearchModeSelectedIndex=value; } }
+        public byte[][] KeywordList { set { this.keywordList = value; } }
+        public int CleartextSearchModeSelectedIndex { set { this.cleartextSearchModeSelectedIndex = value; } }
 
         public CleartextDictionary.WordDictionary Dictionary { set { this.dictionary=value; } }
-        public List<Fingerprints.IOsFingerprinter> OsFingerprintCollectionList { get { return this.osFingerprintCollectionList; } }
+        public List<Fingerprints.IOsFingerprinter> OsFingerprintCollectionList { get; }
         //internal ICollection<NetworkHost> DetectedHosts { get { return networkHostList.Hosts; } }
-        public NetworkHostList NetworkHostList { get { return this.networkHostList; } }
+        public NetworkHostList NetworkHostList { get; }
         //internal NetworkMinerForm ParentForm { get { return this.parentForm; } }
-        public FileTransfer.FileStreamAssemblerList FileStreamAssemblerList { get { return this.fileStreamAssemblerList; } }
+        public FileTransfer.FileStreamAssemblerList FileStreamAssemblerList { get; }
         public int PacketsInQueue { get { return this.receivedPacketsQueue_BC.Count; } }
         public int FramesInQueue { get { return this.framesToParseQueue.Count; } }
 
-        public List<FileTransfer.ReconstructedFile> ReconstructedFileList { get { return this.reconstructedFileList; } }
-        public ISessionProtocolFinderFactory ProtocolFinderFactory {
-            get { return this.protocolFinderFactory; }
-            set { this.protocolFinderFactory = value; }
-        }
+        public List<FileTransfer.ReconstructedFile> ReconstructedFileList { get; }
+        public ISessionProtocolFinderFactory ProtocolFinderFactory { get; set; }
 
-        public IPacketFilter InputFilter {
-            get { return this.inputFilter; }
-            set { this.inputFilter = value; }
-        }
+        public IPacketFilter InputFilter { get; set; } = null;
 
-        public PacketHandlers.IHttpPacketHandler ExtraHttpPacketHandler {
-            get { return this.extraHttpPacketHandler; }
-            set { this.extraHttpPacketHandler = value; }
-        }
+        public PacketHandlers.IHttpPacketHandler ExtraHttpPacketHandler { get; set; } = null;
 
-        public string OutputDirectory { get { return this.outputDirectory; } }
-        public bool DefangExecutableFiles {
-            get { return this.defangExecutableFiles; }
-            set { this.defangExecutableFiles = value; }
-        }
-        public bool ExtractPartialDownloads {
-            get { return this.extractPartialDownloads; }
-            set { this.extractPartialDownloads = value; }
-        }
+        public string OutputDirectory { get; }
+        public bool DefangExecutableFiles { get; set; }
+        public bool ExtractPartialDownloads { get; set; } = true;
         public Dictionary<FileTransfer.FileStreamTypes, FileTransfer.IFileCarver> FileCarvers {
             get;
             set;
@@ -156,16 +123,16 @@ namespace PacketParser {
 
         public void ResetCapturedData() {
             lock (this.receivedPacketsQueue_BC) {
-                lock (this.networkHostList)
-                    this.networkHostList.Clear();
+                lock (this.NetworkHostList)
+                    this.NetworkHostList.Clear();
                 this.nFramesReceived = 0;
                 this.nBytesReceived = 0;
                 //this.fileStreamAssemblerList.ClearAll();
                 this.networkTcpSessionList.Clear();
                 lock (Ipv4Fragments)
                     Ipv4Fragments.Clear();
-                lock (this.reconstructedFileList)
-                    this.reconstructedFileList.Clear();
+                lock (this.ReconstructedFileList)
+                    this.ReconstructedFileList.Clear();
                 lock (this.credentialList)
                     this.credentialList.Clear();
                 this.lastBufferUsagePercent = null;
@@ -174,13 +141,13 @@ namespace PacketParser {
                     packetHandler.Reset();
                 foreach (PacketHandlers.ITcpSessionPacketHandler packetHandler in this.tcpSessionPacketHandlerList)
                     packetHandler.Reset();
-                this.fileStreamAssemblerList.ClearAll();
+                this.FileStreamAssemblerList.ClearAll();
 
                 while (this.receivedPacketsQueue_BC.TryTake(out var packetReceivedEventArgs)) { }
                 //while (this.receivedPacketsQueue.TryDequeue(out var packetReceivedEventArgs)) { }
             }
-            if (this.extraHttpPacketHandler != null)
-                this.extraHttpPacketHandler.Reset();
+            if (this.ExtraHttpPacketHandler != null)
+                this.ExtraHttpPacketHandler.Reset();
         }
 
 #if DEBUG
@@ -203,13 +170,13 @@ namespace PacketParser {
         }
 #endif
 
-        public PacketHandler(string applicationExecutablePath, string outputPath, List<Fingerprints.IOsFingerprinter> preloadedFingerprints, bool ignoreMissingFingerprintFiles, Func<DateTime, string> toCustomTimeZoneStringFunction, bool useRelativePathIfAvailable) {
+        public PacketHandler(string applicationExecutablePath, string outputPath, List<Fingerprints.IOsFingerprinter> preloadedFingerprints, bool ignoreMissingFingerprintFiles, Func<DateTime, string> toCustomTimeZoneStringFunction, bool useRelativePathIfAvailable, bool verifyX509Certificates) {
             this.useRelativePathIfAvailable = useRelativePathIfAvailable;
             this.toCustomTimeZoneStringFunction = toCustomTimeZoneStringFunction;
-            this.protocolFinderFactory = new PortProtocolFinderFactory(this);
+            this.ProtocolFinderFactory = new PortProtocolFinderFactory(this);
             //this.parentForm=parentForm;
 
-            this.networkHostList=new NetworkHostList();
+            this.NetworkHostList=new NetworkHostList();
             this.nFramesReceived=0;
             this.nBytesReceived=0;
             //this.receivedFramesQueue=new LatestFramesQueue(256);
@@ -232,26 +199,26 @@ namespace PacketParser {
 
             if (!outputPath.EndsWith(System.IO.Path.DirectorySeparatorChar.ToString()))
                 outputPath += System.IO.Path.DirectorySeparatorChar.ToString();
-            this.outputDirectory = Path.GetDirectoryName(outputPath) + System.IO.Path.DirectorySeparatorChar;
-            this.osFingerprintCollectionList=new List<Fingerprints.IOsFingerprinter>();
+            this.OutputDirectory = Path.GetDirectoryName(outputPath) + System.IO.Path.DirectorySeparatorChar;
+            this.OsFingerprintCollectionList=new List<Fingerprints.IOsFingerprinter>();
             if (preloadedFingerprints != null)
-                this.osFingerprintCollectionList.AddRange(preloadedFingerprints);
+                this.OsFingerprintCollectionList.AddRange(preloadedFingerprints);
             this.FileCarvers = new Dictionary<FileTransfer.FileStreamTypes, FileTransfer.IFileCarver>();
 
             //the ettercap fingerprints aren't needed
             try {
-                osFingerprintCollectionList.Add(new Fingerprints.EttarcapOsFingerprintCollection(this.FingerprintsPath + "etter.finger.os"));//, NetworkMiner.Fingerprints.EttarcapOsFingerprintCollection.OsFingerprintFileFormat.Ettercap)
+                OsFingerprintCollectionList.Add(new Fingerprints.EttarcapOsFingerprintCollection(this.FingerprintsPath + "etter.finger.os"));//, NetworkMiner.Fingerprints.EttarcapOsFingerprintCollection.OsFingerprintFileFormat.Ettercap)
             }
             catch (FileNotFoundException) { }
             try {
                 //Check CERT NetSA p0f database https://tools.netsa.cert.org/confluence/display/tt/p0f+fingerprints
                 string netsaP0fFile = this.FingerprintsPath + "p0f.fp.netsa";
                 if (System.IO.File.Exists(netsaP0fFile))
-                    osFingerprintCollectionList.Add(new Fingerprints.P0fOsFingerprintCollection(netsaP0fFile, applicationDirectory + System.IO.Path.DirectorySeparatorChar + "Fingerprints" + System.IO.Path.DirectorySeparatorChar + "p0fa.fp", "p0f (NetSA)", 0.4));
+                    OsFingerprintCollectionList.Add(new Fingerprints.P0fOsFingerprintCollection(netsaP0fFile, applicationDirectory + System.IO.Path.DirectorySeparatorChar + "Fingerprints" + System.IO.Path.DirectorySeparatorChar + "p0fa.fp", "p0f (NetSA)", 0.4));
                 else
-                    osFingerprintCollectionList.Add(new Fingerprints.P0fOsFingerprintCollection(this.FingerprintsPath + "p0f.fp", applicationDirectory + System.IO.Path.DirectorySeparatorChar + "Fingerprints" + System.IO.Path.DirectorySeparatorChar + "p0fa.fp"));
-                osFingerprintCollectionList.Add(new Fingerprints.SatoriDhcpOsFingerprinter(this.FingerprintsPath + "dhcp.xml"));
-                osFingerprintCollectionList.Add(new Fingerprints.SatoriTcpOsFingerprinter(this.FingerprintsPath + "tcp.xml"));
+                    OsFingerprintCollectionList.Add(new Fingerprints.P0fOsFingerprintCollection(this.FingerprintsPath + "p0f.fp", applicationDirectory + System.IO.Path.DirectorySeparatorChar + "Fingerprints" + System.IO.Path.DirectorySeparatorChar + "p0fa.fp"));
+                OsFingerprintCollectionList.Add(new Fingerprints.SatoriDhcpOsFingerprinter(this.FingerprintsPath + "dhcp.xml"));
+                OsFingerprintCollectionList.Add(new Fingerprints.SatoriTcpOsFingerprinter(this.FingerprintsPath + "tcp.xml"));
             }
             catch (FileNotFoundException e) {
                 if (!ignoreMissingFingerprintFiles)
@@ -260,9 +227,9 @@ namespace PacketParser {
             //this.networkTcpSessionDictionary=new Dictionary<int, NetworkTcpSession>();
             this.networkTcpSessionList=new PopularityList<int, NetworkTcpSession>(200);
             this.networkTcpSessionList.PopularityLost+=new PopularityList<int, NetworkTcpSession>.PopularityLostEventHandler(networkTcpSessionList_PopularityLost);
-            this.fileStreamAssemblerList = new FileTransfer.FileStreamAssemblerList(this, 100, this.outputDirectory + PacketParser.FileTransfer.FileStreamAssembler.ASSMEBLED_FILES_DIRECTORY + System.IO.Path.DirectorySeparatorChar);
-            this.fileStreamAssemblerList.PopularityLost += this.FileStreamAssemblerList_PopularityLost;
-            this.reconstructedFileList=new List<FileTransfer.ReconstructedFile>();
+            this.FileStreamAssemblerList = new FileTransfer.FileStreamAssemblerList(this, 100, this.OutputDirectory + PacketParser.FileTransfer.FileStreamAssembler.ASSMEBLED_FILES_DIRECTORY + System.IO.Path.DirectorySeparatorChar);
+            this.FileStreamAssemblerList.PopularityLost += this.FileStreamAssemblerList_PopularityLost;
+            this.ReconstructedFileList=new List<FileTransfer.ReconstructedFile>();
             this.credentialList=new SortedList<string, NetworkCredential>();
             //this.pendingSessionCredentialList=new SortedList<string, NetworkCredential>();
 
@@ -303,12 +270,13 @@ namespace PacketParser {
             this.tcpSessionPacketHandlerList.Add(new PacketHandlers.SpotifyKeyExchangePacketHandler(this));
             this.tcpSessionPacketHandlerList.Add(new PacketHandlers.SshPacketHandler(this));
             this.tcpSessionPacketHandlerList.Add(new PacketHandlers.TabularDataStreamPacketHandler(this));
-            this.tcpSessionPacketHandlerList.Add(new PacketHandlers.TlsRecordPacketHandler(this));
+            this.tcpSessionPacketHandlerList.Add(new PacketHandlers.TlsRecordPacketHandler(this, verifyX509Certificates));
             this.tcpSessionPacketHandlerList.Add(new PacketHandlers.OscarFileTransferPacketHandler(this));
             this.tcpSessionPacketHandlerList.Add(new PacketHandlers.OscarPacketHandler(this));
             this.tcpSessionPacketHandlerList.Add(new PacketHandlers.IEC_104_PacketHandler(this));
             this.tcpSessionPacketHandlerList.Add(new PacketHandlers.ModbusTcpPacketHandler(this));
             this.tcpSessionPacketHandlerList.Add(new PacketHandlers.RdpPacketHandler(this));
+            this.tcpSessionPacketHandlerList.Add(new PacketHandlers.MeterpreterPacketHandler(this));
             this.tcpSessionPacketHandlerList.Add(new PacketHandlers.GenericShimPacketHandler<Packets.OpenFlowPacket>(this, ApplicationLayerProtocol.OpenFlow));
             this.tcpSessionPacketHandlerList.Add(new PacketHandlers.GenericShimPacketHandler<Packets.TpktPacket>(this, ApplicationLayerProtocol.Tpkt));
             this.tcpSessionPacketHandlerList.Add(new PacketHandlers.UnusedTcpSessionProtocolsHandler(this));//this one is needed in order to release packets from the TCP reassembly if they are complete.
@@ -607,19 +575,23 @@ namespace PacketParser {
             else if(packet.PacketType==SharedUtils.Pcap.PacketReceivedEventArgs.PacketTypes.LinuxCookedCapture) {
                 return new Frame(packet.Timestamp, packet.Data, typeof(Packets.LinuxCookedCapture), ++nFramesReceived);
             }
+            else if (packet.PacketType == SharedUtils.Pcap.PacketReceivedEventArgs.PacketTypes.LinuxCookedCapture2) {
+                return new Frame(packet.Timestamp, packet.Data, typeof(Packets.LinuxCookedCapture2), ++nFramesReceived);
+            }
             else if(packet.PacketType==SharedUtils.Pcap.PacketReceivedEventArgs.PacketTypes.PrismCaptureHeader) {
                 return new Frame(packet.Timestamp, packet.Data, typeof(Packets.PrismCaptureHeaderPacket), ++nFramesReceived);
             }
             else if (packet.PacketType == SharedUtils.Pcap.PacketReceivedEventArgs.PacketTypes.NullLoopback) {
                 return new Frame(packet.Timestamp, packet.Data, typeof(Packets.NullLoopbackPacket), ++nFramesReceived);
             }
+
             else
                 return null;
             //ParseFrame(receivedFrame);
         }
 
         private bool FilterMatches(Packets.IPv4Packet ipv4Packet, Packets.IPv6Packet ipv6Packet, Packets.TcpPacket tcpPacket, Packets.UdpPacket udpPacket) {
-            if (this.inputFilter == null)
+            if (this.InputFilter == null)
                 return true;
 
             string transportProtocol;
@@ -638,10 +610,10 @@ namespace PacketParser {
                 return false;
 
             if (ipv4Packet != null) {
-                return this.inputFilter.Matches(new IPEndPoint(ipv4Packet.SourceIPAddress, srcPort), new IPEndPoint(ipv4Packet.DestinationIPAddress, dstPort), transportProtocol);
+                return this.InputFilter.Matches(new IPEndPoint(ipv4Packet.SourceIPAddress, srcPort), new IPEndPoint(ipv4Packet.DestinationIPAddress, dstPort), transportProtocol);
             }
             else if (ipv6Packet != null) {
-                return this.inputFilter.Matches(new IPEndPoint(ipv6Packet.SourceIPAddress, srcPort), new IPEndPoint(ipv6Packet.DestinationIPAddress, dstPort), transportProtocol);
+                return this.InputFilter.Matches(new IPEndPoint(ipv6Packet.SourceIPAddress, srcPort), new IPEndPoint(ipv6Packet.DestinationIPAddress, dstPort), transportProtocol);
             }
             else
                 return false;
@@ -694,6 +666,11 @@ namespace PacketParser {
                         if (!vlanIdList.Contains(vlanId))
                             vlanIdList.Add(vlanId);
                     }
+                    else if (type == typeof(Packets.Erspan)) {
+                        ushort? vlanId = ((Packets.Erspan)p).VlanID;
+                        if (vlanId.HasValue && !vlanIdList.Contains(vlanId.Value))
+                            vlanIdList.Add(vlanId.Value);
+                    }
                 }
 
                 if (this.FilterMatches(ipv4Packet, ipv6Packet, tcpPacket, udpPacket)) {
@@ -743,21 +720,21 @@ namespace PacketParser {
 
                         NetworkHost sourceHost, destinationHost;
                         //source
-                        if (networkHostList.ContainsIP(ipPacketSourceIp))
-                            sourceHost = networkHostList.GetNetworkHost(ipPacketSourceIp);
+                        if (NetworkHostList.ContainsIP(ipPacketSourceIp))
+                            sourceHost = NetworkHostList.GetNetworkHost(ipPacketSourceIp);
                         else {
                             sourceHost = new NetworkHost(ipPacketSourceIp);
-                            lock(this.networkHostList)
-                                this.networkHostList.Add(sourceHost);
+                            lock(this.NetworkHostList)
+                                this.NetworkHostList.Add(sourceHost);
                             this.OnNetworkHostDetected(new Events.NetworkHostEventArgs(sourceHost));
                             //parentForm.ShowDetectedHost(sourceHost);
                         }
-                        if (networkHostList.ContainsIP(ipPacketDestinationIp))
-                            destinationHost = networkHostList.GetNetworkHost(ipPacketDestinationIp);
+                        if (NetworkHostList.ContainsIP(ipPacketDestinationIp))
+                            destinationHost = NetworkHostList.GetNetworkHost(ipPacketDestinationIp);
                         else {
                             destinationHost = new NetworkHost(ipPacketDestinationIp);
-                            lock (this.networkHostList)
-                                this.networkHostList.Add(destinationHost);
+                            lock (this.NetworkHostList)
+                                this.NetworkHostList.Add(destinationHost);
                             this.OnNetworkHostDetected(new Events.NetworkHostEventArgs(destinationHost));
                             //parentForm.ShowDetectedHost(destinationHost);
                         }
@@ -823,7 +800,7 @@ namespace PacketParser {
 
                         //this one is just extra for hosts which don't use TCP for example and therefore can't use the OS fingerprinter to get the TTL distance
                         if (sourceHost.TtlDistance == byte.MaxValue) {//maxValue=default if no TtlDistance exists
-                            foreach (Fingerprints.IOsFingerprinter fingerprinter in this.osFingerprintCollectionList)
+                            foreach (Fingerprints.IOsFingerprinter fingerprinter in this.OsFingerprintCollectionList)
                                 if (typeof(Fingerprints.ITtlDistanceCalculator).IsAssignableFrom(fingerprinter.GetType()))
                                     //if(fingerprinter.GetType().IsSubclassOf(typeof(Fingerprints.ITtlDistanceCalculator)))
                                     sourceHost.AddProbableTtlDistance(((Fingerprints.ITtlDistanceCalculator)fingerprinter).GetTtlDistance(ipTTL));
@@ -847,7 +824,7 @@ namespace PacketParser {
                             }
                         }
 
-                        foreach (Fingerprints.IOsFingerprinter fingerprinter in this.osFingerprintCollectionList) {
+                        foreach (Fingerprints.IOsFingerprinter fingerprinter in this.OsFingerprintCollectionList) {
 
                             //IList<string> osList;
                             IList<PacketParser.Fingerprints.DeviceFingerprint> osList;
@@ -933,9 +910,9 @@ namespace PacketParser {
                 while(virtualTcpData!=null && currentStream.CountBytesToRead() > 0) {
                     //1: check if there is an active file stream assembly going on...
                     //   if yes: add the virtualTcpData to the stream
-                    if(this.fileStreamAssemblerList.ContainsAssembler(networkTcpSession.Flow.FiveTuple, transferIsClientToServer, true)) {
+                    if(this.FileStreamAssemblerList.ContainsAssembler(networkTcpSession.Flow.FiveTuple, transferIsClientToServer, true)) {
                         //this could be any type of TCP packet... but probably part of a file transfer...
-                        FileTransfer.FileStreamAssembler assembler=fileStreamAssemblerList.GetAssembler(networkTcpSession.Flow.FiveTuple, transferIsClientToServer);
+                        FileTransfer.FileStreamAssembler assembler=FileStreamAssemblerList.GetAssembler(networkTcpSession.Flow.FiveTuple, transferIsClientToServer);
                         //HTTP 1.0 (but sometimes 1.1) sends a FIN flag when the last packet of a file is sent
                         //See: http://www.mail-archive.com/wireshark-dev@wireshark.org/msg08695.html
                         //This is also useful for FTP data transfers
@@ -1057,15 +1034,15 @@ namespace PacketParser {
         }
 
         private void closeAssemblerIfExists(FiveTuple fiveTuple, bool transferIsClientToServer) { 
-            if (fileStreamAssemblerList.ContainsAssembler(fiveTuple, transferIsClientToServer, true)) {
+            if (FileStreamAssemblerList.ContainsAssembler(fiveTuple, transferIsClientToServer, true)) {
                 //we have an assembler, let's close it
-                using (FileTransfer.FileStreamAssembler assembler = fileStreamAssemblerList.GetAssembler(fiveTuple, transferIsClientToServer)) {
+                using (FileTransfer.FileStreamAssembler assembler = FileStreamAssemblerList.GetAssembler(fiveTuple, transferIsClientToServer)) {
                     if (assembler.IsActive && assembler.AssembledByteCount > 0 && (assembler.FileSegmentRemainingBytes <= 0 || assembler.ContentRange != null)) {
                         //I'll assume that the file transfer was OK
                         assembler.FinishAssembling();
                     }
                     else {
-                        fileStreamAssemblerList.Remove(assembler, true);
+                        FileStreamAssemblerList.Remove(assembler, true);
                     }
                 }
             }
@@ -1083,7 +1060,7 @@ namespace PacketParser {
         private NetworkTcpSession GetNetworkTcpSession(Packets.TcpPacket tcpPacket, NetworkHost sourceHost, NetworkHost destinationHost) {
             if(tcpPacket.FlagBits.Synchronize) {
                 if(!tcpPacket.FlagBits.Acknowledgement) {//the first SYN packet
-                    NetworkTcpSession session=new NetworkTcpSession(tcpPacket, sourceHost, destinationHost, this.protocolFinderFactory, this.toCustomTimeZoneStringFunction);
+                    NetworkTcpSession session=new NetworkTcpSession(tcpPacket, sourceHost, destinationHost, this.ProtocolFinderFactory, this.toCustomTimeZoneStringFunction);
                     AddNetworkTcpSessionToPool(session);
                     return session;
                 }
@@ -1126,7 +1103,7 @@ namespace PacketParser {
                     }
                 }
                 else {//no such session.... exists. Try to create a new non-complete session
-                    NetworkTcpSession session=new NetworkTcpSession(sourceHost, destinationHost, tcpPacket, this.protocolFinderFactory, this.toCustomTimeZoneStringFunction);//create a truncated session
+                    NetworkTcpSession session=new NetworkTcpSession(sourceHost, destinationHost, tcpPacket, this.ProtocolFinderFactory, this.toCustomTimeZoneStringFunction);//create a truncated session
                     AddNetworkTcpSessionToPool(session);
                     return session;
                 }
@@ -1143,7 +1120,7 @@ namespace PacketParser {
                 this.OnAnomalyDetected("Error timestomping reconstructed file: " + e.Message);
             }
 
-            this.reconstructedFileList.Add(file);
+            this.ReconstructedFileList.Add(file);
             this.OnFileReconstructed(new Events.FileEventArgs(file, this.useRelativePathIfAvailable));
             //parentForm.ShowReconstructedFile(file);
         }
@@ -1174,11 +1151,11 @@ namespace PacketParser {
             if(sourceMAC!=null) {
                 if(arpPacket.SenderHardwareAddress.Equals(sourceMAC)) {
                     NetworkHost host=null;
-                    if(!this.networkHostList.ContainsIP(arpPacket.SenderIPAddress)) {
+                    if(!this.NetworkHostList.ContainsIP(arpPacket.SenderIPAddress)) {
                         host=new NetworkHost(arpPacket.SenderIPAddress);
                         host.MacAddress=arpPacket.SenderHardwareAddress;
-                        lock(this.networkHostList)
-                            this.networkHostList.Add(host);
+                        lock(this.NetworkHostList)
+                            this.NetworkHostList.Add(host);
                         //parentForm.ShowDetectedHost(host);
                         this.OnNetworkHostDetected(new Events.NetworkHostEventArgs(host));
                     }

@@ -162,7 +162,13 @@ namespace PacketParser.Packets {
 
                     int nextHandshakeOffset = 0;
                     while (nextHandshakeOffset < reassembledFrame.Data.Length) {
+                        
                         HandshakePacket handshake;
+                        if (TryGetHandshake(reassembledFrame, nextHandshakeOffset, reassembledFrame.Data.Length - 1, out handshake))
+                            nextHandshakeOffset = handshake.PacketEndIndex + 1;
+                        else
+                            yield break;
+                        /*
                         try {
                             handshake = new HandshakePacket(reassembledFrame, nextHandshakeOffset, reassembledFrame.Data.Length - 1);
                             nextHandshakeOffset = handshake.PacketEndIndex + 1;
@@ -170,12 +176,41 @@ namespace PacketParser.Packets {
                         catch {
                             yield break;
                         }
+                        */
                         yield return handshake;
                     }
                 }
             }
 
-            internal HandshakePacket(Frame parentFrame, int packetStartIndex, int packetEndIndex)
+            internal static bool TryGetHandshake(Frame parentFrame, int packetStartIndex, int packetEndIndex, out HandshakePacket handshakePacket) {
+                handshakePacket = null;
+                byte measageTypeValue = parentFrame.Data[packetStartIndex];
+                if (!Enum.IsDefined(typeof(MessageTypes), measageTypeValue))
+                    return false;//encrypted handshake message
+
+                /* Check the length in the handshake message. Assume it's an
+                 * encrypted handshake message if the message would pass
+                 * the TLS record boundary. This is a workaround for the
+                 * situation where the first octet of the encrypted handshake
+                 * message is actually a known handshake message type.
+                 */
+                uint messageLength = Utils.ByteConverter.ToUInt32(parentFrame.Data, packetStartIndex + 1, 3);
+                if (packetStartIndex + messageLength + 3 > packetEndIndex)
+                    return false;//encrypted handshake message
+                //Many encrypted handshakes start with 0x00, but the HelloRequest type (0x00) is typically not used
+                if (measageTypeValue == 0 && packetStartIndex + messageLength + 3 != packetEndIndex)
+                    return false;//encrypted handshake message
+                try {
+                    handshakePacket = new HandshakePacket(parentFrame, packetStartIndex, packetEndIndex);
+                    return true;
+                }
+                catch {
+                    return false;
+                }
+            }
+
+            //Use TryGetHandshake to create handshake packets!
+            private HandshakePacket(Frame parentFrame, int packetStartIndex, int packetEndIndex)
                 : base(parentFrame, packetStartIndex, packetEndIndex, PACKET_TYPE_DESCRIPTION) {
                 this.CertificateList = new List<byte[]>();
                 this.supportedSslVersions = new List<Tuple<byte, byte>>();
@@ -213,57 +248,7 @@ namespace PacketParser.Packets {
                     //int extensionIndex = PacketStartIndex + 44 + cipherSuiteLength + compressionMethodsLength;
                     extensionIndex += 2;
                     this.ParseExtensions(parentFrame, extensionIndex, extensionsLength);
-                    /*
-                    while (extensionIndex < this.PacketEndIndex && extensionIndex < PacketStartIndex + 44 + sessionIdLength + cipherSuiteLength + compressionMethodsLength + extensionsLength) {
-                        ushort extensionType = Utils.ByteConverter.ToUInt16(parentFrame.Data, extensionIndex);
-                        this.ExtensionTypes.Add(extensionType);
-                        ushort extensionLength = Utils.ByteConverter.ToUInt16(parentFrame.Data, extensionIndex + 2);
-                        if (extensionType == 0) {//Server Name Indication rfc6066
-                            ushort serverNameListLength = Utils.ByteConverter.ToUInt16(parentFrame.Data, extensionIndex + 4);
-                            int offset = 6;
-                            while (offset < serverNameListLength) {
-                                byte serverNameType = parentFrame.Data[extensionIndex + offset];
-                                ushort serverNameLength = Utils.ByteConverter.ToUInt16(parentFrame.Data, extensionIndex + offset + 1);
-                                if (serverNameLength == 0)
-                                    break;
-                                else {
-                                    if (serverNameType == 0) {//host_name(0)
-                                        this.ServerHostName = Utils.ByteConverter.ReadString(parentFrame.Data, extensionIndex + offset + 3, serverNameLength);
-                                    }
-                                    offset += serverNameLength;
-                                }
-                            }
-
-                        }
-                        else if (extensionType == 10) {//Eliptic Curve Groups (for JA3)
-                            ushort length = Utils.ByteConverter.ToUInt16(parentFrame.Data, extensionIndex + 4);
-                            int offset = 6;
-                            for (int i = 0; i < length; i += 2) {
-                                this.SupportedEllipticCurveGroups.Add(Utils.ByteConverter.ToUInt16(parentFrame.Data, extensionIndex + offset + i));
-                            }
-                        }
-                        else if (extensionType == 11) {//Eliptic Curve Point Formats (for JA3)
-                            byte length = parentFrame.Data[extensionIndex + 4];
-                            int offset = 5;
-                            for (int i = 0; i < length; i += 2) {
-                                this.SupportedEllipticCurvePointFormats.Add(parentFrame.Data[extensionIndex + offset + i]);
-                            }
-                        }
-                        else if (extensionType == 16) {//ALPN
-                            int index = extensionIndex + 6;
-                            while (index < extensionIndex + extensionLength + 4) {
-                                this.ApplicationLayerProtocolNegotiationStrings.Add(Utils.ByteConverter.ReadLengthValueString(parentFrame.Data, ref index, 1));
-                            }
-                        }
-                        else if (extensionType == 43) {//Supported versions
-                            for (int offset = 5; offset < extensionLength + 4; offset += 2) {
-                                this.supportedSslVersions.Add(new Tuple<byte, byte>(parentFrame.Data[extensionIndex + offset], parentFrame.Data[extensionIndex + offset + 1]));
-                            }
-                        }
-                        
-                    extensionIndex += 4 + extensionLength;
-                    }
-                    */
+                    
                 }
                 else if (this.MessageType == MessageTypes.ServerHello) {
                     /**
@@ -284,58 +269,7 @@ namespace PacketParser.Packets {
                     ushort extensionsLength = Utils.ByteConverter.ToUInt16(parentFrame.Data, this.PacketStartIndex + 42);
                     int extensionIndex = this.PacketStartIndex + 44;
                     this.ParseExtensions(parentFrame, extensionIndex, extensionsLength);
-                    /*
-                    while (extensionIndex < this.PacketEndIndex && extensionIndex < this.PacketStartIndex + 44 + extensionsLength) {
-                        ushort extensionType = Utils.ByteConverter.ToUInt16(parentFrame.Data, extensionIndex);
-                        this.ExtensionTypes.Add(extensionType);
-                        ushort extensionLength = Utils.ByteConverter.ToUInt16(parentFrame.Data, extensionIndex + 2);
-                        if (extensionType == 0) {//Server Name Indication rfc6066
-                            if (extensionLength > 0) {
-                                ushort serverNameListLength = Utils.ByteConverter.ToUInt16(parentFrame.Data, extensionIndex + 4);
-                                int offset = 6;
-                                while (offset < serverNameListLength) {
-                                    byte serverNameType = parentFrame.Data[extensionIndex + offset];
-                                    ushort serverNameLength = Utils.ByteConverter.ToUInt16(parentFrame.Data, extensionIndex + offset + 1);
-                                    if (serverNameLength == 0)
-                                        break;
-                                    else {
-                                        if (serverNameType == 0) {//host_name(0)
-                                            this.ServerHostName = Utils.ByteConverter.ReadString(parentFrame.Data, extensionIndex + offset + 3, serverNameLength);
-                                        }
-                                        offset += serverNameLength;
-                                    }
-                                }
-                            }
-
-                        }
-                        else if (extensionType == 10) {//Eliptic Curve Groups (for JA3)
-                            ushort length = Utils.ByteConverter.ToUInt16(parentFrame.Data, extensionIndex + 4);
-                            int offset = 6;
-                            for (int i = 0; i < length; i += 2) {
-                                this.SupportedEllipticCurveGroups.Add(Utils.ByteConverter.ToUInt16(parentFrame.Data, extensionIndex + offset + i));
-                            }
-                        }
-                        else if (extensionType == 11) {//Eliptic Curve Point Formats (for JA3)
-                            byte length = parentFrame.Data[extensionIndex + 4];
-                            int offset = 5;
-                            for (int i = 0; i < length; i += 2) {
-                                this.SupportedEllipticCurvePointFormats.Add(parentFrame.Data[extensionIndex + offset + i]);
-                            }
-                        }
-                        else if (extensionType == 16) {//ALPN
-                            int index = extensionIndex + 6;
-                            while (index < extensionIndex + extensionLength + 4) {
-                                this.ApplicationLayerProtocolNegotiationStrings.Add(Utils.ByteConverter.ReadLengthValueString(parentFrame.Data, ref index, 1));
-                            }
-                        }
-                        else if (extensionType == 43) {//Supported versions
-                            for (int offset = 5; offset < extensionLength + 4; offset += 2) {
-                                this.supportedSslVersions.Add(new Tuple<byte, byte>(parentFrame.Data[extensionIndex + offset], parentFrame.Data[extensionIndex + offset + 1]));
-                            }
-                        }
-                        extensionIndex += 4 + extensionLength;
-                    }
-                    */
+                    
 
                 }
                 else if (this.MessageType == MessageTypes.Certificate) {
@@ -390,7 +324,7 @@ namespace PacketParser.Packets {
                         else if (extensionType == 11) {//Eliptic Curve Point Formats (for JA3)
                             byte length = parentFrame.Data[extensionIndex + 4];
                             int offset = 5;
-                            for (int i = 0; i < length; i += 2) {
+                            for (int i = 0; i < length; i++) {
                                 this.SupportedEllipticCurvePointFormats.Add(parentFrame.Data[extensionIndex + offset + i]);
                             }
                         }

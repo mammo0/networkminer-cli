@@ -308,6 +308,11 @@ namespace PacketParser.Packets {
                 if (LpdPacket.TryParse(this.ParentFrame, this.PacketStartIndex + this.dataOffsetByteCount, this.PacketEndIndex, clientToServer, out packet))
                     return packet;
             }
+            else if(protocol == ApplicationLayerProtocol.Meterpreter) {
+                if (MeterpreterPacket.TryParse(this.ParentFrame, this.PacketStartIndex + this.dataOffsetByteCount, this.PacketEndIndex, this.sourcePort, this.destinationPort, out packet)) {
+                    return packet;
+                }
+            }
             else if (protocol == ApplicationLayerProtocol.ModbusTCP) {
                 if (ModbusTcpPacket.TryParse(this.ParentFrame, this.PacketStartIndex + this.dataOffsetByteCount, this.PacketEndIndex, this.sourcePort, this.destinationPort, out packet)) {
                     return packet;
@@ -386,7 +391,7 @@ namespace PacketParser.Packets {
                         packet = this.GetProtocolPacket(protocolFinder.GetConfirmedApplicationLayerProtocol(), clientToServer);
                     }
                     catch (Exception e) {
-                        SharedUtils.Logger.Log("Error parsing frame " + this.ParentFrame.FrameNumber + " as " + protocolFinder.GetConfirmedApplicationLayerProtocol() + " packet: " + e.Message, SharedUtils.Logger.EventLogEntryType.Error);
+                        SharedUtils.Logger.Log("Frame " + this.ParentFrame.FrameNumber + " could not be parsed as " + protocolFinder.GetConfirmedApplicationLayerProtocol() + " : " + e.Message, SharedUtils.Logger.EventLogEntryType.Warning);
                         packet = null;
                     }
                 if (packet == null) {
@@ -399,13 +404,13 @@ namespace PacketParser.Packets {
                             }
                         }
                         catch (Exception e) {
-                            SharedUtils.Logger.Log("Unable to parse frame " + this.ParentFrame.FrameNumber + " as " + protocol + " packet: " + e.Message, SharedUtils.Logger.EventLogEntryType.Warning);
+                            SharedUtils.Logger.Log("Frame " + this.ParentFrame.FrameNumber + " could not be parsed as " + protocolFinder.GetConfirmedApplicationLayerProtocol() + " : " + e.Message, SharedUtils.Logger.EventLogEntryType.Information);
                             packet = null;
                         }
                     }
                 }
                 if(packet == null)
-                    packet = new RawPacket(ParentFrame, PacketStartIndex+dataOffsetByteCount, PacketEndIndex);
+                    packet = new RawPacket(this.ParentFrame, this.PacketStartIndex + dataOffsetByteCount, this.PacketEndIndex);
                 yield return packet;
                 foreach(AbstractPacket subPacket in packet.GetSubPackets(false))
                     yield return subPacket;

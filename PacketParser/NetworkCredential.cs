@@ -27,6 +27,8 @@ namespace PacketParser {
                     if (password == null)
                         password = "N/A (unknown Facebook password)";
                 }
+                else if (key.Contains("username_or_email"))
+                    username = parameters[key];
                 //SquirrelMail login uses login_username / secretkey
                 else if (key.Equals("login_username")) {
                     username = parameters[key];
@@ -56,7 +58,7 @@ namespace PacketParser {
                     if (password == null)
                         password = "N/A (unknown Facebook password)";
                 }
-                else if(key.Equals("loginfmt")) {//login.live.com
+                else if (key.Equals("loginfmt")) {//login.live.com
                     username = parameters[key];
                 }
 
@@ -101,10 +103,12 @@ namespace PacketParser {
             foreach(string w in wordlist) {
                 if (bestOption == null)
                     bestOption = w;
-                else if (bestOption.Length == 0 && w?.Length > 0)
+                else if (bestOption.Length == 0 && w?.Length > 0)//zero length passwords are no good
                     bestOption = w;
-                else if (w?.Length > 0 && w?.Length > 4 && w?.Length < bestOption.Length)//prefer short passwords (min 5+ chars)
+                else if (w != null && (w.Length >= 3 || w.Length > bestOption.Length) && Math.Abs(w.Length - 8) < Math.Abs(bestOption.Length - 8))//prefer passwords of length 4-12 chars ~8 chars
                     bestOption = w;
+                //else if (w?.Length > 0 && w?.Length > 4 && w?.Length < bestOption.Length)
+                //    bestOption = w;
             }
             return bestOption;
         }

@@ -6,6 +6,7 @@ using System.Net.NetworkInformation;
 namespace PacketParser.Packets {
     public class LinuxCookedCapture : AbstractPacket{
 
+        private const int SLL_HEADER_LENGTH = 16;
         /**
          * LINUX_SLL_HOST="Unicast to us"
          * LINUX_SLL_BROADCAST="Broadcast"
@@ -65,40 +66,18 @@ namespace PacketParser.Packets {
 
             if(includeSelfReference)
                 yield return this;
-            if(PacketStartIndex+16<PacketEndIndex) {
-                AbstractPacket packet;
-                if(this.protocol==(ushort)Ethernet2Packet.EtherTypes.IPv4 && IPv4Packet.TryParse(this.ParentFrame, PacketStartIndex + 16, PacketEndIndex, out packet)) {
-                    //IPv4 packet
-                    //packet=new IPv4Packet(this.ParentFrame, PacketStartIndex+16, PacketEndIndex);
-                }
-                else if(this.protocol==(ushort)Ethernet2Packet.EtherTypes.IPv6) {
-                    //IPv6 packet
-                    packet=new IPv6Packet(this.ParentFrame, PacketStartIndex+16, PacketEndIndex);
-                }
-                //else if(this.ParentFrame.Data[PacketStartIndex+12]==0x08 && this.ParentFrame.Data[PacketStartIndex+13]==0x06) {
-                else if(this.protocol==(ushort)Ethernet2Packet.EtherTypes.ARP) {
-                    packet=new ArpPacket(this.ParentFrame, PacketStartIndex+16, PacketEndIndex);
-                    //ARP-packet
-                }
-                else if(this.protocol==(ushort)Ethernet2Packet.EtherTypes.IEEE802_1Q) {
-                    //VLAN
-                    packet=new IEEE_802_1Q_VlanPacket(this.ParentFrame, PacketStartIndex+16, PacketEndIndex);
-                }
-                else if (this.protocol == (ushort)Ethernet2Packet.EtherTypes.PPPoE) {
-                    packet = new PointToPointOverEthernetPacket(this.ParentFrame, PacketStartIndex + 16, PacketEndIndex);
-                }
-                //etherType might actually be a content length if it is an IEEE 802.3 packet
-                else if(this.protocol<0x0600) {
-                    //the etherType showed to actually be a length value
-                    packet=new LogicalLinkControlPacket(this.ParentFrame, PacketStartIndex+16, PacketEndIndex);
+            
+            if (PacketStartIndex + SLL_HEADER_LENGTH < PacketEndIndex) {
+                if (Ethernet2Packet.TryGetPacketForType(this.protocol, this.ParentFrame, this.PacketStartIndex + SLL_HEADER_LENGTH, this.PacketEndIndex, out AbstractPacket packet))
+                {
+                    yield return packet;
+                    foreach (AbstractPacket subPacket in packet.GetSubPackets(false))
+                        yield return subPacket;
                 }
                 else {
                     //something else
-                    packet=new RawPacket(this.ParentFrame, PacketStartIndex+16, PacketEndIndex);
+                    yield return new RawPacket(this.ParentFrame, PacketStartIndex + SLL_HEADER_LENGTH, PacketEndIndex);
                 }
-                yield return packet;
-                foreach(AbstractPacket subPacket in packet.GetSubPackets(false))
-                    yield return subPacket;
             }
 
         }

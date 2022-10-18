@@ -141,7 +141,7 @@ namespace PacketParser.FileTransfer {
         }
         */
         internal FileStreamAssembler GetAssembler(FiveTuple fiveTuple, bool transferIsClientToServer, string extendedFileId = null) {
-            string id = GetAssemblerId(fiveTuple, transferIsClientToServer, extendedFileId);
+            string id = this.GetAssemblerId(fiveTuple, transferIsClientToServer, extendedFileId);
             return base[id];
         }
 

@@ -185,17 +185,28 @@ namespace PacketParser.FileTransfer {
             try {
                 //string tmpPath = this.tempFilePath;
                 if (System.IO.File.Exists(this.tempFilePath)) {
-                    if (this.ContentEncoding == "gzip") {
-                        using (System.IO.FileStream compressedStream = new System.IO.FileStream(this.tempFilePath, System.IO.FileMode.Open, System.IO.FileAccess.Read)) {
-                            using (System.IO.Compression.GZipStream decompressedStream = new System.IO.Compression.GZipStream(compressedStream, System.IO.Compression.CompressionMode.Decompress)) {
-                                using (System.IO.FileStream destinationStream = new System.IO.FileStream(destinationPath, System.IO.FileMode.CreateNew)) {
+                    if (this.ContentEncoding == "gzip")
+                    {
+                        using (System.IO.FileStream compressedStream = new System.IO.FileStream(this.tempFilePath, System.IO.FileMode.Open, System.IO.FileAccess.Read))
+                        {
+                            using (System.IO.Compression.GZipStream decompressedStream = new System.IO.Compression.GZipStream(compressedStream, System.IO.Compression.CompressionMode.Decompress))
+                            {
+                                using (System.IO.FileStream destinationStream = new System.IO.FileStream(destinationPath, System.IO.FileMode.CreateNew))
+                                {
                                     decompressedStream.CopyTo(destinationStream);
                                 }
                             }
                         }
                     }
-                    else
+                    else {
+                        if (this.ContentEncoding == "br" && ! destinationPath.EndsWith(".br")) {//Brotli compression
+                            //.NET Core 2.1 and later supports Brotli compression, but not .NET Framework or Windows Desktop
+                            //https://docs.microsoft.com/en-us/dotnet/api/system.io.compression.brotlistream?view=netcore-2.1
+                            destinationPath += ".br";
+                        }
                         System.IO.File.Move(this.tempFilePath, destinationPath);
+                    }
+                        
                 }
             }
             catch (Exception e) {

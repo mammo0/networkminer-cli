@@ -20,6 +20,7 @@ namespace PacketParser {
         
         public enum OperatingSystemID { Windows, Linux, UNIX, FreeBSD, NetBSD, Solaris, MacOS, Apple_iOS, Cisco, Android, BlackBerry, PlayStation, Nintendo, ICS_device, ABB, Siemens, Other, Unknown }
         public static Func<string, string, IEnumerable<(string name, string value)>> HostnameExtraDetailsFunc = null;
+        private static readonly System.Text.RegularExpressions.Regex NETBIOS_TRAILER_TAG = new System.Text.RegularExpressions.Regex("<[0-9]{2}>$");//matches trailing <nn> from NetBIOS hostname like PC-NAME<20>
 
         #region Comparators for extended sorting
         public class MacAddressComparer : System.Collections.Generic.IComparer<NetworkHost> {
@@ -822,6 +823,8 @@ namespace PacketParser {
         /// </summary>
         /// <param name="hostname">DNS address, NetBIOS name or simiar</param>
         internal void AddHostName(string hostname, string packetTypeDescription) {
+            if (NETBIOS_TRAILER_TAG.IsMatch(hostname))
+                hostname = hostname.Substring(0, hostname.Length - 4);
             lock (this.hostNameList)
                 if (!this.hostNameList.Contains(hostname)) {
                     this.hostNameList.Add(hostname);

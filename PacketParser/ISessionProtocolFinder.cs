@@ -17,6 +17,7 @@ namespace PacketParser {
         Imap, //TCP
         Kerberos, //TCP or UDP
         Lpd,
+        Meterpreter,//TCP
         ModbusTCP, //TCP
         NetBiosNameService, //TCP or UDP
         NetBiosDatagramService, //UDP

@@ -14,6 +14,7 @@ namespace PacketParser.FileTransfer {
         HTTP2,
         IMAP,
         LPD,
+        Meterpreter,
         OscarFileTransfer,
         POP3,
         RTP,

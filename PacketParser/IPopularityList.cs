@@ -14,7 +14,7 @@ namespace PacketParser {
 
         void Add(TKey key, TValue value);
         bool ContainsKey(TKey key);
-        void Remove(TKey key);
+        void Remove(TKey key, bool triggerPopularityLost = false);
         IEnumerable<TValue> GetValueEnumerator();
 
         

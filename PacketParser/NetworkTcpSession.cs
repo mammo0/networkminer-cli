@@ -12,60 +12,41 @@ namespace PacketParser {
     public class NetworkTcpSession : IComparable, IComparable<NetworkTcpSession> {//only TCP sessions
 
 
-
-        //private NetworkHost clientHost, serverHost;
-        //private ushort clientTcpPort, serverTcpPort;
-
-    //private DateTime synPacketTimestamp;//in NetworkFlow
-    //private DateTime latestPacketTimestamp;//in NetworkFlow
-
-    private long startFrameNumber;
-
-        private bool synPacketReceived;
-        private bool synAckPacketReceived;
+        private long startFrameNumber;
         private bool finPacketReceived;
-        private bool sessionEstablished;
-        private bool sessionClosed;
-
         private uint clientToServerFinPacketSequenceNumber;
         private uint serverToClientFinPacketSequenceNumber;
-
-        private TcpDataStream clientToServerTcpDataStream;
-        private TcpDataStream serverToClientTcpDataStream;
         private bool? requiredNextTcpDataStreamIsClientToServer = null;
-
-        private ISessionProtocolFinder protocolFinder;
-        private NetworkFlow flow;
         private Func<DateTime, string> toCustomTimeZoneStringFunction;
 
-        public NetworkHost ClientHost { get { return this.flow.FiveTuple.ClientHost; } }
-        public NetworkHost ServerHost { get { return this.flow.FiveTuple.ServerHost; } }
-        public ushort ClientTcpPort { get { return this.flow.FiveTuple.ClientPort; } }
-        public ushort ServerTcpPort { get { return this.flow.FiveTuple.ServerPort; } }
-        public DateTime StartTime { get { return this.flow.StartTime;; } }//in NetworkFlow
-        public DateTime EndTime { get { return this.flow.EndTime; } }//in NetworkFlow
-        public bool SynPacketReceived { get { return this.synPacketReceived; } }
-        public bool SynAckPacketReceived { get { return this.synAckPacketReceived; } }
+        public NetworkHost ClientHost { get { return this.Flow.FiveTuple.ClientHost; } }
+        public NetworkHost ServerHost { get { return this.Flow.FiveTuple.ServerHost; } }
+        public ushort ClientTcpPort { get { return this.Flow.FiveTuple.ClientPort; } }
+        public ushort ServerTcpPort { get { return this.Flow.FiveTuple.ServerPort; } }
+        public DateTime StartTime { get { return this.Flow.StartTime; } }//in NetworkFlow
+        public DateTime EndTime { get { return this.Flow.EndTime; } }//in NetworkFlow
+        public bool SynPacketReceived { get; private set; }
+        public bool SynAckPacketReceived { get; private set; }
         public bool FinPacketReceived {
             get {
                 //https://sourceforge.net/projects/networkminer/forums/forum/665610/topic/4946533/index/page/1
                 return this.finPacketReceived &&
-                    (clientToServerTcpDataStream == null ||
-                    serverToClientTcpDataStream == null ||
-                    clientToServerTcpDataStream == null ||
-                    (this.clientToServerFinPacketSequenceNumber <= clientToServerTcpDataStream.ExpectedTcpSequenceNumber && this.serverToClientFinPacketSequenceNumber < serverToClientTcpDataStream.ExpectedTcpSequenceNumber));
+                    (this.ClientToServerTcpDataStream == null ||
+                    this.ServerToClientTcpDataStream == null ||
+                    this.ClientToServerTcpDataStream == null ||
+                    (this.clientToServerFinPacketSequenceNumber <= this.ClientToServerTcpDataStream.ExpectedTcpSequenceNumber && this.serverToClientFinPacketSequenceNumber < this.ServerToClientTcpDataStream.ExpectedTcpSequenceNumber));
             }
         }
-        public bool SessionEstablished { get { return this.sessionEstablished; } }
-        public bool SessionClosed { get { return this.sessionClosed; } }
-        public TcpDataStream ClientToServerTcpDataStream { get { return this.clientToServerTcpDataStream; } }
-        public TcpDataStream ServerToClientTcpDataStream { get { return this.serverToClientTcpDataStream; } }
+        public bool SessionEstablished { get; private set; }
+        public bool SessionClosed { get; private set; }
+        public TcpDataStream ClientToServerTcpDataStream { get; private set; }
+        public TcpDataStream ServerToClientTcpDataStream { get; private set; }
         public TcpDataStream RequiredNextTcpDataStream {
             get {
                 if (this.requiredNextTcpDataStreamIsClientToServer == true)
-                    return this.clientToServerTcpDataStream;
+                    return this.ClientToServerTcpDataStream;
                 else if (this.requiredNextTcpDataStreamIsClientToServer == false)
-                    return this.serverToClientTcpDataStream;
+                    return this.ServerToClientTcpDataStream;
                 else
                     return null;
             }
@@ -74,36 +55,31 @@ namespace PacketParser {
                     this.requiredNextTcpDataStreamIsClientToServer = null;
             }
         }
-        public ISessionProtocolFinder ProtocolFinder { get { return this.protocolFinder; } set { this.protocolFinder = value; } }
-        public NetworkFlow Flow { get { return this.flow; } }
+        public ISessionProtocolFinder ProtocolFinder { get; set; }
+        public NetworkFlow Flow { get; }
 
         public NetworkTcpSession(Packets.TcpPacket tcpSynPacket, NetworkHost clientHost, NetworkHost serverHost, ISessionProtocolFinderFactory protocolFinderFactory, Func<DateTime, string> toCustomTimeZoneStringFunction) {
             this.toCustomTimeZoneStringFunction = toCustomTimeZoneStringFunction;
 
             if (tcpSynPacket.FlagBits.Synchronize) {//It's normal to start the session with a SYN flag
                 FiveTuple fiveTuple = new FiveTuple(clientHost, tcpSynPacket.SourcePort, serverHost, tcpSynPacket.DestinationPort, FiveTuple.TransportProtocol.TCP);
-                this.flow = new NetworkFlow(fiveTuple, tcpSynPacket.ParentFrame.Timestamp, tcpSynPacket.ParentFrame.Timestamp, 0, 0);
-                //this.synPacketTimestamp=tcpSynPacket.ParentFrame.Timestamp;
-                //this.clientHost=clientHost;
-                //this.serverHost=serverHost;
-                //this.clientTcpPort=tcpSynPacket.SourcePort;
-                //this.serverTcpPort=tcpSynPacket.DestinationPort;
+                this.Flow = new NetworkFlow(fiveTuple, tcpSynPacket.ParentFrame.Timestamp, tcpSynPacket.ParentFrame.Timestamp, 0, 0);
 
-                this.synPacketReceived=false;
-                this.synAckPacketReceived=false;
+                this.SynPacketReceived=false;
+                this.SynAckPacketReceived=false;
                 this.finPacketReceived=false;
                 this.clientToServerFinPacketSequenceNumber=UInt32.MaxValue;
                 this.serverToClientFinPacketSequenceNumber=UInt32.MaxValue;
-                this.sessionEstablished=false;
-                this.sessionClosed=false;
+                this.SessionEstablished=false;
+                this.SessionClosed=false;
 
                 this.startFrameNumber = tcpSynPacket.ParentFrame.FrameNumber;
 
-                this.clientToServerTcpDataStream=null;
-                this.serverToClientTcpDataStream=null;
+                this.ClientToServerTcpDataStream=null;
+                this.ServerToClientTcpDataStream=null;
 
 
-                this.protocolFinder = protocolFinderFactory.CreateProtocolFinder(this.flow, this.startFrameNumber);
+                this.ProtocolFinder = protocolFinderFactory.CreateProtocolFinder(this.Flow, this.startFrameNumber);
             }
             else
                 throw new Exception("SYN flag not set on TCP packet");
@@ -119,16 +95,16 @@ namespace PacketParser {
             //this part is used to create a cropped (truncated) session where the beginning is missing!
             //this.synPacketTimestamp=tcpPacket.ParentFrame.Timestamp;
             this.toCustomTimeZoneStringFunction = toCustomTimeZoneStringFunction;
-            this.synPacketReceived=true;
-            this.synAckPacketReceived=true;
+            this.SynPacketReceived=true;
+            this.SynAckPacketReceived=true;
             this.finPacketReceived=false;
-            this.sessionEstablished=false;//I will change this one soon,...
-            this.sessionClosed=false;
+            this.SessionEstablished=false;//I will change this one soon,...
+            this.SessionClosed=false;
 
             this.startFrameNumber = tcpPacket.ParentFrame.FrameNumber;
 
-            this.clientToServerTcpDataStream=null;
-            this.serverToClientTcpDataStream=null;
+            this.ClientToServerTcpDataStream=null;
+            this.ServerToClientTcpDataStream=null;
 
 
             //now let's do a qualified guess of who is the server and who is client...
@@ -137,47 +113,28 @@ namespace PacketParser {
             System.Collections.Generic.List<ApplicationLayerProtocol> sourcePortProtocols = new List<ApplicationLayerProtocol>(TcpPortProtocolFinder.GetProbableApplicationLayerProtocols(tcpPacket.SourcePort, tcpPacket.SourcePort));
             System.Collections.Generic.List<ApplicationLayerProtocol> destinationPortProtocols = new List<ApplicationLayerProtocol>(TcpPortProtocolFinder.GetProbableApplicationLayerProtocols(tcpPacket.DestinationPort, tcpPacket.DestinationPort));
             if(sourcePortProtocols.Count > destinationPortProtocols.Count) { //packet is server -> client
-                //this.clientHost=destinationHost;
-                //this.serverHost=sourceHost;
-                //this.clientTcpPort=tcpPacket.DestinationPort;
-                //this.serverTcpPort=tcpPacket.SourcePort;
                 fiveTuple = new FiveTuple(destinationHost, tcpPacket.DestinationPort, sourceHost, tcpPacket.SourcePort, FiveTuple.TransportProtocol.TCP);
-                this.flow = new NetworkFlow(fiveTuple, tcpPacket.ParentFrame.Timestamp, tcpPacket.ParentFrame.Timestamp, 0, 0);
+                this.Flow = new NetworkFlow(fiveTuple, tcpPacket.ParentFrame.Timestamp, tcpPacket.ParentFrame.Timestamp, 0, 0);
                 this.SetEstablished(tcpPacket.AcknowledgmentNumber, tcpPacket.SequenceNumber);
                 
             }
             else if(destinationPortProtocols.Count > 0) { //packet is client -> server
-                //this.clientHost=sourceHost;
-                //this.serverHost=destinationHost;
-                //this.clientTcpPort=tcpPacket.SourcePort;
-                //this.serverTcpPort=tcpPacket.DestinationPort;
-                
                 fiveTuple = new FiveTuple(sourceHost, tcpPacket.SourcePort, destinationHost, tcpPacket.DestinationPort,  FiveTuple.TransportProtocol.TCP);
-                this.flow = new NetworkFlow(fiveTuple, tcpPacket.ParentFrame.Timestamp, tcpPacket.ParentFrame.Timestamp, 0, 0);
+                this.Flow = new NetworkFlow(fiveTuple, tcpPacket.ParentFrame.Timestamp, tcpPacket.ParentFrame.Timestamp, 0, 0);
                 this.SetEstablished(tcpPacket.SequenceNumber, tcpPacket.AcknowledgmentNumber);
             }
             else if(tcpPacket.SourcePort<tcpPacket.DestinationPort) {//packet is server -> client
-                //this.clientHost=destinationHost;
-                //this.serverHost=sourceHost;
-                //this.clientTcpPort=tcpPacket.DestinationPort;
-                //this.serverTcpPort=tcpPacket.SourcePort;
-                
                 fiveTuple = new FiveTuple(destinationHost, tcpPacket.DestinationPort, sourceHost, tcpPacket.SourcePort, FiveTuple.TransportProtocol.TCP);
-                this.flow = new NetworkFlow(fiveTuple, tcpPacket.ParentFrame.Timestamp, tcpPacket.ParentFrame.Timestamp, 0, 0);
+                this.Flow = new NetworkFlow(fiveTuple, tcpPacket.ParentFrame.Timestamp, tcpPacket.ParentFrame.Timestamp, 0, 0);
                 this.SetEstablished(tcpPacket.AcknowledgmentNumber, tcpPacket.SequenceNumber);
             }
             else {//packet is client -> server
-                //this.clientHost=sourceHost;
-                //this.serverHost=destinationHost;
-                //this.clientTcpPort=tcpPacket.SourcePort;
-                //this.serverTcpPort=tcpPacket.DestinationPort;
-                
                 fiveTuple = new FiveTuple(sourceHost, tcpPacket.SourcePort, destinationHost, tcpPacket.DestinationPort, FiveTuple.TransportProtocol.TCP);
-                this.flow = new NetworkFlow(fiveTuple, tcpPacket.ParentFrame.Timestamp, tcpPacket.ParentFrame.Timestamp, 0, 0);
+                this.Flow = new NetworkFlow(fiveTuple, tcpPacket.ParentFrame.Timestamp, tcpPacket.ParentFrame.Timestamp, 0, 0);
                 this.SetEstablished(tcpPacket.SequenceNumber, tcpPacket.AcknowledgmentNumber);
             }
             
-            this.protocolFinder = protocolFinderFactory.CreateProtocolFinder(this.flow, this.startFrameNumber);
+            this.ProtocolFinder = protocolFinderFactory.CreateProtocolFinder(this.Flow, this.startFrameNumber);
         }
 
 
@@ -198,26 +155,26 @@ namespace PacketParser {
         public override string ToString() {
             long serverBytes = 0;
             long clientBytes = 0;
-            if (this.serverToClientTcpDataStream != null)
-                serverBytes = this.serverToClientTcpDataStream.TotalByteCount;
-            if (this.clientToServerTcpDataStream != null)
-                clientBytes = this.clientToServerTcpDataStream.TotalByteCount;
+            if (this.ServerToClientTcpDataStream != null)
+                serverBytes = this.ServerToClientTcpDataStream.TotalByteCount;
+            if (this.ClientToServerTcpDataStream != null)
+                clientBytes = this.ClientToServerTcpDataStream.TotalByteCount;
             
             string endTime, startTime;
             if (this.toCustomTimeZoneStringFunction != null) {
-                startTime = this.toCustomTimeZoneStringFunction(this.flow.StartTime);
-                endTime = this.toCustomTimeZoneStringFunction(this.flow.EndTime);
+                startTime = this.toCustomTimeZoneStringFunction(this.Flow.StartTime);
+                endTime = this.toCustomTimeZoneStringFunction(this.Flow.EndTime);
             }
             else {
-                startTime = this.flow.StartTime.ToString();
-                endTime = this.flow.EndTime.ToString();
+                startTime = this.Flow.StartTime.ToString();
+                endTime = this.Flow.EndTime.ToString();
             }
             
             return "Server: "+this.ServerHost.ToString()+" TCP "+this.ServerTcpPort+" ("+serverBytes+" data bytes sent), Client: "+this.ClientHost.ToString()+" TCP "+this.ClientTcpPort+" ("+clientBytes+" data bytes sent), Session start: "+ startTime + ", Session end: " + endTime;
         }
 
         public bool TryAddPacket(Packets.TcpPacket tcpPacket, NetworkHost sourceHost, NetworkHost destinationHost) {
-            if(this.sessionClosed)
+            if(this.SessionClosed)
                 return false;
 
             //Make sure the hosts are correct
@@ -240,23 +197,22 @@ namespace PacketParser {
             else//unknown direction
                 return false;
 
-            //this.latestPacketTimestamp=tcpPacket.ParentFrame.Timestamp;
-            this.flow.EndTime = tcpPacket.ParentFrame.Timestamp;
+            this.Flow.EndTime = tcpPacket.ParentFrame.Timestamp;
 
             //Check TCP handshake
-            if (!this.synPacketReceived) {//SYN (client->server)
+            if (!this.SynPacketReceived) {//SYN (client->server)
                 if(tcpPacket.FlagBits.Synchronize && sourceHost==this.ClientHost)
-                    this.synPacketReceived=true;
+                    this.SynPacketReceived=true;
                 else
                     return false;
             }
-            else if(!this.synAckPacketReceived) {//SYN+ACK (server->client)
+            else if(!this.SynAckPacketReceived) {//SYN+ACK (server->client)
                 if(tcpPacket.FlagBits.Synchronize && tcpPacket.FlagBits.Acknowledgement && sourceHost==this.ServerHost)
-                    this.synAckPacketReceived=true;
+                    this.SynAckPacketReceived=true;
                 else
                     return false;
             }
-            else if(!this.sessionEstablished) {//ACK (client->server)
+            else if(!this.SessionEstablished) {//ACK (client->server)
                 if(tcpPacket.FlagBits.Acknowledgement && sourceHost==this.ClientHost) {
                     this.SetEstablished(tcpPacket.SequenceNumber, tcpPacket.AcknowledgmentNumber);
                 }
@@ -266,9 +222,9 @@ namespace PacketParser {
             //FIN and RST is handeled lower down 
 
 
-            //else{//an established and not closed session!
+            //an established and not closed session!
             if(tcpPacket.PayloadDataLength>0) {
-                this.protocolFinder.AddPacket(tcpPacket, sourceHost, destinationHost);
+                this.ProtocolFinder.AddPacket(tcpPacket, sourceHost, destinationHost);
                 try {
                     //If we've come this far the packet should be allright for the networkSession
                     byte[] tcpSegmentData=tcpPacket.GetTcpPacketPayloadData();
@@ -289,20 +245,20 @@ namespace PacketParser {
                     if(sourceHost==this.ServerHost && tcpPacket.SourcePort==this.ServerTcpPort) {
                         networkServiceMetadata.OutgoingTraffic.AddTcpPayloadData(tcpSegmentData);
                         //this.clientToServerTcpDataStream.AddTcpData(tcpPacket.SequenceNumber, tcpSegmentData);
-                        if(this.serverToClientTcpDataStream==null)
-                            this.serverToClientTcpDataStream=new TcpDataStream(tcpPacket.SequenceNumber, false, this);
-                        if (this.requiredNextTcpDataStreamIsClientToServer == null && this.serverToClientTcpDataStream.TotalByteCount == 0)
+                        if(this.ServerToClientTcpDataStream==null)
+                            this.ServerToClientTcpDataStream=new TcpDataStream(tcpPacket.SequenceNumber, false, this);
+                        if (this.requiredNextTcpDataStreamIsClientToServer == null && this.ServerToClientTcpDataStream.TotalByteCount == 0)
                             this.requiredNextTcpDataStreamIsClientToServer = false;
-                        this.serverToClientTcpDataStream.AddTcpData(tcpPacket.SequenceNumber, tcpSegmentData, tcpPacket.FlagBits);
+                        this.ServerToClientTcpDataStream.AddTcpData(tcpPacket.SequenceNumber, tcpSegmentData, tcpPacket.FlagBits);
                     }
                     else {
                         networkServiceMetadata.IncomingTraffic.AddTcpPayloadData(tcpSegmentData);
                         //this.serverToClientTcpDataStream.AddTcpData(tcpPacket.SequenceNumber, tcpSegmentData);
-                        if(this.clientToServerTcpDataStream==null)
-                            this.clientToServerTcpDataStream = new TcpDataStream(tcpPacket.SequenceNumber,true, this);
-                        if (this.requiredNextTcpDataStreamIsClientToServer == null && this.clientToServerTcpDataStream.TotalByteCount == 0)
+                        if(this.ClientToServerTcpDataStream==null)
+                            this.ClientToServerTcpDataStream = new TcpDataStream(tcpPacket.SequenceNumber,true, this);
+                        if (this.requiredNextTcpDataStreamIsClientToServer == null && this.ClientToServerTcpDataStream.TotalByteCount == 0)
                             this.requiredNextTcpDataStreamIsClientToServer = true;
-                        this.clientToServerTcpDataStream.AddTcpData(tcpPacket.SequenceNumber, tcpSegmentData, tcpPacket.FlagBits);
+                        this.ClientToServerTcpDataStream.AddTcpData(tcpPacket.SequenceNumber, tcpSegmentData, tcpPacket.FlagBits);
                     }
                 }
                 catch(Exception ex) {
@@ -312,7 +268,6 @@ namespace PacketParser {
                     return false;
                 }
             }
-            //}
 
             //se if stream should be closed
             if(tcpPacket.FlagBits.Reset){//close no matter what
@@ -349,15 +304,15 @@ namespace PacketParser {
         }
 
         private void SetEstablished(uint clientInitialSequenceNumber, uint serverInitialSequenceNumber) {
-            this.sessionEstablished=true;
-            if(this.clientToServerTcpDataStream==null)
-                this.clientToServerTcpDataStream = new TcpDataStream(clientInitialSequenceNumber, true, this);
+            this.SessionEstablished=true;
+            if(this.ClientToServerTcpDataStream==null)
+                this.ClientToServerTcpDataStream = new TcpDataStream(clientInitialSequenceNumber, true, this);
             else
-                this.clientToServerTcpDataStream.InitialTcpSequenceNumber=clientInitialSequenceNumber;
-            if(this.serverToClientTcpDataStream==null)
-                this.serverToClientTcpDataStream = new TcpDataStream(serverInitialSequenceNumber, false, this);
+                this.ClientToServerTcpDataStream.InitialTcpSequenceNumber=clientInitialSequenceNumber;
+            if(this.ServerToClientTcpDataStream==null)
+                this.ServerToClientTcpDataStream = new TcpDataStream(serverInitialSequenceNumber, false, this);
             else
-                this.serverToClientTcpDataStream.InitialTcpSequenceNumber=serverInitialSequenceNumber;
+                this.ServerToClientTcpDataStream.InitialTcpSequenceNumber=serverInitialSequenceNumber;
             lock(this.ServerHost.IncomingSessionList)
                 this.ServerHost.IncomingSessionList.Add(this);
             lock(this.ClientHost.OutgoingSessionList)
@@ -366,12 +321,10 @@ namespace PacketParser {
         }
 
         internal void Close() {
-            //this.clientToServerTcpDataStream.Close();
-            //this.serverToClientTcpDataStream.Close();
-            this.sessionClosed=true;
+            this.SessionClosed=true;
 
-            if(this.protocolFinder.GetConfirmedApplicationLayerProtocol() == ApplicationLayerProtocol.Unknown)
-                this.protocolFinder.SetConfirmedApplicationLayerProtocol(ApplicationLayerProtocol.Unknown, false);
+            if(this.ProtocolFinder.GetConfirmedApplicationLayerProtocol() == ApplicationLayerProtocol.Unknown)
+                this.ProtocolFinder.SetConfirmedApplicationLayerProtocol(ApplicationLayerProtocol.Unknown, false);
         }
 
 
@@ -403,19 +356,16 @@ namespace PacketParser {
 
             private uint initialTcpSequenceNumber;
             private uint expectedTcpSequenceNumber;//the sequence number the next TCP packet from the server is expected to have. Hence the data is complete from the initial sequence number to this number
-            //private ushort sourcePort, destinationPort;
 
             private System.Collections.Generic.SortedList<uint, byte[]> dataList;
             private int dataListMaxSize;
             private bool dataListIsTruncated = false;
 
-            //private int totalByteCount;//we have this data in networkFlow already
             private VirtualTcpData virtualTcpData;
             private NetworkTcpSession session;
             private NetworkFlow networkFlow;
             private bool streamIsClientToServer;
 
-            //public int TotalByteCount { get { return this.totalByteCount; } }
             public long TotalByteCount { get {
                     if (this.streamIsClientToServer)
                         return this.networkFlow.BytesSentClient;
@@ -439,24 +389,17 @@ namespace PacketParser {
             public TcpDataStream(uint initialTcpSequenceNumber, bool streamIsClientToServer, NetworkTcpSession session) {
                 this.initialTcpSequenceNumber=initialTcpSequenceNumber;
                 this.expectedTcpSequenceNumber=initialTcpSequenceNumber;
-                //this.sourcePort=sourcePort;
-                //this.destinationPort=destinationPort;
                 this.dataList=new SortedList<uint, byte[]>();
-                //this.dataListMaxSize=64;//i hope I shouldn't need more than 64 packets in the list. It depends on how late a misordered packet might get received. Smaller number gives better performance, larger number gives better tolerance to reordered packets
-                //this.dataListMaxSize = 256;//allows data packets to be out-of-order up to 256 packets apart from each other in the same unidirectional stream
                 this.dataListMaxSize = 1024;//Increased buffer size 2020-08-14 in order to support network traffic from poor quality links with lots of retransmissions
 
-                //this.totalByteCount=0;
                 this.virtualTcpData=null;
                 this.session = session;
                 this.networkFlow = session.Flow;
-                //this.protocolFinder = session.protocolFinder;
                 this.streamIsClientToServer = streamIsClientToServer;
             }
 
             [Obsolete]
             internal bool HasMissingSegments() {
-                //return totalByteCount<this.expectedTcpSequenceNumber-this.initialTcpSequenceNumber;
                 return  this.TotalByteCount<this.expectedTcpSequenceNumber-this.initialTcpSequenceNumber;
             }
 
@@ -697,17 +640,17 @@ namespace PacketParser {
                 internal bool TryAppendNextPacket() {
 
                     int maxPacketFragments = 6;//this one is set low in order to get better performance
-                    if (this.tcpDataStream.session.protocolFinder.GetConfirmedApplicationLayerProtocol() == ApplicationLayerProtocol.Ssl)
+                    if (this.tcpDataStream.session.ProtocolFinder.GetConfirmedApplicationLayerProtocol() == ApplicationLayerProtocol.Ssl)
                         maxPacketFragments = 15; //TLS records are max 16kB, each frame is about 1500 B, 15 frames should be enough (famous last words)
-                    if (this.tcpDataStream.session.protocolFinder.GetConfirmedApplicationLayerProtocol() == ApplicationLayerProtocol.NetBiosSessionService)
+                    if (this.tcpDataStream.session.ProtocolFinder.GetConfirmedApplicationLayerProtocol() == ApplicationLayerProtocol.NetBiosSessionService)
                         maxPacketFragments = 1024;//Changed 2011-04-25 to 50, changed 2020-08-14 to 1024
-                    else if (this.tcpDataStream.session.protocolFinder.GetConfirmedApplicationLayerProtocol() == ApplicationLayerProtocol.Http)
+                    else if (this.tcpDataStream.session.ProtocolFinder.GetConfirmedApplicationLayerProtocol() == ApplicationLayerProtocol.Http)
                         maxPacketFragments = 32;//Changed 2011-10-12 to handle AOL webmail
-                    else if (this.tcpDataStream.session.protocolFinder.GetConfirmedApplicationLayerProtocol() == ApplicationLayerProtocol.Smtp)
+                    else if (this.tcpDataStream.session.ProtocolFinder.GetConfirmedApplicationLayerProtocol() == ApplicationLayerProtocol.Smtp)
                         maxPacketFragments = 61;//Changed 2014-04-07to handle short manual SMTP emails, such as when sending via Telnet (Example: M57 net-2009-11-16-09:24.pcap)
-                    else if (this.tcpDataStream.session.protocolFinder.GetConfirmedApplicationLayerProtocol() == ApplicationLayerProtocol.Http2)
+                    else if (this.tcpDataStream.session.ProtocolFinder.GetConfirmedApplicationLayerProtocol() == ApplicationLayerProtocol.Http2)
                         maxPacketFragments = 22;//Most HTTP/2 sessions use chunks up to 16384 bytes
-                    else if (this.tcpDataStream.session.protocolFinder.GetConfirmedApplicationLayerProtocol() == ApplicationLayerProtocol.Dns)
+                    else if (this.tcpDataStream.session.ProtocolFinder.GetConfirmedApplicationLayerProtocol() == ApplicationLayerProtocol.Dns)
                         maxPacketFragments = 55;//Changed 2021-06-01 to handle large TXT records sent over DNS (1-dns.txt.pcap). Normally not more than 46 packets because dns.length is u16 => 46 packets on MTU 1400
 
                     if (this.tcpDataStream.CountBytesToRead() > this.ByteCount && this.tcpDataStream.CountPacketsToRead() > this.nPackets && this.nPackets < maxPacketFragments) {

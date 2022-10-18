@@ -8,19 +8,43 @@ namespace SharedUtils.Pcap {
 
         public delegate void CaseFileLoadedCallback(string filePathAndName, int framesCount, DateTime firstFrameTimestamp, DateTime lastFrameTimestamp);
 
+        private bool pcapStreamReaderCompleted = false;
         private string filename;
-        private System.IO.FileStream fileStream;
+        //private System.IO.FileStream fileStream;
+        private System.IO.FileStream fileStream {
+            get {
+                return (System.IO.FileStream)base.pcapStream;
+            }
+        }
         private CaseFileLoadedCallback caseFileLoadedCallback;
 
         public string Filename {
             get {
-                return this.filename;
+                if (this.filename != null)
+                    return this.filename;
+                else
+                    return this.fileStream?.Name;
             }
         }
 
         public new long Position {
-            get { return this.fileStream.Position; }
+            get {
+                if (this.fileStream != null) {
+                    try {
+                        return this.fileStream.Position;
+                    }
+                    catch {
+                        return base.Position;
+                    }
+                }
+                else
+                    return base.Position;
+            }
             set { this.fileStream.Position = value; }
+        }
+
+        public long Length {
+            get { return this.fileStream.Length; }
         }
 
         public int PercentRead {
@@ -32,7 +56,14 @@ namespace SharedUtils.Pcap {
         }
 
         public int GetPercentRead(long bytesInOtherQueues) {
-            return (int)(((this.fileStream.Position - this.PacketBytesInQueue/2 - bytesInOtherQueues/3) * 100) / this.fileStream.Length);
+            if (this.fileStream == null) {
+                if (this.pcapStreamReaderCompleted)
+                    return (int)(((this.Position - this.PacketBytesInQueue / 2 - bytesInOtherQueues / 3) * 100) / this.Position);
+                else
+                    return 0;
+            }
+            else
+                return (int)(((this.fileStream.Position - this.PacketBytesInQueue / 2 - bytesInOtherQueues / 3) * 100) / this.fileStream.Length);
         }
 
         public PcapFileReader(string filename) : this(filename, 1000, null) { }
@@ -45,15 +76,18 @@ namespace SharedUtils.Pcap {
 
         private PcapFileReader(string filename, System.IO.FileStream fileStream, int packetQueueSize, CaseFileLoadedCallback readCompleteCallback, bool startBackgroundWorkers)
             : base(fileStream, packetQueueSize, null, startBackgroundWorkers, fileStream.Length) {
-            this.filename = filename;
-            this.fileStream = fileStream;
-            //base.streamLength = fileStream.Length;
-            base.streamReadCompletedCallback = new StreamReadCompletedCallback(this.StreamReadCompletedCallbackHandler);
-            this.caseFileLoadedCallback = readCompleteCallback;
+            if (this.PcapParser != null) {
+                this.filename = filename;
+                //this.fileStream = fileStream;
+                //base.streamLength = fileStream.Length;
+                base.streamReadCompletedCallback = new StreamReadCompletedCallback(this.StreamReadCompletedCallbackHandler);
+                this.caseFileLoadedCallback = readCompleteCallback;
+            }
         }
 
         public void StreamReadCompletedCallbackHandler(int framesCount, DateTime fistFrameTimestamp, DateTime lastFrameTimestamp) {
-            if(this.caseFileLoadedCallback != null)
+            this.pcapStreamReaderCompleted = true;
+            if (this.caseFileLoadedCallback != null)
                 this.caseFileLoadedCallback(this.filename, framesCount, fistFrameTimestamp, lastFrameTimestamp);
         }
 

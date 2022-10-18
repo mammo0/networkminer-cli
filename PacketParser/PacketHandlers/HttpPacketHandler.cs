@@ -54,6 +54,7 @@ namespace PacketParser.PacketHandlers {
             (".crl", "pkix-crl"),
             (".crl", "octet-stream"),
             (".crt", "x-x509-ca-cert"),
+            (".crx", "x-chrome-extension"),
             (".deb", "octet-stream"),
             (".deb", "x-debian-package"),
             (".dll", "octet-stream"),
@@ -92,6 +93,7 @@ namespace PacketParser.PacketHandlers {
             (".bin", "octet-stream"),
             (".bz ", "x-bzip"),
             (".bz2", "x-bzip2"),
+            (".class", "java-vm"),
             (".csh", "x-csh"),
             (".doc", "msword"),
             (".docx", "vnd.openxmlformats-officedocument.wordprocessingml.document"),
@@ -261,6 +263,7 @@ namespace PacketParser.PacketHandlers {
             }
         }
 
+        private PopularityList<FiveTuple, KeyValuePair<string, ushort>> httpConnectIpPorts;
         public override Type ParsedType { get { return typeof(Packets.HttpPacket); } }
 
         public ApplicationLayerProtocol HandledProtocol {
@@ -269,7 +272,7 @@ namespace PacketParser.PacketHandlers {
 
         public HttpPacketHandler(PacketHandler mainPacketHandler)
             : base(mainPacketHandler) {
-            
+            this.httpConnectIpPorts = new PopularityList<FiveTuple, KeyValuePair<string, ushort>>(64);
         }
 
         #region ITcpSessionPacketHandler Members
@@ -291,7 +294,7 @@ namespace PacketParser.PacketHandlers {
                 if(httpPacket.PacketHeaderIsComplete) {
                     //check if it is a POST and content length is small
                     if(httpPacket.RequestMethod!=Packets.HttpPacket.RequestMethods.POST || httpPacket.ContentLength>4096/* used to be 1024*/ || httpPacket.ContentIsComplete()) {
-                        successfulExtraction = this.ExtractHttpData(httpPacket, tcpPacket, tcpSession.Flow.FiveTuple, transferIsClientToServer, base.MainPacketHandler);
+                        successfulExtraction = this.ExtractHttpData(tcpSession, httpPacket, tcpPacket, tcpSession.Flow.FiveTuple, transferIsClientToServer, base.MainPacketHandler);
                         //successfulExtraction=true;
                     }
 
@@ -311,7 +314,7 @@ namespace PacketParser.PacketHandlers {
         }
 
         public void Reset() {
-            //do nothing...
+            this.httpConnectIpPorts.Clear();
         }
 
         
@@ -325,7 +328,7 @@ namespace PacketParser.PacketHandlers {
         /// <param name="destinationHost"></param>
         /// <param name="mainPacketHandler"></param>
         /// <returns>True if the data was successfully parsed. False if the data need to be parsed again with more data</returns>
-        public bool ExtractHttpData(Packets.HttpPacket httpPacket, Packets.TcpPacket tcpPacket, FiveTuple fiveTuple, bool transferIsClientToServer, PacketHandler mainPacketHandler) {
+        private bool ExtractHttpData(NetworkTcpSession tcpSession, Packets.HttpPacket httpPacket, Packets.TcpPacket tcpPacket, FiveTuple fiveTuple, bool transferIsClientToServer, PacketHandler mainPacketHandler) {
             
             NetworkHost sourceHost, destinationHost;
             if (transferIsClientToServer) {
@@ -412,6 +415,9 @@ namespace PacketParser.PacketHandlers {
                     ignoredHeaderNames.Add("accept-language", null);
                     ignoredHeaderNames.Add("accept-encoding", null);
 
+
+                    this.ExtractHeaders(httpPacket, fiveTuple, transferIsClientToServer, sourceHost, destinationHost, ignoredHeaderNames);
+                    /*
                     System.Collections.Specialized.NameValueCollection httpHeaders = HttpPacketHandler.ParseHeaders(httpPacket, ignoredHeaderNames);
 
 
@@ -420,12 +426,6 @@ namespace PacketParser.PacketHandlers {
 
                     foreach (string headerName in httpHeaders.Keys) {
 
-                        /**
-                         * http://mobiforge.com/developing/blog/useful-x-headers
-                         * http://nakedsecurity.sophos.com/2012/01/25/smartphone-website-telephone-number/
-                         * http://www.nowsms.com/discus/messages/485/14998.html
-                         * http://coding-talk.com/f46/check-isdn-10962/
-                         **/
                         if (!HttpPacketHandler.BoringXHeaders.Contains(headerName)) {
                             if (headerName.StartsWith("X-", StringComparison.InvariantCultureIgnoreCase)) {
                                 sourceHost.AddNumberedExtraDetail("HTTP header: " + headerName, httpHeaders[headerName]);
@@ -443,6 +443,9 @@ namespace PacketParser.PacketHandlers {
                         }
                         
                     }
+                */
+
+
                 }
 
 
@@ -478,7 +481,7 @@ namespace PacketParser.PacketHandlers {
                                 if (System.Net.IPAddress.TryParse(queryStringDictionary["mip"], out System.Net.IPAddress ip))
                                     sourceHost.AddNumberedExtraDetail("Public IP address", queryStringDictionary["mip"]);
                             }
-                             */   
+                             */
 
                             if (httpPacket.RequestMethod == Packets.HttpPacket.RequestMethods.POST && queryStringDictionary.ContainsKey("a") && queryStringDictionary["a"].Equals("SendMessage")) {
                                 if (!httpPacket.ContentIsComplete())//we must have all the content when parsing AOL data
@@ -557,7 +560,7 @@ namespace PacketParser.PacketHandlers {
                             }
 
                         }
-                        else if(httpPacket.ContentType?.StartsWith("application/json", StringComparison.InvariantCultureIgnoreCase) == true && httpPacket.MessageBody?.Length > 0 && httpPacket.MessageBody?.Length == httpPacket.ContentLength) {
+                        else if (httpPacket.ContentType?.StartsWith("application/json", StringComparison.InvariantCultureIgnoreCase) == true && httpPacket.MessageBody?.Length > 0 && httpPacket.MessageBody?.Length == httpPacket.ContentLength) {
                             //extract JSON post parameters
                             System.Collections.Specialized.NameValueCollection jsonPostElements = null;
                             //= new System.Collections.Specialized.NameValueCollection();
@@ -595,7 +598,7 @@ namespace PacketParser.PacketHandlers {
                             }
                         }
                         */
-                        else if(httpPacket.ContentType?.ToLower().Contains("www-form-urlencoded") == true && httpPacket.ContentLength > 0 && httpPacket.MessageBody.Length >= httpPacket.ContentLength) {//form data (not multipart)
+                        else if (httpPacket.ContentType?.ToLower().Contains("www-form-urlencoded") == true && httpPacket.ContentLength > 0 && httpPacket.MessageBody.Length >= httpPacket.ContentLength) {//form data (not multipart)
                             System.Collections.Generic.List<Mime.MultipartPart> formMultipartData = httpPacket.GetFormData();
                             if (formMultipartData != null) {
                                 foreach (Mime.MultipartPart mimeMultipart in formMultipartData) {
@@ -654,7 +657,7 @@ namespace PacketParser.PacketHandlers {
                         }
                         else {
                             //extract other posted data to file
-                            if(httpPacket.ContentLength > 0) {
+                            if (httpPacket.ContentLength > 0) {
                                 filename = AppendMimeContentTypeAsExtension(filename, httpPacket.ContentType);
                                 FileTransfer.FileStreamAssembler assembler = new FileTransfer.FileStreamAssembler(mainPacketHandler.FileStreamAssemblerList, fiveTuple, transferIsClientToServer, FileTransfer.FileStreamTypes.HttpPostUpload, filename, fileLocation, "HTTP POST", httpPacket.ParentFrame.FrameNumber, httpPacket.ParentFrame.Timestamp);
                                 assembler.FileContentLength = httpPacket.ContentLength;
@@ -671,6 +674,27 @@ namespace PacketParser.PacketHandlers {
                     }
                 }
 
+                else if (httpPacket.RequestMethod == Packets.HttpPacket.RequestMethods.CONNECT) {
+                    this.ExtractHeaders(httpPacket, fiveTuple, transferIsClientToServer, sourceHost, destinationHost);
+
+                    string hostAndPort = httpPacket.RequestedFileName;
+                    //string hostAndPort = httpPacket..reqrequestString.Split(" ")?.Skip(1)?.FirstOrDefault();
+                    if (!string.IsNullOrEmpty(hostAndPort)) {
+                        string targetHost;
+                        ushort targetPort = 80;//default value
+                        if (hostAndPort.Contains(':')) {
+                            string[] hp = hostAndPort.Split(':');
+                            targetHost = hp[0];
+                            _ = ushort.TryParse(hp[1], out targetPort);
+                        }
+                        else
+                            targetHost = hostAndPort;
+
+                        if (!this.httpConnectIpPorts.ContainsKey(fiveTuple))
+                            this.httpConnectIpPorts[fiveTuple] = new KeyValuePair<string, ushort>(targetHost, targetPort);
+                    }
+                    
+                }
 
             }
             else {//reply
@@ -679,33 +703,8 @@ namespace PacketParser.PacketHandlers {
                     httpResponseNvc.Add("HTTP Response Status Code", httpPacket.StatusCode + " " + httpPacket.StatusMessage);
                     base.MainPacketHandler.OnParametersDetected(new Events.ParametersEventArgs(httpPacket.ParentFrame.FrameNumber, fiveTuple, transferIsClientToServer, httpResponseNvc, httpPacket.ParentFrame.Timestamp, "HTTP Response"));
 
-                    System.Collections.Specialized.NameValueCollection httpHeaders = HttpPacketHandler.ParseHeaders(httpPacket);
-                    base.MainPacketHandler.OnParametersDetected(new Events.ParametersEventArgs(httpPacket.ParentFrame.FrameNumber, fiveTuple, transferIsClientToServer, httpHeaders, httpPacket.ParentFrame.Timestamp, "HTTP Header"));
-                    if(httpHeaders.AllKeys.Contains("X-Proxy-Origin")) {
-                        //193.235.19.252; 193.235.19.252; 538.bm-nginx-loadbalancer.mgmt.fra1; *.adnxs.com; 37.252.172.199:80
-                        string ipString = httpHeaders.GetValues("X-Proxy-Origin")?.First().Split(';')?.First();
-                        if (!string.IsNullOrEmpty(ipString) && System.Net.IPAddress.TryParse(ipString, out System.Net.IPAddress ip))
-                            destinationHost.AddNumberedExtraDetail("Public IP address", ip.ToString());
-                    }
-                    if(httpHeaders.AllKeys.Contains("Onion-Location")) {
-                        Uri onionUri = new Uri(httpHeaders["Onion-Location"]);
-                        sourceHost.AddHostName(onionUri.Host, httpPacket.PacketTypeDescription);
-                    }
-                    if (httpHeaders.AllKeys.Contains("Location")) {
-                        if(Uri.TryCreate(httpHeaders["Location"], UriKind.Absolute, out Uri redirectTarget)) {
-                            string query = redirectTarget.Query.TrimStart('?');
-                            System.Collections.Specialized.NameValueCollection q = System.Web.HttpUtility.ParseQueryString(query);
-                            if(q.HasKeys())
-                                this.ExtractHostDetailsFromQueryString(destinationHost, q, out _);
-                            //copied from request parsing code
-                            /*
-                            if (!string.IsNullOrEmpty(q["mip"])) {
-                                if (System.Net.IPAddress.TryParse(q["mip"], out System.Net.IPAddress ip))
-                                    destinationHost.AddNumberedExtraDetail("Public IP address", q["mip"]);
-                            }
-                            */
-                        }
-                    }
+                    this.ExtractHeaders(httpPacket, fiveTuple, transferIsClientToServer, sourceHost, destinationHost);
+                    
 
                 }
                 catch (Exception e) {
@@ -782,6 +781,8 @@ namespace PacketParser.PacketHandlers {
                                     assembler.ContentEncoding = Packets.HttpPacket.ContentEncodings.Gzip;
                                 else if (httpPacket.ContentEncoding.Equals("deflate"))//http://tools.ietf.org/html/rfc1950
                                     assembler.ContentEncoding = Packets.HttpPacket.ContentEncodings.Deflate;
+                                else if (httpPacket.ContentEncoding.Equals("br"))//https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Encoding
+                                    assembler.ContentEncoding = Packets.HttpPacket.ContentEncodings.Brotli;
                             }
 
 
@@ -806,9 +807,87 @@ namespace PacketParser.PacketHandlers {
                         }
                     }
                 }
+                else if(this.httpConnectIpPorts.ContainsKey(fiveTuple) && httpPacket.StatusCode.StartsWith("200")) {
+                    //TODO: Save state of awaiting CONNECT, after "HTTP/1.1 200 Connection established" switch L7 protocol as in SOCKS and STARTTLS
+                    var target = this.httpConnectIpPorts[fiveTuple];
+                    ushort serverPort = target.Value;
+                    /*
+                    NetworkHost serverHost;
+                    if (base.MainPacketHandler.NetworkHostList.ContainsIP(target.Key))
+                        serverHost = base.MainPacketHandler.NetworkHostList.GetNetworkHost(target.Key);
+                    else
+                        serverHost = tcpSession.ClientHost;
+                    */
+                    NetworkHost serverHost = sourceHost;
+                    if(System.Net.IPAddress.TryParse(target.Key, out var ip)) {
+                        if (base.MainPacketHandler.NetworkHostList.ContainsIP(ip))
+                            serverHost = base.MainPacketHandler.NetworkHostList.GetNetworkHost(ip);
+                        else
+                            serverHost = new NetworkHost(ip);
+                    }
+                    tcpSession.ProtocolFinder = new TcpPortProtocolFinder(tcpSession.Flow, tcpPacket.ParentFrame.FrameNumber, base.MainPacketHandler, serverHost, serverPort);
 
+                }
             }
             return true;
+        }
+
+        private void ExtractHeaders(Packets.HttpPacket httpPacket, FiveTuple fiveTuple, bool transferIsClientToServer, NetworkHost sourceHost, NetworkHost destinationHost, SortedList<string, string> ignoredHeaderNames = null) {
+            System.Collections.Specialized.NameValueCollection httpHeaders = HttpPacketHandler.ParseHeaders(httpPacket, ignoredHeaderNames);
+            base.MainPacketHandler.OnParametersDetected(new Events.ParametersEventArgs(httpPacket.ParentFrame.FrameNumber, fiveTuple, transferIsClientToServer, httpHeaders, httpPacket.ParentFrame.Timestamp, "HTTP Header"));
+            if(httpPacket.MessageTypeIsRequest) {
+                foreach (string headerName in httpHeaders.Keys) {
+
+                    /**
+                     * http://mobiforge.com/developing/blog/useful-x-headers
+                     * http://nakedsecurity.sophos.com/2012/01/25/smartphone-website-telephone-number/
+                     * http://www.nowsms.com/discus/messages/485/14998.html
+                     * http://coding-talk.com/f46/check-isdn-10962/
+                     **/
+                    if (!HttpPacketHandler.BoringXHeaders.Contains(headerName)) {
+                        if (headerName.StartsWith("X-", StringComparison.InvariantCultureIgnoreCase)) {
+                            sourceHost.AddNumberedExtraDetail("HTTP header: " + headerName, httpHeaders[headerName]);
+                        }
+                        else if (headerName.StartsWith("HTTP_X", StringComparison.InvariantCultureIgnoreCase)) {
+                            sourceHost.AddNumberedExtraDetail("HTTP header: " + headerName, httpHeaders[headerName]);
+                        }
+                        else if (headerName.StartsWith("X_", StringComparison.InvariantCultureIgnoreCase)) {
+                            sourceHost.AddNumberedExtraDetail("HTTP header: " + headerName, httpHeaders[headerName]);
+                        }
+                        else if (headerName.StartsWith("HTTP_MSISDN", StringComparison.InvariantCultureIgnoreCase)) {
+                            sourceHost.AddNumberedExtraDetail("HTTP header: " + headerName, httpHeaders[headerName]);
+                        }
+
+                    }
+                }
+            }
+            else {
+                if (httpHeaders.AllKeys.Contains("X-Proxy-Origin")) {
+                    //193.235.19.252; 193.235.19.252; 538.bm-nginx-loadbalancer.mgmt.fra1; *.adnxs.com; 37.252.172.199:80
+                    string ipString = httpHeaders.GetValues("X-Proxy-Origin")?.First().Split(';')?.First();
+                    if (!string.IsNullOrEmpty(ipString) && System.Net.IPAddress.TryParse(ipString, out System.Net.IPAddress ip))
+                        destinationHost.AddNumberedExtraDetail("Public IP address", ip.ToString());
+                }
+                if (httpHeaders.AllKeys.Contains("Onion-Location")) {
+                    Uri onionUri = new Uri(httpHeaders["Onion-Location"]);
+                    sourceHost.AddHostName(onionUri.Host, httpPacket.PacketTypeDescription);
+                }
+                if (httpHeaders.AllKeys.Contains("Location")) {
+                    if (Uri.TryCreate(httpHeaders["Location"], UriKind.Absolute, out Uri redirectTarget)) {
+                        string query = redirectTarget.Query.TrimStart('?');
+                        System.Collections.Specialized.NameValueCollection q = System.Web.HttpUtility.ParseQueryString(query);
+                        if (q.HasKeys())
+                            this.ExtractHostDetailsFromQueryString(destinationHost, q, out _);
+                        //copied from request parsing code
+                        /*
+                        if (!string.IsNullOrEmpty(q["mip"])) {
+                            if (System.Net.IPAddress.TryParse(q["mip"], out System.Net.IPAddress ip))
+                                destinationHost.AddNumberedExtraDetail("Public IP address", q["mip"]);
+                        }
+                        */
+                    }
+                }
+            }
         }
 
         private void ExtractHostDetailsFromQueryString(NetworkHost httpClient, System.Collections.Specialized.NameValueCollection queryString, out Dictionary<string, string> queryStringDictionary) {

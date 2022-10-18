@@ -2,12 +2,12 @@
 
   <PropertyGroup>
     <!--<TargetFramework>netstandard2.0</TargetFramework>-->
-  <TargetFramework>net472</TargetFramework>
+	<TargetFramework>net472</TargetFramework>
     <Company>NETRESEC</Company>
     <Authors>Erik Hjelmvik</Authors>
-    <AssemblyVersion>2.6.0</AssemblyVersion>
-    <FileVersion>2.6.0</FileVersion>
-    <Version>2.6</Version>
+    <AssemblyVersion>2.7.3</AssemblyVersion>
+    <FileVersion>2.7.3</FileVersion>
+    <Version>2.7.3</Version>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
@@ -25,6 +25,7 @@
     <None Remove="Fingerprints\dhcp.xml" />
     <None Remove="Fingerprints\etter.finger.os" />
     <None Remove="Fingerprints\ja3fingerprint.json" />
+    <None Remove="Fingerprints\ja3_fingerprints.csv" />
     <None Remove="Fingerprints\mac-ages.csv" />
     <None Remove="Fingerprints\mac-ages_LICENSE" />
     <None Remove="Fingerprints\nmap-mac-prefixes" />
@@ -32,6 +33,7 @@
     <None Remove="Fingerprints\p0f.fp" />
     <None Remove="Fingerprints\p0f.fp.netsa" />
     <None Remove="Fingerprints\p0fa.fp" />
+    <None Remove="Fingerprints\sslblacklist.csv" />
     <None Remove="Fingerprints\tcp.xml" />
     <None Remove="PacketParser.csproj.old" />
     <None Remove="Packets\SmbPacket.cs.backup-161123" />
@@ -48,6 +50,9 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Fingerprints\ja3fingerprint.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Fingerprints\ja3_fingerprints.csv">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Fingerprints\mac-ages.csv">
@@ -68,6 +73,9 @@
     <Content Include="Fingerprints\p0fa.fp">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="Fingerprints\sslblacklist.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="Fingerprints\tcp.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
@@ -77,8 +85,8 @@
     <ProjectReference Include="..\SharedUtils\SharedUtils.csproj" />
   </ItemGroup>
 
-<!--System.Web is required when targeting net472, but not for netstandard2.0-->
-
+<!--System.Web is required when targeting net472, but not for netstandard2.0
+-->
   <ItemGroup>
     <Reference Include="System.Web" />
   </ItemGroup>

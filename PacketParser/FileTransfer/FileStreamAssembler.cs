@@ -80,6 +80,8 @@ namespace PacketParser.FileTransfer {
             { 0x4D534346, "cab" },
             { 0x49536328, "cab" },
             { 0x5F434153455F, "cas" },
+            { 0xCAFEBABE, "class" },//https://stackoverflow.com/questions/2808646/why-are-the-first-four-bytes-of-the-java-class-file-format-cafebabe
+            { 0x43723234, "crx" },//https://www.dre.vanderbilt.edu/~schmidt/android/android-4.0/external/chromium/chrome/common/extensions/docs/crx.html
             { 0x4349534F, "cso" },
             { 0x504D4F43434D4F43, "dat" },
             { 0x213C617263683E0A, "deb" },
@@ -244,8 +246,10 @@ namespace PacketParser.FileTransfer {
             get { return this.contentEncoding; }
             set {
                 this.contentEncoding=value;
-                if(!this.parentAssemblerList.DecompressGzipStreams && !this.filename.EndsWith(".gz"))
-                    this.filename=this.filename+".gz";
+                if (value == Packets.HttpPacket.ContentEncodings.Gzip && !this.parentAssemblerList.DecompressGzipStreams && !this.filename.EndsWith(".gz"))
+                    this.filename += ".gz";
+                else if (value == Packets.HttpPacket.ContentEncodings.Brotli && !this.filename.EndsWith(".br"))
+                    this.filename += ".br";
             }
         }
         internal bool IsActive { get { return this.isActive; } }
@@ -383,6 +387,8 @@ namespace PacketParser.FileTransfer {
             }
 
             //FILE LOCATION
+            if (fileLocation == null)
+                fileLocation = string.Empty;
             fileLocation=System.Web.HttpUtility.UrlDecode(fileLocation);
             fileLocation = fileLocation.Replace("..", "_");
             
@@ -510,6 +516,8 @@ namespace PacketParser.FileTransfer {
                 protocolString = "MIME_file-data";
             else if (fileStreamType == FileStreamTypes.HttpPostUpload)
                 protocolString = "HTTP_POST";
+            else if (fileStreamType == FileStreamTypes.Meterpreter)
+                protocolString = "Meterpreter";
             else if (fileStreamType == FileStreamTypes.OscarFileTransfer)
                 protocolString = "OSCAR";
             else if (fileStreamType == FileStreamTypes.POP3)
@@ -697,6 +705,7 @@ namespace PacketParser.FileTransfer {
                     || this.fileStreamType == FileStreamTypes.HttpPostMimeMultipartFormData
                     || this.fileStreamType == FileStreamTypes.HttpPostMimeFileData
                     || this.fileStreamType == FileStreamTypes.HttpPostUpload
+                    || this.fileStreamType == FileStreamTypes.Meterpreter
                     || this.fileStreamType == FileStreamTypes.OscarFileTransfer)
                     && this.assembledByteCount >= this.fileContentLength && this.fileContentLength != -1) {//we have received the whole file
                     this.FinishAssembling();

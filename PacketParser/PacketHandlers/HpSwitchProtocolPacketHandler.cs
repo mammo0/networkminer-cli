@@ -58,19 +58,25 @@ namespace PacketParser.PacketHandlers {
 
         private void ExtractData(ref NetworkHost sourceHost, Packets.HpSwitchProtocolPacket.HpSwField hpswField) {
             if(hpswField.TypeByte==(byte)Packets.HpSwitchProtocolPacket.HpSwField.FieldType.DeviceName){
-                if(!sourceHost.ExtraDetailsList.ContainsKey("HPSW Device Name")) {
-                    sourceHost.ExtraDetailsList.Add("HPSW Device Name", hpswField.ValueString);
-                    //sourceHost.HostNameList.Add(hpswField.ValueString);
-                    sourceHost.AddHostName(hpswField.ValueString, hpswField.PacketTypeDescription);
+                lock (sourceHost.ExtraDetailsList) {
+                    if (!sourceHost.ExtraDetailsList.ContainsKey("HPSW Device Name")) {
+                        sourceHost.ExtraDetailsList.Add("HPSW Device Name", hpswField.ValueString);
+                        //sourceHost.HostNameList.Add(hpswField.ValueString);
+                        sourceHost.AddHostName(hpswField.ValueString, hpswField.PacketTypeDescription);
+                    }
                 }
             }
             else if(hpswField.TypeByte==(byte)Packets.HpSwitchProtocolPacket.HpSwField.FieldType.Version){
-                if(!sourceHost.ExtraDetailsList.ContainsKey("HPSW Firmware version"))
-                    sourceHost.ExtraDetailsList.Add("HPSW Firmware version", hpswField.ValueString);
+                lock (sourceHost.ExtraDetailsList) {
+                    if (!sourceHost.ExtraDetailsList.ContainsKey("HPSW Firmware version"))
+                        sourceHost.ExtraDetailsList.Add("HPSW Firmware version", hpswField.ValueString);
+                }
             }
             else if(hpswField.TypeByte==(byte)Packets.HpSwitchProtocolPacket.HpSwField.FieldType.Config) {
-                if(!sourceHost.ExtraDetailsList.ContainsKey("HPSW Config"))
-                    sourceHost.ExtraDetailsList.Add("HPSW Config", hpswField.ValueString);
+                lock (sourceHost.ExtraDetailsList) {
+                    if (!sourceHost.ExtraDetailsList.ContainsKey("HPSW Config"))
+                        sourceHost.ExtraDetailsList.Add("HPSW Config", hpswField.ValueString);
+                }
             }
             else if(hpswField.TypeByte==(byte)Packets.HpSwitchProtocolPacket.HpSwField.FieldType.MacAddress) {
                 sourceHost.MacAddress=new System.Net.NetworkInformation.PhysicalAddress(hpswField.ValueBytes);

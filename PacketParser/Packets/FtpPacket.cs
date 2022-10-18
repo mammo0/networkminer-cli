@@ -96,47 +96,86 @@ namespace PacketParser.Packets {
             NOOP <CRLF>
          * */
 
-        //private string username, password;
-        //private int returnCode;
-        private static readonly string[] userCommands = {
-            "USER",
-            "PASS",
+        //https://www.iana.org/assignments/ftp-commands-extensions/ftp-commands-extensions.xml
+        //https://en.wikipedia.org/wiki/List_of_FTP_commands
+        private static readonly HashSet<string> userCommandSet = new HashSet<string>() {
+            "ABOR",
             "ACCT",
-            "CWD",
+            "ADAT",
+            "ALGS",
+            "ALLO",
+            "APPE",
+            "AUTH",
+            "AUTH+",
+            "AVBL",
+            "CCC",
             "CDUP",
-            "SMNT",
+            "CONF",
+            "CSID",
+            "CWD",
+            "DELE",
+            "DSIZ",
+            "ENC",
+            "EPRT",
+            "EPSV",
+            "FEAT",
+            "HELP",
+            "HOST",
+            "LANG",
+            "LIST",
+            "LPRT",
+            "LPSV",
+            "MDTM",
+            "MFCT",
+            "MFF",
+            "MFMT",
+            "MIC",
+            "MKD",
+            "MLSD",
+            "MLST",
+            "MODE",
+            "NLST",
+            "NOOP",
+            "OPTS",
+            "PASS",
+            "PASV",
+            "PBSZ",
+            "PBSZ+",
+            "PORT",
+            "PROT",
+            "PROT+",
+            "PWD",
             "QUIT",
             "REIN",
-            "PORT",
-            "PASV",
-            "TYPE",
-            "STRU",
-            "MODE",
-            "RETR",
-            "STOR",
-            "STOU",
-            "APPE",
-            "ALLO", 
             "REST",
+            "REST+",
+            "RETR",
+            "RMD",
+            "RMDA",
             "RNFR",
             "RNTO",
-            "ABOR",
-            "DELE",
-            "RMD",
-            "MKD",
-            "PWD",
-            "LIST",
-            "NLST",
             "SITE",
-            "SYST",
-            "STAT",
-            "HELP",
-            "NOOP",
-            //additional commands outside of the RFC
-            "FEAT",
             "SIZE",
-            "OPTS",
-            "EPSV"//extended passive
+            "SMNT",
+            "SPSV",
+            "STAT",
+            "STOR",
+            "STOU",
+            "STRU",
+            "SYST",
+            "THMB",
+            "TYPE",
+            "USER",
+            "XCUP",
+            "XCWD",
+            "XMKD",
+            "XPWD",
+            "XRCP",
+            "XRMD",
+            "XRSQ",
+            "XSEM",
+            "XSEN",
+            "-N/A-"////TVFS    Trivial Virtual File Store  p   o   [RFC3659]
         };
 
         private bool clientToServer;
@@ -172,7 +211,7 @@ namespace PacketParser.Packets {
                     string command = Utils.ByteConverter.ReadLine(parentFrame.Data, ref index);
                     if(command.Contains(" "))
                         command=command.Substring(0, command.IndexOf(' '));
-                    if(Array.IndexOf<string>(userCommands, command.ToUpper())==-1)
+                    if (!userCommandSet.Contains(command.ToUpper()))
                         return false;
                 }
                 else {//server to client

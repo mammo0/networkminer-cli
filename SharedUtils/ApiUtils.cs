@@ -38,6 +38,7 @@ namespace SharedUtils
             System.Net.HttpWebRequest request = System.Net.WebRequest.Create(requestURL) as System.Net.HttpWebRequest;
 
             string versionString = null;
+            request.Timeout = 3000;//3 s
 
             using (System.Net.WebResponse response = request.GetResponse()) {
                 using (System.IO.Stream stream = response.GetResponseStream()) {
