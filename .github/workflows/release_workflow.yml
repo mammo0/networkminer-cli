@@ -10,7 +10,7 @@ on:
 
 jobs:
   build:
-    name: Create Release
+    name: Build
     runs-on: ubuntu-latest
     env:
       RELEASE_ZIP: networkminer-cli.zip
