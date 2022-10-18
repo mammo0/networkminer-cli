@@ -9,7 +9,8 @@
             "type": "mono",
             "request": "launch",
             "program": "${workspaceRoot}/NetworkMiner/bin/Debug/NetworkMiner.exe",
-            "cwd": "${workspaceRoot}"
+            "cwd": "${workspaceRoot}",
+            "preLaunchTask": "build_debug"
         }
     ]
 }
