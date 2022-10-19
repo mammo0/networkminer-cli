@@ -1,0 +1,6 @@
+
+<Configuration>
+    <LogonCommand>
+        <Command>cmd.exe /C "curl -L https://www.netresec.com/?download=NetworkMiner | tar -C C:\Users\WDAGUtilityAccount\Desktop\ -xf -"</Command>
+    </LogonCommand>
+</Configuration> 

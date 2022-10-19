@@ -1,0 +1,12 @@
+﻿[Desktop Entry]
+Name=NetworkMiner
+Comment=NetworkMiner
+Encoding=UTF-8
+Exec=mono NetworkMiner.exe %f
+Icon=./networkminericon-96x96.png
+StartupNotify=true
+Terminal=false
+X-MultipleArgs=false
+Type=Application
+MimeType=application/x-pcap;application/vnd.tcpdump.pcap;application/x-pcapng;
+Categories=Network;Monitor;

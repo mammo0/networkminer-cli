@@ -5,6 +5,8 @@ VisualStudioVersion = 17.0.32014.148
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NetworkMiner", "NetworkMiner\NetworkMiner.csproj", "{9467C3ED-E582-4D33-84BA-4A6380384084}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NetworkWrapper", "WinPCapWrapper\NetworkWrapper.csproj", "{2E55D097-37D8-42C4-9BD4-664EA0CF9CF9}"
+EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PacketParser", "PacketParser\PacketParser.csproj", "{6076F9F3-F975-469E-9E0C-CACCCFF9629F}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SharedUtils", "SharedUtils\SharedUtils.csproj", "{AC038CD9-F50A-436F-8FE3-A194275C4362}"
