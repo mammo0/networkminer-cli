@@ -13,19 +13,20 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     env:
+      BUILD_DIR: build
       RELEASE_ZIP: networkminer-cli.zip
 
     steps:
     - uses: actions/checkout@v3
     - name: Build application
-      run: msbuild -restore -p:Configuration=Release NetworkMiner.sln
+      run: dotnet build --configuration=Release NetworkMinerCLI.sln -o $BUILD_DIR
     - name: ZIP binaries
       if: startsWith(github.event.ref, 'refs/tags')
       run: |
-        pushd NetworkMiner/bin/Release
+        pushd $BUILD_DIR
         zip -r $RELEASE_ZIP ./
         popd
-        mv NetworkMiner/bin/Release/$RELEASE_ZIP ./
+        mv $BUILD_DIR/$RELEASE_ZIP ./
         zip $RELEASE_ZIP README.md ChangeLog LICENSE.txt  # add README, ChangeLog and LICENSE
     - name: Create GH Release
       if: startsWith(github.event.ref, 'refs/tags')

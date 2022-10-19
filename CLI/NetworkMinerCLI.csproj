@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\nm_src\PacketParser\PacketParser.csproj" />
+    <ProjectReference Include="..\nm_src\SharedUtils\SharedUtils.csproj" />
+  </ItemGroup>
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">Any CPU</Platform>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net472</TargetFramework>
+    <RootNamespace>NetworkMinerCLI</RootNamespace>
+    <AssemblyName>NetworkMinerCLI</AssemblyName>
+    <ApplicationIcon>networkminericon.ico</ApplicationIcon>
+  </PropertyGroup>
+  <PropertyGroup>
+    <AssemblyTitle>NetworkMiner</AssemblyTitle>
+    <Description>NetworkMiner is an open source Network Forensic Analysis Tool (NFAT) with a built-in passive network sniffer/packet capturing tool. It can detect OS's, sessions, hostnames, open ports etc. without putting any traffic on the network. NetworkMiner can also parse PCAP files for off-line analysis.</Description>
+    <Company>NETRESEC</Company>
+    <Product>NetworkMiner</Product>
+    <Copyright>Erik Hjelmvik</Copyright>
+    <Version>2.7.3</Version>
+    <AssemblyVersion>2.7.3</AssemblyVersion>
+    <FileVersion>2.7.3</FileVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)'=='Debug'">
+   <DebugType>portable</DebugType>
+   <DebugSymbols>true</DebugSymbols>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)'=='Release'">
+   <DebugType>none</DebugType>
+   <DebugSymbols>false</DebugSymbols>
+  </PropertyGroup>
+</Project>
