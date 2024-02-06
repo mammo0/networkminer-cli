@@ -7,7 +7,7 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">Any CPU</Platform>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net472</TargetFramework>
+    <TargetFramework>net48</TargetFramework>
     <RootNamespace>NetworkMinerCLI</RootNamespace>
     <AssemblyName>NetworkMinerCLI</AssemblyName>
     <ApplicationIcon>networkminericon.ico</ApplicationIcon>
@@ -18,9 +18,9 @@
     <Company>NETRESEC</Company>
     <Product>NetworkMiner</Product>
     <Copyright>Erik Hjelmvik</Copyright>
-    <Version>2.7.3</Version>
-    <AssemblyVersion>2.7.3</AssemblyVersion>
-    <FileVersion>2.7.3</FileVersion>
+    <Version>2.8.1</Version>
+    <AssemblyVersion>2.8.1</AssemblyVersion>
+    <FileVersion>2.8.1</FileVersion>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)'=='Debug'">
    <DebugType>portable</DebugType>

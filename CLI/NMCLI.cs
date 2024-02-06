@@ -66,7 +66,10 @@ namespace NetworkMinerCLI {
                 true,
                 // verifyX509Certificates
                 // NetworkMinerForm.cs -> default false
-                false);
+                false,
+                // vncMaxFPS
+                // PacketHandlerWrapper.cs -> GuiProperties.cs -> MAX_FRAMES_PER_SECOND_VNC_DEFAULT = 1
+                1);
             packetHandler.StartBackgroundThreads();
 
             return packetHandler;

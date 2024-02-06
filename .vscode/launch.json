@@ -8,7 +8,7 @@
             "name": "Launch Debug",
             "type": "mono",
             "request": "launch",
-            "program": "${workspaceRoot}/CLI/bin/Debug/net472/NetworkMinerCLI.exe",
+            "program": "${workspaceRoot}/CLI/bin/Debug/net48/NetworkMinerCLI.exe",
             "cwd": "${workspaceRoot}",
             "preLaunchTask": "build_debug"
         },
@@ -16,7 +16,7 @@
             "name": "Launch Release",
             "type": "mono",
             "request": "launch",
-            "program": "${workspaceRoot}/CLI/bin/Release/net472/NetworkMinerCLI.exe",
+            "program": "${workspaceRoot}/CLI/bin/Release/net48/NetworkMinerCLI.exe$",
             "cwd": "${workspaceRoot}",
             "preLaunchTask": "build_release"
         }
