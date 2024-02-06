@@ -6,7 +6,7 @@ on:
       - master
     tags:
       - 'v*'
-    pull_request:
+  pull_request:
 
 jobs:
   build:
@@ -41,7 +41,7 @@ jobs:
         prerelease: false
     - name: Upload GH Release Asset
       if: startsWith(github.event.ref, 'refs/tags')
-      id: upload_release_asset 
+      id: upload_release_asset
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
