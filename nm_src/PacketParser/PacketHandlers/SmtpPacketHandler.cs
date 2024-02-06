@@ -29,7 +29,7 @@ namespace PacketParser.PacketHandlers {
                 if (firstNullIndex >= 0 && secondNullIndex > 0) {
                     string username = ASCIIEncoding.ASCII.GetString(bytes, firstNullIndex + 1, secondNullIndex - firstNullIndex - 1);
                     string password = ASCIIEncoding.ASCII.GetString(bytes, secondNullIndex + 1, bytes.Length - secondNullIndex - 1);
-                    return new NetworkCredential(session.ClientHost, session.ServerHost, protocol.ToString(), username, password, frame.Timestamp);
+                    return new NetworkCredential(session.ClientHost, session.ServerHost, protocol.ToString().ToUpper(), username, password, frame.Timestamp);
                 }
             }
             return null;
@@ -80,7 +80,7 @@ namespace PacketParser.PacketHandlers {
 
         private PopularityList<NetworkTcpSession, SmtpSession> smtpSessionList;
 
-        public override Type ParsedType { get { return typeof(Packets.SmtpPacket); } }
+        public override Type[] ParsedTypes { get; } = { typeof(Packets.SmtpPacket) };
 
         public SmtpPacketHandler(PacketHandler mainPacketHandler)
             : base(mainPacketHandler) {
@@ -92,7 +92,7 @@ namespace PacketParser.PacketHandlers {
         #region ITcpSessionPacketHandler Members
 
         public ApplicationLayerProtocol HandledProtocol {
-            get { return ApplicationLayerProtocol.Smtp; }
+            get { return ApplicationLayerProtocol.SMTP; }
         }
 
 
@@ -155,7 +155,7 @@ namespace PacketParser.PacketHandlers {
                         smtpSession.AddData(smtpPacket.ParentFrame.Data, smtpPacket.PacketStartIndex, smtpPacket.PacketLength);
                         //check if state has transitioned over to footer
                         if (smtpSession.State == SmtpSession.SmtpState.Footer) {
-                            Mime.Email email = new Mime.Email(smtpSession.DataStream, base.MainPacketHandler, tcpPacket, transferIsClientToServer, tcpSession, ApplicationLayerProtocol.Smtp, FileTransfer.FileStreamAssembler.FileAssmeblyRootLocation.destination);
+                            Mime.Email email = new Mime.Email(smtpSession.DataStream, base.MainPacketHandler, tcpPacket, transferIsClientToServer, tcpSession, ApplicationLayerProtocol.SMTP, FileTransfer.FileStreamAssembler.FileAssmeblyRootLocation.destination);
                         }
                     }
                     else {
@@ -189,7 +189,7 @@ namespace PacketParser.PacketHandlers {
                                     if (requestCommandAndArgument.Value.Length > "PLAIN ".Length) {
                                         try {
                                             string base64 = requestCommandAndArgument.Value.Substring("PLAIN ".Length).Trim();
-                                            NetworkCredential cred = SmtpPacketHandler.ExtractBase64EncodedAuthPlainCredential(base64, smtpPacket.ParentFrame, tcpSession, ApplicationLayerProtocol.Smtp);
+                                            NetworkCredential cred = SmtpPacketHandler.ExtractBase64EncodedAuthPlainCredential(base64, smtpPacket.ParentFrame, tcpSession, ApplicationLayerProtocol.SMTP);
                                             if (cred != null) {
                                                 //this.MainPacketHandler.OnCredentialDetected(new Events.CredentialEventArgs(cred));
                                                 this.MainPacketHandler.AddCredential(cred);
@@ -244,8 +244,18 @@ namespace PacketParser.PacketHandlers {
                                 smtpSession.State = SmtpSession.SmtpState.Password;
                         }
                         else if(replyCodeAndArgument.Key == 235) { //AUTHENTICATION SUCCESSFUL 
-                            base.MainPacketHandler.AddCredential(new NetworkCredential(tcpSession.ClientHost, tcpSession.ServerHost, smtpPacket.PacketTypeDescription, smtpSession.Username, smtpSession.Password, smtpPacket.ParentFrame.Timestamp));
+                            base.MainPacketHandler.AddCredential(new NetworkCredential(tcpSession.ClientHost, tcpSession.ServerHost, smtpPacket.PacketTypeDescription, smtpSession.Username, smtpSession.Password, true, smtpPacket.ParentFrame.Timestamp));
                             smtpSession.State = SmtpSession.SmtpState.Authenticated;
+                        }
+                        else if (replyCodeAndArgument.Key == 535) { //authorization failed
+                            if (!string.IsNullOrEmpty(smtpSession.Password) && !string.IsNullOrEmpty(smtpSession.Username)) {
+                                base.MainPacketHandler.AddCredential(new NetworkCredential(tcpSession.ClientHost, tcpSession.ServerHost, smtpPacket.PacketTypeDescription, smtpSession.Username, smtpSession.Password, false, smtpPacket.ParentFrame.Timestamp));
+                            }
+                        }
+                        else if(replyCodeAndArgument.Key == 553) { //not allowed to use this service
+                            if(!string.IsNullOrEmpty(smtpSession.Password) && !string.IsNullOrEmpty(smtpSession.Username)) {
+                                base.MainPacketHandler.AddCredential(new NetworkCredential(tcpSession.ClientHost, tcpSession.ServerHost, smtpPacket.PacketTypeDescription, smtpSession.Username, smtpSession.Password, smtpPacket.ParentFrame.Timestamp));
+                            }
                         }
                         else if(replyCodeAndArgument.Key >= 500) //error
                             smtpSession.State = SmtpSession.SmtpState.None;
@@ -261,7 +271,7 @@ namespace PacketParser.PacketHandlers {
                         }
                         else if(replyCodeAndArgument.Key == 220) {
                             if (smtpSession.State == SmtpSession.SmtpState.StartTlsRequested) {
-                                tcpSession.ProtocolFinder.SetConfirmedApplicationLayerProtocol(ApplicationLayerProtocol.Ssl, false);
+                                tcpSession.ProtocolFinder.SetConfirmedApplicationLayerProtocol(ApplicationLayerProtocol.SSL, false);
                                 smtpSession.State = SmtpSession.SmtpState.TlsEncrypted;
                             }
                         }

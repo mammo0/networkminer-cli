@@ -326,7 +326,7 @@ namespace PacketParser.PacketHandlers
 
         public ApplicationLayerProtocol HandledProtocol {
             get {
-                return ApplicationLayerProtocol.Http2;
+                return ApplicationLayerProtocol.HTTP2;
             }
         }
 
@@ -334,12 +334,13 @@ namespace PacketParser.PacketHandlers
         private readonly PopularityList<string, PacketParser.FileTransfer.FileSegmentAssembler> fileSegmentAssemblerList;
         private readonly DnsPacketHandler dnsPacketHandler;//for DoH (RFC 8484)
 
-        public override Type ParsedType { get { return typeof(Packets.Http2Packet); } }
+        public override Type[] ParsedTypes { get; } = { typeof(Packets.Http2Packet) };
 
         public Http2PacketHandler(PacketHandler mainPacketHandler, DnsPacketHandler dnsPacketHandler)
             : base(mainPacketHandler) {
             this.hpack = new HPACK();
             this.fileSegmentAssemblerList = new PopularityList<string, FileTransfer.FileSegmentAssembler>(1000);
+            this.fileSegmentAssemblerList.PopularityLost += (k, assembler) => assembler.AssembleAndClose();
             this.dnsPacketHandler = dnsPacketHandler;
         }
 
@@ -478,7 +479,14 @@ namespace PacketParser.PacketHandlers
                         //193.235.19.252; 193.235.19.252; 538.bm-nginx-loadbalancer.mgmt.fra1; *.adnxs.com; 37.252.172.199:80
                         //207.154.239.150; 207.154.239.150; 258.bm-nginx-loadbalancer.mgmt.ams1; *.adnxs.com; 185.33.221.149:80
                         if (!string.IsNullOrEmpty(value) && System.Net.IPAddress.TryParse(value.Split(';')?.First(), out System.Net.IPAddress ip))
-                            destinationHost.AddNumberedExtraDetail("Public IP address", ip.ToString());
+                            destinationHost.AddNumberedExtraDetail(NetworkHost.ExtraDetailType.PublicIP, ip.ToString());
+                    }
+                    else if (name == "X-Akamai-Pragma-Client-IP") {
+                        //X-Akamai-Pragma-Client-IP: 178.162.222.41, 178.162.222.41
+                        foreach (string ipString in value?.Split(',')) {
+                            if (!string.IsNullOrEmpty(ipString) && System.Net.IPAddress.TryParse(ipString.Trim(), out System.Net.IPAddress ip))
+                                destinationHost.AddNumberedExtraDetail(NetworkHost.ExtraDetailType.PublicIP, ip.ToString());
+                        }
                     }
                     /**
                      * http://mobiforge.com/developing/blog/useful-x-headers
@@ -584,7 +592,7 @@ namespace PacketParser.PacketHandlers
                         if (headerDict.ContainsKey(HPACK.HEADER_NAME_CONTENT_LENGTH)) {
                             if (Int64.TryParse(headerDict[HPACK.HEADER_NAME_CONTENT_LENGTH], out long contentLength)) {
                                 if (this.fileSegmentAssemblerList.ContainsKey(sentFileId)) {
-                                    this.fileSegmentAssemblerList[sentFileId].FileSize = contentLength;
+                                    this.fileSegmentAssemblerList[sentFileId].SegmentSize = contentLength;
                                 }
                             }
                         }

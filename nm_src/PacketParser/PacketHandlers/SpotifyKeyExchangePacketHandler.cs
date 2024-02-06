@@ -11,7 +11,7 @@ using System.Text;
 namespace PacketParser.PacketHandlers {
     class SpotifyKeyExchangePacketHandler : AbstractPacketHandler, ITcpSessionPacketHandler {
 
-        public override Type ParsedType { get { return typeof(Packets.SpotifyKeyExchangePacket); } }
+        public override Type[] ParsedTypes { get; } = { typeof(Packets.SpotifyKeyExchangePacket) };
 
         #region ITcpSessionPacketHandler Members
 

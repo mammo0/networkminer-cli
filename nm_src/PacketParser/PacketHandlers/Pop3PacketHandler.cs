@@ -23,15 +23,15 @@ namespace PacketParser.PacketHandlers {
         {
             get
             {
-                return ApplicationLayerProtocol.Pop3;
+                return ApplicationLayerProtocol.POP3;
             }
         }
 
-        public override Type ParsedType { get { return typeof(Packets.Pop3Packet); } }
+        public override Type[] ParsedTypes { get; } = { typeof(Packets.Pop3Packet) };
 
         public override bool CanParse(HashSet<Type> packetTypeSet) {
             //the parser will need to look for non POP3 packets to reasseble emails
-            return packetTypeSet.Contains(this.ParsedType) || packetTypeSet.Contains(typeof(Packets.TcpPacket));
+            return packetTypeSet.Overlaps(this.ParsedTypes) || packetTypeSet.Contains(typeof(Packets.TcpPacket));
         }
 
         public int ExtractData(NetworkTcpSession tcpSession, bool transferIsClientToServer, IEnumerable<PacketParser.Packets.AbstractPacket> packetList) {
@@ -294,7 +294,7 @@ namespace PacketParser.PacketHandlers {
             int addedBytes = reassembler.AddData(tcpPacket.ParentFrame.Data, emailStartIndex, length);
             if (reassembler.TerminatorFound) {
                 //I'm assuming the email is going from server to client
-                Mime.Email email = new Mime.Email(reassembler.DataStream, base.MainPacketHandler, tcpPacket, false, tcpSession, ApplicationLayerProtocol.Pop3, FileTransfer.FileStreamAssembler.FileAssmeblyRootLocation.source);
+                Mime.Email email = new Mime.Email(reassembler.DataStream, base.MainPacketHandler, tcpPacket, false, tcpSession, ApplicationLayerProtocol.POP3, FileTransfer.FileStreamAssembler.FileAssmeblyRootLocation.source);
                 //remove the last command since we don't wanna reassemble any more for this RETR command
                 if(this.pop3LastCommand.ContainsKey(tcpSession))
                     this.pop3LastCommand.Remove(tcpSession);
@@ -316,7 +316,7 @@ namespace PacketParser.PacketHandlers {
 
         
         private void extractBase64EncodedEmailAndPassword(string base64, Frame frame, NetworkTcpSession session) {
-            NetworkCredential cred = SmtpPacketHandler.ExtractBase64EncodedAuthPlainCredential(base64, frame, session, ApplicationLayerProtocol.Pop3);
+            NetworkCredential cred = SmtpPacketHandler.ExtractBase64EncodedAuthPlainCredential(base64, frame, session, ApplicationLayerProtocol.POP3);
             if(cred != null) {
                 //this.MainPacketHandler.OnCredentialDetected(new Events.CredentialEventArgs(cred));
                 this.MainPacketHandler.AddCredential(cred);

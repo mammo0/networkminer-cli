@@ -5,10 +5,10 @@ using System.Text;
 namespace PacketParser.PacketHandlers {
     class SshPacketHandler : AbstractPacketHandler, ITcpSessionPacketHandler {
 
-        public override Type ParsedType { get { return typeof(Packets.SshPacket); } }
+        public override Type[] ParsedTypes { get; } = { typeof(Packets.SshPacket) };
 
         public ApplicationLayerProtocol HandledProtocol {
-            get { return ApplicationLayerProtocol.Ssh; }
+            get { return ApplicationLayerProtocol.SSH; }
         }
 
         public SshPacketHandler(PacketHandler mainPacketHandler)
@@ -22,10 +22,15 @@ namespace PacketParser.PacketHandlers {
         public int ExtractData(NetworkTcpSession tcpSession, bool transferIsClientToServer, IEnumerable<PacketParser.Packets.AbstractPacket> packetList) {
 
             foreach (Packets.AbstractPacket p in packetList) {
-                if(p.GetType()==typeof(Packets.SshPacket)) {
-                    Packets.SshPacket sshPacket=(Packets.SshPacket)p;
-                    tcpSession.Flow.FiveTuple.ClientHost.AddNumberedExtraDetail("SSH Version", sshPacket.SshVersion);
-                    tcpSession.Flow.FiveTuple.ClientHost.AddNumberedExtraDetail("SSH Application", sshPacket.SshApplication);
+                if(p is Packets.SshPacket sshPacket) {
+                    NetworkHost sender;
+                    if (transferIsClientToServer)
+                        sender = tcpSession.Flow.FiveTuple.ClientHost;
+                    else
+                        sender = tcpSession.Flow.FiveTuple.ServerHost;
+
+                    sender.AddNumberedExtraDetail("SSH Version", sshPacket.SshVersion);
+                    sender.AddNumberedExtraDetail("SSH Application", sshPacket.SshApplication);
 
                     return p.PacketLength;
                 }

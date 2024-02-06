@@ -5,15 +5,43 @@ using System.Text;
 namespace PacketParser.Mime {
     public class Email {
 
+
+        private const string HEADER_FROM = "From";
+        private const string HEADER_TO = "To";
+        private const string HEADER_SUBJECT = "Subject";
+        private const string HEADER_MESSAGE_ID = "Message-ID";
+        private const string HEADER_DATE = "Date";
+        
+        private const string HEADER_CONTENT_TRANSFER_ENCODING = "Content-Transfer-Encoding";
+        private const string HEADER_CONTENT_TYPE = "Content-Type";
+        private const string HEADER_MIME_VERSION = "MIME-Version";
+        private const string HEADER_RETURN_PATH = "Return-Path";
+        private const string HEADER_DELIVERED_TO = "Delivered-To";
+        private const string HEADER_RECEIVED = "Received";
+
+
+        internal static readonly string[] COMMON_HEADERS = {
+            HEADER_FROM,
+            HEADER_TO,
+            HEADER_SUBJECT,
+            HEADER_MESSAGE_ID,
+            HEADER_DATE,
+            HEADER_CONTENT_TRANSFER_ENCODING,
+            HEADER_CONTENT_TYPE,
+            HEADER_MIME_VERSION,
+            HEADER_RETURN_PATH,
+            HEADER_DELIVERED_TO,
+            HEADER_RECEIVED
+        };
         public static string GetMessageId(System.Collections.Specialized.NameValueCollection rootAttributes) {
 
-            if (rootAttributes["Message-ID"] != null && rootAttributes["Message-ID"].Length > 0)
-                return rootAttributes["Message-ID"];
+            if (rootAttributes[HEADER_MESSAGE_ID] != null && rootAttributes[HEADER_MESSAGE_ID].Length > 0)
+                return rootAttributes[HEADER_MESSAGE_ID];
             StringBuilder sb = new StringBuilder();
-            if (rootAttributes["Subject"] != null)
-                sb.Append(rootAttributes["Subject"]);
-            if (rootAttributes["Date"] != null)
-                sb.Append(rootAttributes["Date"]);
+            if (rootAttributes[HEADER_SUBJECT] != null)
+                sb.Append(rootAttributes[HEADER_SUBJECT]);
+            if (rootAttributes[HEADER_DATE] != null)
+                sb.Append(rootAttributes[HEADER_DATE]);
             return sb.ToString();
         }
 
@@ -41,11 +69,11 @@ namespace PacketParser.Mime {
             Mime.UnbufferedReader ur = new PacketParser.Mime.UnbufferedReader(emailMimeStream);
             this.MainPacketHandler = mainPacketHandler;
             this.protocol = protocol;
-            if (this.protocol == ApplicationLayerProtocol.Smtp)
+            if (this.protocol == ApplicationLayerProtocol.SMTP)
                 this.fileTransferProtocol = FileTransfer.FileStreamTypes.SMTP;
-            else if (this.protocol == ApplicationLayerProtocol.Pop3)
+            else if (this.protocol == ApplicationLayerProtocol.POP3)
                 this.fileTransferProtocol = FileTransfer.FileStreamTypes.POP3;
-            else if (this.protocol == ApplicationLayerProtocol.Imap)
+            else if (this.protocol == ApplicationLayerProtocol.IMAP)
                 this.fileTransferProtocol = FileTransfer.FileStreamTypes.IMAP;
             //this.reassembleFileAtSourceHost = reassembleFileAtSourceHost;
             this.fileAssmeblyRootLocation = fileAssmeblyRootLocation;
@@ -71,11 +99,13 @@ namespace PacketParser.Mime {
 
                 if (this.RootAttributes == null) {
 
-                    this.From = multipart.Attributes["From"];
-                    this.To = multipart.Attributes["To"];
-                    this.Subject = multipart.Attributes["Subject"];
-                    this.MessageID = multipart.Attributes["Message-ID"];
-                    this.DateString = multipart.Attributes["Date"];
+                    this.From = multipart.Attributes[HEADER_FROM];
+                    this.To = multipart.Attributes[HEADER_TO];
+                    if (string.IsNullOrEmpty(this.To) && !string.IsNullOrEmpty(multipart.Attributes[HEADER_DELIVERED_TO]))
+                        this.To = multipart.Attributes[HEADER_DELIVERED_TO];
+                    this.Subject = multipart.Attributes[HEADER_SUBJECT];
+                    this.MessageID = multipart.Attributes[HEADER_MESSAGE_ID];
+                    this.DateString = multipart.Attributes[HEADER_DATE];
                     this.RootAttributes = multipart.Attributes;
                 }
                 if (multipart.Attributes["charset"] != null) {
@@ -139,7 +169,8 @@ namespace PacketParser.Mime {
             this.attachments.Add(file);
         }
 
-        private void parseMultipart(Mime.MultipartPart multipart, System.Collections.Specialized.NameValueCollection rootAttributes, Packets.TcpPacket tcpPacket, /*NetworkHost sourceHost, NetworkHost destinationHost, */ref bool messageSentToPacketHandler, Encoding customEncoding, long size, string from = null, string to = null, string subject = null, string messageId = null, bool attachment = false) {
+        private void parseMultipart(Mime.MultipartPart multipart, System.Collections.Specialized.NameValueCollection rootAttributes, Packets.TcpPacket tcpPacket, /*NetworkHost sourceHost, NetworkHost destinationHost, */
+        ref bool messageSentToPacketHandler, Encoding customEncoding, long size, string from = null, string to = null, string subject = null, string messageId = null, bool attachment = false) {
             SharedUtils.Logger.Log("Parsing MIME part with root attributes \"" + String.Join(",", rootAttributes.AllKeys) + "\" in " + tcpPacket.ParentFrame.ToString(), SharedUtils.Logger.EventLogEntryType.Information);
             if (multipart.Attributes.Count > 0) {
                 this.MainPacketHandler.OnParametersDetected(new PacketParser.Events.ParametersEventArgs(tcpPacket.ParentFrame.FrameNumber, this.fiveTuple, this.transferIsClientToServer, multipart.Attributes, tcpPacket.ParentFrame.Timestamp, this.protocol + " packet"));

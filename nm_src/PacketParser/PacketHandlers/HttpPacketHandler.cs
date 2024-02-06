@@ -4,14 +4,17 @@
 //  under the terms of the GNU General Public License
 //
 
+using PacketParser.Packets;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using System.Text;
+using static PacketParser.FileTransfer.FileStreamAssembler;
 
 namespace PacketParser.PacketHandlers {
-    //public class HttpPacketHandler : AbstractPacketHandler, ITcpSessionPacketHandler, IHttpPacketHandler {
     public class HttpPacketHandler : AbstractPacketHandler, ITcpSessionPacketHandler {
 
         public static System.Collections.Specialized.NameValueCollection ParseHeaders(Packets.HttpPacket httpPacket, SortedList<string, string> ignoredHeaderNames = null) {
@@ -28,8 +31,15 @@ namespace PacketParser.PacketHandlers {
             return httpHeaders;
         }
 
-        //private List<KeyValuePair<string, string>> extensionMimeTypeCombos;
-        //private Dictionary<string, string> extensionReplacements;
+
+        private readonly Dictionary<byte, string> UriChecksum8Fingerprints = new Dictionary<byte, string> {
+            { 92, "CobaltStrike or Meterpreter URI" },//Windows
+            { 93, "CobaltStrike x64 URI" }/*,//Windows x64
+            { 80, "Python" },
+            { 88, "Java" },
+            { 98, "Existing session" },
+            { 95, "Stageless session" }*/
+        };
 
         //extensions that should always be replaced to avoid mime-type file extensions
         internal static readonly Dictionary<string, string> ExtensionReplacements = new Dictionary<string, string> {
@@ -49,6 +59,7 @@ namespace PacketParser.PacketHandlers {
         //extensions that should be left untouched if the mime-type matches
         internal static readonly ReadOnlyCollection<(string extension, string mimeType)> ExtensionMimeTypeCombos = new List<(string extension, string mimeType)> {
             (".asc", "pgp-keys"),
+            (".bat", "x-msdos-program"),
             (".cab", "octet-stream"),
             (".cab", "vnd.ms-cab-compressed"),
             (".crl", "pkix-crl"),
@@ -159,18 +170,45 @@ namespace PacketParser.PacketHandlers {
         }.AsReadOnly();
 
         internal static readonly HashSet<string> BoringXHeaders = new HashSet<string> {
+            
+            "x-amz-replication-status",
+            "x-amz-storage-class",
+            "x-amz-server-side-encryption",
+            "x-amz-version-id",
+            "x-amz-cf-id",
+            "X-Amz-Cf-Id",
             "x-cache",
             "x-content-type-options",
             "x-response-time",
             "x-transaction",
             "x-tsa-request-body-time",
-            "x-amz-cf-id",
             "x-cache-hits",
             "x-connection-hash",
             "x-nc",
             "x-timer"
          };
 
+        public static bool TryGetUriChecksum(string uri, out byte checksum8) {
+            checksum8 = 0;
+            uri = uri?.Trim('/');
+            uri = uri?.Split('/').LastOrDefault();
+            if (string.IsNullOrEmpty(uri))
+                return false;
+            //https://github.com/rapid7/metasploit-framework/blob/master/lib/rex/payloads/meterpreter/uri_checksum.rb
+            //Ignore non-base64url characters in the URL
+            //uri_bare = uri.gsub(/[^a-zA-Z0-9_\-]/, '')
+            var nonB64Regex = new System.Text.RegularExpressions.Regex(@"[^a-zA-Z0-9_\-]");
+            string uriBare = nonB64Regex.Replace(uri, string.Empty);
+            if(uriBare ==null || uriBare.Length < 4 || uriBare.Length > 28) //https://www.bussink.net/metasploit-valid-url-checksum8/
+                return false;
+            //Hash checksum8 is the sum of all bytes inside the file, interpreted as unsigned, 8-bit integers.
+            int sum = 0;
+            foreach(char c in uriBare) {
+                sum += (sbyte)c;
+            }
+            checksum8 = (byte)sum;
+            return true;
+        }
         internal static bool ExtensionMimeTypeCombosMatches(string filename, string mimeExtension = null) {
             foreach ((string extension, string mimeType) in ExtensionMimeTypeCombos) {
                 if (filename.EndsWith(extension, StringComparison.InvariantCultureIgnoreCase) && (mimeExtension == null || mimeType.Equals(mimeExtension, StringComparison.InvariantCultureIgnoreCase))) {
@@ -264,10 +302,10 @@ namespace PacketParser.PacketHandlers {
         }
 
         private PopularityList<FiveTuple, KeyValuePair<string, ushort>> httpConnectIpPorts;
-        public override Type ParsedType { get { return typeof(Packets.HttpPacket); } }
+        public override Type[] ParsedTypes { get; } = { typeof(Packets.HttpPacket) };
 
         public ApplicationLayerProtocol HandledProtocol {
-            get { return ApplicationLayerProtocol.Http; }
+            get { return ApplicationLayerProtocol.HTTP; }
         }
 
         public HttpPacketHandler(PacketHandler mainPacketHandler)
@@ -306,7 +344,6 @@ namespace PacketParser.PacketHandlers {
             if(successfulExtraction) {
                 
                 return httpPacket.PacketLength;
-                //return tcpPacket.PayloadDataLength;
             }
                 
             else
@@ -344,19 +381,34 @@ namespace PacketParser.PacketHandlers {
             System.Collections.Specialized.NameValueCollection cookieParams = null;
             if (httpPacket.Cookie != null) {
                 cookieParams = new System.Collections.Specialized.NameValueCollection();
-                /*
-                char[] separators = { ';', ',' };
-                foreach (string s in httpPacket.Cookie.Split(separators)) {
-                    string cookieFragment = s.Trim();
-                    int splitOffset = cookieFragment.IndexOf('=');
-                    if (splitOffset > 0)
-                        cookieParams.Add(cookieFragment.Substring(0, splitOffset), cookieFragment.Substring(splitOffset + 1));
-                    else
-                        cookieParams.Add(cookieFragment, "");
-                }
-                */
+
                 foreach((string name, string value) in GetCookieParts(httpPacket.Cookie)) {
                     cookieParams.Add(name, value);
+                    //special handling of IcedID cookies
+                    //https://unit42.paloaltonetworks.com/wireshark-quiz-icedid-answers/
+                    if (name == "_u" && value.Contains(':')) {
+                        try {
+                            string hostnameHex = value.Split(':')[0];
+                        
+                            byte[] hostnameBytes = Utils.ByteConverter.ToByteArrayFromHexString("0x" + hostnameHex);
+                            string hostname = ASCIIEncoding.ASCII.GetString(hostnameBytes);
+                            sourceHost.AddHostName(hostname, "IcedID _u cookie");
+
+                            string usernameHex = value.Split(':')[1];
+                            byte[] usernameBytes = Utils.ByteConverter.ToByteArrayFromHexString("0x" + usernameHex);
+                            string username = ASCIIEncoding.ASCII.GetString(usernameBytes);
+                            sourceHost.AddNumberedExtraDetail(NetworkHost.ExtraDetailType.User, username);
+                            
+                        }
+                        catch { }
+                    }
+                    else if(name == "__io" && value.Contains('_')) {
+                        string sid = value.Replace('_', '-');
+                        sourceHost.AddNumberedExtraDetail("SID", sid);
+                    }
+                    else if(name == "_gat" && value.Contains('.')) {
+                        sourceHost.AddNumberedExtraDetail("Windows version", value);
+                    }
                 }
                 NetworkHost client, server;
                 if(httpPacket.MessageTypeIsRequest) {
@@ -375,10 +427,8 @@ namespace PacketParser.PacketHandlers {
                 else
                     mainPacketHandler.OnParametersDetected(new Events.ParametersEventArgs(tcpPacket.ParentFrame.FrameNumber, sourceHost, destinationHost, fiveTuple.Transport, tcpPacket.SourcePort, tcpPacket.DestinationPort, cookieParams, httpPacket.ParentFrame.Timestamp, "HTTP Cookie"));
 
-                //mainPacketHandler.OnParametersDetected(new Events.ParametersEventArgs(tcpPacket.ParentFrame.FrameNumber, fiveTuple, transferIsClientToServer, cookieParams, httpPacket.ParentFrame.Timestamp, "HTTP Cookie"));
                 NetworkCredential credential = new NetworkCredential(client, server, "HTTP Cookie", httpPacket.Cookie, "N/A", httpPacket.ParentFrame.Timestamp, httpPacket.RequestedHost);
                 mainPacketHandler.AddCredential(credential);
-
             }
 
             if (httpPacket.MessageTypeIsRequest) {
@@ -392,6 +442,21 @@ namespace PacketParser.PacketHandlers {
                         base.MainPacketHandler.OnParametersDetected(new Events.ParametersEventArgs(httpPacket.ParentFrame.FrameNumber, sourceHost, destinationHost, fiveTuple.Transport, tcpPacket.SourcePort, tcpPacket.DestinationPort, httpRequestNvc, httpPacket.ParentFrame.Timestamp, "HTTP Request"));
                     //base.MainPacketHandler.OnParametersDetected(new Events.ParametersEventArgs(httpPacket.ParentFrame.FrameNumber, fiveTuple, transferIsClientToServer, httpRequestNvc, httpPacket.ParentFrame.Timestamp, "HTTP Request"));
 
+                }
+
+                if (TryGetUriChecksum(httpPacket.RequestedFileName, out byte checksum8) && this.UriChecksum8Fingerprints.ContainsKey(checksum8)) {
+                    /**
+                     * URI_CHECKSUM_INITW      = 92 # Windows
+                     * URI_CHECKSUM_INITN      = 92 # Native (same as Windows)
+                     * URI_CHECKSUM_INITP      = 80 # Python
+                     * URI_CHECKSUM_INITJ      = 88 # Java
+                     * URI_CHECKSUM_CONN       = 98 # Existing session
+                     * URI_CHECKSUM_INIT_CONN  = 95 # New stageless session
+                     **/
+                    string parmName = this.UriChecksum8Fingerprints[checksum8];
+                    destinationHost.AddNumberedExtraDetail(parmName, httpPacket.RequestedFileName);
+                    if (httpPacket.RequestedHost != null)
+                        sourceHost.AddNumberedExtraDetail(parmName, httpPacket.RequestedHost + httpPacket.RequestedFileName);
                 }
 
 
@@ -417,40 +482,14 @@ namespace PacketParser.PacketHandlers {
 
 
                     this.ExtractHeaders(httpPacket, fiveTuple, transferIsClientToServer, sourceHost, destinationHost, ignoredHeaderNames);
-                    /*
-                    System.Collections.Specialized.NameValueCollection httpHeaders = HttpPacketHandler.ParseHeaders(httpPacket, ignoredHeaderNames);
 
-
-                    //mainPacketHandler.OnParametersDetected
-                    base.MainPacketHandler.OnParametersDetected(new Events.ParametersEventArgs(httpPacket.ParentFrame.FrameNumber, fiveTuple, transferIsClientToServer, httpHeaders, httpPacket.ParentFrame.Timestamp, "HTTP Header"));
-
-                    foreach (string headerName in httpHeaders.Keys) {
-
-                        if (!HttpPacketHandler.BoringXHeaders.Contains(headerName)) {
-                            if (headerName.StartsWith("X-", StringComparison.InvariantCultureIgnoreCase)) {
-                                sourceHost.AddNumberedExtraDetail("HTTP header: " + headerName, httpHeaders[headerName]);
-                            }
-                            else if (headerName.StartsWith("HTTP_X", StringComparison.InvariantCultureIgnoreCase)) {
-                                sourceHost.AddNumberedExtraDetail("HTTP header: " + headerName, httpHeaders[headerName]);
-                            }
-                            else if (headerName.StartsWith("X_", StringComparison.InvariantCultureIgnoreCase)) {
-                                sourceHost.AddNumberedExtraDetail("HTTP header: " + headerName, httpHeaders[headerName]);
-                            }
-                            else if (headerName.StartsWith("HTTP_MSISDN", StringComparison.InvariantCultureIgnoreCase)) {
-                                sourceHost.AddNumberedExtraDetail("HTTP header: " + headerName, httpHeaders[headerName]);
-                            }
-                            
-                        }
-                        
-                    }
-                */
 
 
                 }
 
 
                 //file transfer
-                if ((httpPacket.RequestMethod == Packets.HttpPacket.RequestMethods.GET || httpPacket.RequestMethod == Packets.HttpPacket.RequestMethods.POST) && httpPacket.RequestedFileName != null) {
+                if ((httpPacket.RequestMethod == Packets.HttpPacket.RequestMethods.GET || httpPacket.RequestMethod == Packets.HttpPacket.RequestMethods.POST || httpPacket.RequestMethod == Packets.HttpPacket.RequestMethods.PUT) && httpPacket.RequestedFileName != null) {
 
                     System.Collections.Specialized.NameValueCollection queryStringData = httpPacket.GetQuerystringData();
                     if (queryStringData != null && queryStringData.Count > 0) {
@@ -464,24 +503,7 @@ namespace PacketParser.PacketHandlers {
                             mainPacketHandler.AddCredential(credential);
                         if (queryStringData.HasKeys()) {
                             this.ExtractHostDetailsFromQueryString(sourceHost, queryStringData, out Dictionary<string, string> queryStringDictionary);
-                            /*
-                            Dictionary<string, string> queryStringDictionary = new Dictionary<string, string>();
-                            foreach (string key in queryStringData.AllKeys)
-                                queryStringDictionary.Add(key, queryStringData[key]);
 
-                            if (queryStringDictionary.ContainsKey("utmsr"))
-                                sourceHost.AddNumberedExtraDetail("Screen resolution (Google Analytics)", queryStringDictionary["utmsr"]);
-                            if (queryStringDictionary.ContainsKey("utmsc"))
-                                sourceHost.AddNumberedExtraDetail("Color depth (Google Analytics)", queryStringDictionary["utmsc"]);
-                            if (queryStringDictionary.ContainsKey("utmul"))
-                                sourceHost.AddNumberedExtraDetail("Browser language (Google Analytics)", queryStringDictionary["utmul"]);
-                            if (queryStringDictionary.ContainsKey("utmfl"))
-                                sourceHost.AddNumberedExtraDetail("Flash version (Google Analytics)", queryStringDictionary["utmfl"]);
-                            if (queryStringDictionary.ContainsKey("mip")) {
-                                if (System.Net.IPAddress.TryParse(queryStringDictionary["mip"], out System.Net.IPAddress ip))
-                                    sourceHost.AddNumberedExtraDetail("Public IP address", queryStringDictionary["mip"]);
-                            }
-                             */
 
                             if (httpPacket.RequestMethod == Packets.HttpPacket.RequestMethods.POST && queryStringDictionary.ContainsKey("a") && queryStringDictionary["a"].Equals("SendMessage")) {
                                 if (!httpPacket.ContentIsComplete())//we must have all the content when parsing AOL data
@@ -511,7 +533,7 @@ namespace PacketParser.PacketHandlers {
 
 
                     //Large HTTP POSTs should also be dumped to files
-                    if (httpPacket.RequestMethod == Packets.HttpPacket.RequestMethods.POST) {
+                    if (httpPacket.RequestMethod == Packets.HttpPacket.RequestMethods.POST || httpPacket.RequestMethod == Packets.HttpPacket.RequestMethods.PUT) {
 
                         //All Multipart MIME HTTP POSTs should be dumped to file
                         //the fileAssembler extracts the form parameters after assembly
@@ -541,9 +563,11 @@ namespace PacketParser.PacketHandlers {
                                     }
                                 }
 
-                                assembler = new FileTransfer.FileStreamAssembler(mainPacketHandler.FileStreamAssemblerList, fiveTuple, transferIsClientToServer, FileTransfer.FileStreamTypes.HttpPostMimeMultipartFormData, filename + ".form-data.mime", fileLocation, mimeBoundary, httpPacket.ParentFrame.FrameNumber, httpPacket.ParentFrame.Timestamp);
-                                assembler.FileContentLength = httpPacket.ContentLength;
-                                assembler.FileSegmentRemainingBytes = httpPacket.ContentLength;
+                                assembler = new FileTransfer.FileStreamAssembler(mainPacketHandler.FileStreamAssemblerList, fiveTuple, transferIsClientToServer, FileTransfer.FileStreamTypes.HttpPostMimeMultipartFormData, filename + ".form-data.mime", fileLocation, httpPacket.RequestedFileName, httpPacket.ParentFrame.FrameNumber, httpPacket.ParentFrame.Timestamp) {
+                                    MimeBoundary = mimeBoundary,
+                                    FileContentLength = httpPacket.ContentLength,
+                                    FileSegmentRemainingBytes = httpPacket.ContentLength
+                                };
                                 mainPacketHandler.FileStreamAssemblerList.Add(assembler);
                                 if (assembler.TryActivate()) {
                                     //assembler is now active
@@ -584,21 +608,7 @@ namespace PacketParser.PacketHandlers {
                                     mainPacketHandler.AddCredential(jsonCredential);
                             }
                         }
-                        /*
-                        else if (httpPacket.ContentType?.StartsWith("application/vnd.wap.mms-message", StringComparison.InvariantCultureIgnoreCase) == true && httpPacket.ContentLength > 0) {
-                            //extract MMS parameters
-                            FileTransfer.FileStreamAssembler assembler = new FileTransfer.FileStreamAssembler(mainPacketHandler.FileStreamAssemblerList, fiveTuple, transferIsClientToServer, FileTransfer.FileStreamTypes.HttpPostUpload, Utils.StringManglerUtil.ConvertToFilename(fiveTuple.ToString(), 20) + ".MMS", fileLocation, "MMS", httpPacket.ParentFrame.FrameNumber, httpPacket.ParentFrame.Timestamp);
-                            assembler.FileContentLength = httpPacket.ContentLength;
-                            assembler.FileSegmentRemainingBytes = httpPacket.ContentLength;
-                            mainPacketHandler.FileStreamAssemblerList.Add(assembler);
-                            if (assembler.TryActivate()) {
-                                //assembler is now active
-                                if (httpPacket.MessageBody != null && httpPacket.MessageBody.Length > 0)
-                                    assembler.AddData(httpPacket.MessageBody, tcpPacket.SequenceNumber);
-                            }
-                        }
-                        */
-                        else if (httpPacket.ContentType?.ToLower().Contains("www-form-urlencoded") == true && httpPacket.ContentLength > 0 && httpPacket.MessageBody.Length >= httpPacket.ContentLength) {//form data (not multipart)
+                        else if (httpPacket.ContentType?.ToLower().Contains("www-form-urlencoded") == true && httpPacket.ContentLength > 0 && httpPacket.MessageBody?.Length >= httpPacket.ContentLength) {//form data (not multipart)
                             System.Collections.Generic.List<Mime.MultipartPart> formMultipartData = httpPacket.GetFormData();
                             if (formMultipartData != null) {
                                 foreach (Mime.MultipartPart mimeMultipart in formMultipartData) {
@@ -652,14 +662,14 @@ namespace PacketParser.PacketHandlers {
 
                                     }
                                 }
-                                this.MainPacketHandler.ExtractMultipartFormData(formMultipartData, fiveTuple, transferIsClientToServer, tcpPacket.ParentFrame.Timestamp, httpPacket.ParentFrame.FrameNumber, ApplicationLayerProtocol.Http, cookieParams, httpPacket.RequestedHost);
+                                this.MainPacketHandler.ExtractMultipartFormData(formMultipartData, fiveTuple, transferIsClientToServer, tcpPacket.ParentFrame.Timestamp, httpPacket.ParentFrame.FrameNumber, ApplicationLayerProtocol.HTTP, cookieParams, httpPacket.RequestedHost);
                             }
                         }
                         else {
                             //extract other posted data to file
                             if (httpPacket.ContentLength > 0) {
                                 filename = AppendMimeContentTypeAsExtension(filename, httpPacket.ContentType);
-                                FileTransfer.FileStreamAssembler assembler = new FileTransfer.FileStreamAssembler(mainPacketHandler.FileStreamAssemblerList, fiveTuple, transferIsClientToServer, FileTransfer.FileStreamTypes.HttpPostUpload, filename, fileLocation, "HTTP POST", httpPacket.ParentFrame.FrameNumber, httpPacket.ParentFrame.Timestamp);
+                                FileTransfer.FileStreamAssembler assembler = new FileTransfer.FileStreamAssembler(mainPacketHandler.FileStreamAssemblerList, fiveTuple, transferIsClientToServer, FileTransfer.FileStreamTypes.HttpPostUpload, filename, fileLocation, "HTTP " + httpPacket.RequestMethod.ToString(), httpPacket.ParentFrame.FrameNumber, httpPacket.ParentFrame.Timestamp);
                                 assembler.FileContentLength = httpPacket.ContentLength;
                                 assembler.FileSegmentRemainingBytes = httpPacket.ContentLength;
                                 mainPacketHandler.FileStreamAssemblerList.Add(assembler);
@@ -753,26 +763,7 @@ namespace PacketParser.PacketHandlers {
                             }
                             //append content type extention to file name
                             assembler.Filename = AppendMimeContentTypeAsExtension(assembler.Filename, httpPacket.ContentType);
-                            /*
-                            if (httpPacket.ContentType != null && httpPacket.ContentType.Contains("/") && httpPacket.ContentType.IndexOf('/') < httpPacket.ContentType.Length - 1) {
-                                string mimeExtension = Utils.StringManglerUtil.GetExtension(httpPacket.ContentType);
 
-
-                                if (mimeExtension.Length > 0 && !assembler.Filename.EndsWith("." + mimeExtension, StringComparison.InvariantCultureIgnoreCase)) {
-                                    //string assemblerExtension = Utils.StringManglerUtil.GetExtension(assembler.Filename);
-                                    if (ExtensionMimeTypeCombosMatches(assembler.Filename, mimeExtension))
-                                        mimeExtension = null;
-
-
-                                    if (mimeExtension != null) {//append the content type as extension
-                                        if (ExtensionReplacements.ContainsKey(mimeExtension))
-                                            assembler.Filename = assembler.Filename + "." + ExtensionReplacements[mimeExtension];
-                                        else
-                                            assembler.Filename = assembler.Filename + "." + mimeExtension;
-                                    }
-                                }
-                            }
-                            */
 
                             if (httpPacket.TransferEncoding == "chunked")
                                 assembler.FileStreamType = FileTransfer.FileStreamTypes.HttpGetChunked;
@@ -793,14 +784,51 @@ namespace PacketParser.PacketHandlers {
                                     if (assembler.FileStreamType == FileTransfer.FileStreamTypes.HttpGetChunked || httpPacket.MessageBody.Length <= assembler.FileSegmentRemainingBytes || assembler.FileSegmentRemainingBytes == -1)
                                         assembler.AddData(httpPacket.MessageBody, tcpPacket.SequenceNumber);
 
-                                    //check for public IP in HTTP Message Body
+                                    //check for raw public IP in HTTP Message Body such as from "api.ipify.org", "checkip.amazonaws.com" or "icanhazip.com"
                                     if (httpPacket.MessageBody.Length == httpPacket.ContentLength &&
+                                        httpPacket.ContentLength > 6 &&
                                         httpPacket.ContentLength < 18 &&
-                                        httpPacket.MessageBody.Count(i => i == (byte)'.') == 3 &&
-                                        System.Net.IPAddress.TryParse(Encoding.ASCII.GetString(httpPacket.MessageBody).TrimEnd(), out System.Net.IPAddress ip)
-                                        ) {
-                                        destinationHost.AddNumberedExtraDetail("Public IP address", ip.ToString());
+                                        httpPacket.MessageBody.Count(i => i == (byte)'.') == 3) {
 
+                                        if(System.Net.IPAddress.TryParse(Encoding.ASCII.GetString(httpPacket.MessageBody).TrimEnd(), out System.Net.IPAddress ip)) {
+                                            destinationHost.AddNumberedExtraDetail(NetworkHost.ExtraDetailType.PublicIP, ip.ToString());
+                                        }
+                                    }
+                                    else if (httpPacket.TransferEncoding == "chunked" &&
+                                        httpPacket.MessageBody.Length > 14 &&//3 bytes chunk header, 7 bytes IP, 5 bytes chunk trailer
+                                        httpPacket.MessageBody.Length < 26 &&//3 bytes chunk header, 15 bytes IP, 2 bytes CR-LF, 5 bytes chunk trailer
+                                        HttpPacket.CHUNK_TRAILER.SequenceEqual(httpPacket.MessageBody.Skip(httpPacket.MessageBody.Length - HttpPacket.CHUNK_TRAILER.Length)) &&
+                                        httpPacket.MessageBody.Count(i => i == (byte)'.') == 3) {
+                                        //Services like ip.anysrc.net send IP address in chunked format
+                                        using (MemoryStream ms = new MemoryStream(httpPacket.MessageBody)) {
+                                            using (DeChunkedDataStream deChunkedStream = new DeChunkedDataStream(ms)) {
+                                                using(StreamReader sr = new StreamReader(deChunkedStream)) {
+                                                    string decodedBody = sr.ReadToEnd();
+                                                    if (System.Net.IPAddress.TryParse(decodedBody.TrimEnd(), out System.Net.IPAddress ip)) {
+                                                        destinationHost.AddNumberedExtraDetail(NetworkHost.ExtraDetailType.PublicIP, ip.ToString());
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                    }
+                                    //try extract IPv4 address from JSON body
+                                    if (httpPacket.ContentType?.StartsWith("application/json") == true && httpPacket.ContentLength < 1000) {
+                                        //check for hostnames like "ip-api.com" or "ipinfo.io" to reduce false positives from other JSON data
+                                        if (sourceHost.HostNames.Any(hostname => hostname.ToUpper().Contains("IP"))) { 
+                                            byte[] delimiters = { (byte)'{', (byte)'}', (byte)':', (byte)',', (byte)'"' };
+                                            List<byte> stringBytes = new List<byte>();
+                                            foreach (byte b in httpPacket.MessageBody) {
+                                                if (delimiters.Contains(b)) {
+                                                    if (stringBytes.Count >= 7 && stringBytes.Count < 18 && stringBytes.Count(i => i == (byte)'.') == 3)
+                                                        if (System.Net.IPAddress.TryParse(Encoding.ASCII.GetString(stringBytes.ToArray()).TrimEnd(), out System.Net.IPAddress ip))
+                                                            destinationHost.AddNumberedExtraDetail(NetworkHost.ExtraDetailType.PublicIP, ip.ToString());
+                                                    stringBytes.Clear();
+                                                }
+                                                else
+                                                    stringBytes.Add(b);
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -811,13 +839,7 @@ namespace PacketParser.PacketHandlers {
                     //TODO: Save state of awaiting CONNECT, after "HTTP/1.1 200 Connection established" switch L7 protocol as in SOCKS and STARTTLS
                     var target = this.httpConnectIpPorts[fiveTuple];
                     ushort serverPort = target.Value;
-                    /*
-                    NetworkHost serverHost;
-                    if (base.MainPacketHandler.NetworkHostList.ContainsIP(target.Key))
-                        serverHost = base.MainPacketHandler.NetworkHostList.GetNetworkHost(target.Key);
-                    else
-                        serverHost = tcpSession.ClientHost;
-                    */
+
                     NetworkHost serverHost = sourceHost;
                     if(System.Net.IPAddress.TryParse(target.Key, out var ip)) {
                         if (base.MainPacketHandler.NetworkHostList.ContainsIP(ip))
@@ -835,7 +857,7 @@ namespace PacketParser.PacketHandlers {
         private void ExtractHeaders(Packets.HttpPacket httpPacket, FiveTuple fiveTuple, bool transferIsClientToServer, NetworkHost sourceHost, NetworkHost destinationHost, SortedList<string, string> ignoredHeaderNames = null) {
             System.Collections.Specialized.NameValueCollection httpHeaders = HttpPacketHandler.ParseHeaders(httpPacket, ignoredHeaderNames);
             base.MainPacketHandler.OnParametersDetected(new Events.ParametersEventArgs(httpPacket.ParentFrame.FrameNumber, fiveTuple, transferIsClientToServer, httpHeaders, httpPacket.ParentFrame.Timestamp, "HTTP Header"));
-            if(httpPacket.MessageTypeIsRequest) {
+            if (httpPacket.MessageTypeIsRequest) {
                 foreach (string headerName in httpHeaders.Keys) {
 
                     /**
@@ -866,7 +888,14 @@ namespace PacketParser.PacketHandlers {
                     //193.235.19.252; 193.235.19.252; 538.bm-nginx-loadbalancer.mgmt.fra1; *.adnxs.com; 37.252.172.199:80
                     string ipString = httpHeaders.GetValues("X-Proxy-Origin")?.First().Split(';')?.First();
                     if (!string.IsNullOrEmpty(ipString) && System.Net.IPAddress.TryParse(ipString, out System.Net.IPAddress ip))
-                        destinationHost.AddNumberedExtraDetail("Public IP address", ip.ToString());
+                        destinationHost.AddNumberedExtraDetail(NetworkHost.ExtraDetailType.PublicIP, ip.ToString());
+                }
+                if (httpHeaders.AllKeys.Contains("X-Akamai-Pragma-Client-IP")) {
+                    //X-Akamai-Pragma-Client-IP: 178.162.222.41, 178.162.222.41
+                    foreach (string ipString in httpHeaders.GetValues("X-Akamai-Pragma-Client-IP")?.FirstOrDefault()?.Split(',')) {
+                        if (!string.IsNullOrEmpty(ipString) && System.Net.IPAddress.TryParse(ipString.Trim(), out System.Net.IPAddress ip))
+                            destinationHost.AddNumberedExtraDetail(NetworkHost.ExtraDetailType.PublicIP, ip.ToString());
+                    }
                 }
                 if (httpHeaders.AllKeys.Contains("Onion-Location")) {
                     Uri onionUri = new Uri(httpHeaders["Onion-Location"]);
@@ -874,18 +903,18 @@ namespace PacketParser.PacketHandlers {
                 }
                 if (httpHeaders.AllKeys.Contains("Location")) {
                     if (Uri.TryCreate(httpHeaders["Location"], UriKind.Absolute, out Uri redirectTarget)) {
-                        string query = redirectTarget.Query.TrimStart('?');
-                        System.Collections.Specialized.NameValueCollection q = System.Web.HttpUtility.ParseQueryString(query);
-                        if (q.HasKeys())
-                            this.ExtractHostDetailsFromQueryString(destinationHost, q, out _);
-                        //copied from request parsing code
-                        /*
-                        if (!string.IsNullOrEmpty(q["mip"])) {
-                            if (System.Net.IPAddress.TryParse(q["mip"], out System.Net.IPAddress ip))
-                                destinationHost.AddNumberedExtraDetail("Public IP address", q["mip"]);
+                        string query = redirectTarget.Query?.TrimStart('?');
+                        if (!string.IsNullOrEmpty(query)) {
+                            System.Collections.Specialized.NameValueCollection q = System.Web.HttpUtility.ParseQueryString(query);
+                            if (q.HasKeys())
+                                this.ExtractHostDetailsFromQueryString(destinationHost, q, out _);
                         }
-                        */
                     }
+                }
+
+                string[] extraDetailsHeaders = { "X-Amz-Cf-Pop" };
+                foreach (string headerName in httpHeaders.AllKeys.Intersect(extraDetailsHeaders)) {
+                    sourceHost.AddNumberedExtraDetail("HTTP header: " + headerName, httpHeaders[headerName]);
                 }
             }
         }
@@ -893,7 +922,8 @@ namespace PacketParser.PacketHandlers {
         private void ExtractHostDetailsFromQueryString(NetworkHost httpClient, System.Collections.Specialized.NameValueCollection queryString, out Dictionary<string, string> queryStringDictionary) {
             queryStringDictionary = new Dictionary<string, string>();
             foreach (string key in queryString.AllKeys)
-                queryStringDictionary.Add(key, queryString[key]);
+                if(!string.IsNullOrEmpty(key) && !queryStringDictionary.ContainsKey(key))
+                    queryStringDictionary.Add(key, queryString[key]);
 
             if (queryStringDictionary.ContainsKey("utmsr"))
                 httpClient.AddNumberedExtraDetail("Screen resolution (Google Analytics)", queryStringDictionary["utmsr"]);
@@ -905,7 +935,7 @@ namespace PacketParser.PacketHandlers {
                 httpClient.AddNumberedExtraDetail("Flash version (Google Analytics)", queryStringDictionary["utmfl"]);
             if (queryStringDictionary.ContainsKey("mip")) {
                 if (System.Net.IPAddress.TryParse(queryStringDictionary["mip"], out System.Net.IPAddress ip))
-                    httpClient.AddNumberedExtraDetail("Public IP address", queryStringDictionary["mip"]);
+                    httpClient.AddNumberedExtraDetail(NetworkHost.ExtraDetailType.PublicIP, queryStringDictionary["mip"]);
             }
         }
 
@@ -923,16 +953,6 @@ namespace PacketParser.PacketHandlers {
             return jsonElements;
         }
 
-        /*
-        private bool ExtensionMimeTypeCombosMatches(string filename, string mimeExtension = null) {
-            foreach (KeyValuePair<string, string> extMime in this.extensionMimeTypeCombos) {
-                if (filename.EndsWith(extMime.Key, StringComparison.InvariantCultureIgnoreCase) && (mimeExtension == null || extMime.Value.Equals(mimeExtension, StringComparison.InvariantCultureIgnoreCase))) {
-                    return true;
-                }
-            }
-            return false;
-        }
-        */
 
 
         #endregion

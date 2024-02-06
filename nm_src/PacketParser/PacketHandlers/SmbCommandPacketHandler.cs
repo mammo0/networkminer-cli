@@ -6,6 +6,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace PacketParser.PacketHandlers {
@@ -18,18 +19,20 @@ namespace PacketParser.PacketHandlers {
             get { return ApplicationLayerProtocol.NetBiosSessionService; }
         }
 
-        private readonly HashSet<Type> parsedTypes;
-        public override Type ParsedType { get { return typeof(Packets.SmbPacket); } }
+        //private readonly HashSet<Type> parsedTypes;
+        public override Type[] ParsedTypes { get; } = typeof(Packets.SmbPacket).GetNestedTypes().Append(typeof(Packets.SmbPacket)).ToArray();
+        /*
         public override bool CanParse(HashSet<Type> packetTypeSet) {
             return this.parsedTypes.Overlaps(packetTypeSet);
         }
+        */
 
         public SmbCommandPacketHandler(PacketHandler mainPacketHandler)
             : base(mainPacketHandler) {
-
+            /*
             this.parsedTypes = new HashSet<Type>(this.ParsedType.GetNestedTypes());//hopefully this should include everything that implements Packets.SmbPacket.AbstractSmbCommand
             this.parsedTypes.Add(this.ParsedType);
-
+            */
             //this.smbAssemblers=new SortedList<string, NetworkMiner.FileTransfer.FileStreamAssembler>();
             this.smbSessionPopularityList=new PopularityList<string, SmbSession>(100);
         }
@@ -226,7 +229,6 @@ namespace PacketParser.PacketHandlers {
 
                 }
             }
-            //else if(!smbCommandPacket.ParentCifsPacket.FlagsResponse && mainPacketHandler.FileStreamAssemblerList.ContainsAssembler(destinationHost, tcpPacket.DestinationPort, sourceHost, tcpPacket.SourcePort, true)) {
             else if (!smbCommandPacket.ParentCifsPacket.FlagsResponse && this.smbSessionPopularityList.ContainsKey(smbSessionId)) {
                 //Request
                 if (smbCommandPacket.GetType() == typeof(Packets.SmbPacket.CloseRequest) && smbSessionPopularityList.ContainsKey(smbSessionId)) {
@@ -234,7 +236,6 @@ namespace PacketParser.PacketHandlers {
                     SmbSession smbSession = this.smbSessionPopularityList[smbSessionId];
                     Packets.SmbPacket.CloseRequest closeRequest = (Packets.SmbPacket.CloseRequest)smbCommandPacket;
                     ushort fileId = closeRequest.FileId;
-                    //FileTransfer.FileStreamAssembler assemblerToClose;
                     if (smbSession.ContainsFileId(closeRequest.ParentCifsPacket.TreeId, closeRequest.ParentCifsPacket.MultiplexId, closeRequest.ParentCifsPacket.ProcessId, fileId)) {
                         FileTransfer.FileStreamAssembler assemblerToClose = smbSession.GetFileStreamAssembler(closeRequest.ParentCifsPacket.TreeId, closeRequest.ParentCifsPacket.MultiplexId, closeRequest.ParentCifsPacket.ProcessId, fileId);
                         if (assemblerToClose != null && assemblerToClose.AssembledByteCount >= assemblerToClose.FileContentLength)
@@ -244,9 +245,6 @@ namespace PacketParser.PacketHandlers {
                             segmentAssemblerToClose.AssembleAndClose();
 
                         smbSession.RemoveFileStreamAssembler(closeRequest.ParentCifsPacket.TreeId, closeRequest.ParentCifsPacket.MultiplexId, closeRequest.ParentCifsPacket.ProcessId, fileId, false);
-
-                        //TODO: remove the following line (added for debugging purpose 2011-04-25)
-                        //assemblerToClose.FinishAssembling();
 
                         if (mainPacketHandler.FileStreamAssemblerList.ContainsAssembler(assemblerToClose))
                             mainPacketHandler.FileStreamAssemblerList.Remove(assemblerToClose, true);

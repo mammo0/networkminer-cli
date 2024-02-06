@@ -37,7 +37,7 @@ namespace NetworkMiner {
             this.labelCopyright.Text = AssemblyCopyright;
             this.linkLabelHomepage.Text = link;
             this.linkLabelHomepage.Links.Add(0, link.Length, link);
-            this.linkLabelHomepage.LinkClicked+=new LinkLabelLinkClickedEventHandler(linkLabelHomepage_Click);
+            this.linkLabelHomepage.LinkClicked += new LinkLabelLinkClickedEventHandler(linkLabelHomepage_Click);
 
             if(localAboutTextNVC.Count == 0) {
                 StringBuilder nmText = new StringBuilder();
@@ -56,20 +56,24 @@ namespace NetworkMiner {
             creditBuilder.AppendLine();
             creditBuilder.AppendLine("NetworkMiner uses the MAC address database mac-ages, created and maintained by HD Moore. Mac-ages is available at https://github.com/hdm/mac-ages");
             creditBuilder.AppendLine();
-            creditBuilder.AppendLine("NetworkMiner uses the OS fingerprinting databse from p0f, created by Michal Zalewski <lcamtuf@coredump.cx>. P0f is available at http://lcamtuf.coredump.cx/p0f3/");
+            creditBuilder.AppendLine("NetworkMiner uses the OS fingerprinting databse from p0f, created by Michal Zalewski <lcamtuf@coredump.cx>. P0f is available at https://lcamtuf.coredump.cx/p0f3/");
+            creditBuilder.AppendLine();
+            creditBuilder.AppendLine("NetworkMiner uses the JA3 and and SSL Blacklists from abuse.ch’s SSLBL service. SSLBL is available at https://sslbl.abuse.ch/blacklist/");
             if (localAboutTextNVC[nameof(AboutTabs.Credits)] == null)
                 localAboutTextNVC.Add(nameof(AboutTabs.Credits), creditBuilder.ToString());
             else
                 localAboutTextNVC[nameof(AboutTabs.Credits)] = localAboutTextNVC[nameof(AboutTabs.Credits)] + creditBuilder.ToString();
 
-            StringBuilder protocolString = new System.Text.StringBuilder("Parsed application layer (L7) protocols include: ");
+            StringBuilder protocolString = new System.Text.StringBuilder("Parsed application layer (L7) protocols: ");
             foreach (PacketParser.ApplicationLayerProtocol l7proto in Enum.GetValues(typeof(PacketParser.ApplicationLayerProtocol))) {
                 if (l7proto != PacketParser.ApplicationLayerProtocol.Unknown)
                     protocolString.Append(l7proto + ", ");
             }
             protocolString.Remove(protocolString.Length - 2, 2);
-            localAboutTextNVC.Add(nameof(AboutTabs.Protocols), protocolString.ToString());
-            
+            if (localAboutTextNVC[nameof(AboutTabs.Protocols)] == null)
+                localAboutTextNVC.Add(nameof(AboutTabs.Protocols), protocolString.ToString());
+            else
+                localAboutTextNVC[nameof(AboutTabs.Protocols)] += protocolString.ToString();
 
             if (localAboutTextNVC.Count > 0) {
                 this.aboutTabControl.SuspendLayout();
@@ -92,9 +96,11 @@ namespace NetworkMiner {
         }
 
         void linkLabelHomepage_Click(object sender, System.Windows.Forms.LinkLabelLinkClickedEventArgs e) {
-            string target = e.Link.LinkData as string;
-            //System.Diagnostics.Process.Start(target);
-            SharedUtils.SystemHelper.ProcessStart(target);
+            if(e.Link?.LinkData is string target) {
+                //System.Diagnostics.Process.Start(target);
+                //SharedUtils.SystemHelper.ProcessStart(target);
+                SharedUtils.SystemHelper.TryOpenWebsite(target);
+            }
         }
 
         #region Assembly Attribute Accessors

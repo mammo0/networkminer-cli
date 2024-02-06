@@ -12,11 +12,11 @@ namespace PacketParser.PacketHandlers {
         //private PopularityList<Tuple<System.Net.IPAddress, System.Net.IPAddress>, ushort> endPointCandidates;
         private IUdpPayloadProtocolFinder udpPayloadProtocolFinder;
 
-        public override Type ParsedType { get { return typeof(Packets.SipPacket); } }
+        public override Type[] ParsedTypes { get; } = { typeof(Packets.SipPacket) };
 
         public ApplicationLayerProtocol HandledProtocol {
             get {
-                return ApplicationLayerProtocol.Sip;
+                return ApplicationLayerProtocol.SIP;
             }
         }
 
@@ -96,7 +96,7 @@ namespace PacketParser.PacketHandlers {
                                 if (message?.Length > 0) {
                                     if (callId == null || callId.Length == 0)
                                         callId = message;
-                                    this.MainPacketHandler.OnMessageDetected(new Events.MessageEventArgs(ApplicationLayerProtocol.Sip, sourceHost, destinationHost, sipPacket.ParentFrame.FrameNumber, sipPacket.ParentFrame.Timestamp, from, to, callId, message, sipPacket.HeaderFields, sipPacket.PacketLength));
+                                    this.MainPacketHandler.OnMessageDetected(new Events.MessageEventArgs(ApplicationLayerProtocol.SIP, sourceHost, destinationHost, sipPacket.ParentFrame.FrameNumber, sipPacket.ParentFrame.Timestamp, from, to, callId, message, sipPacket.HeaderFields, sipPacket.PacketLength));
                                 }
                             }
                         }
@@ -160,6 +160,12 @@ namespace PacketParser.PacketHandlers {
                 addressInHeader = addressInHeader.Substring(0, addressInHeader.IndexOf('>'));
             if (addressInHeader.StartsWith("sip:", StringComparison.OrdinalIgnoreCase))
                 addressInHeader = addressInHeader.Substring(4);
+            //remove port part of Contact
+            if (addressInHeader.Contains(':')) {
+                string[] contactParts = addressInHeader.Split(':');
+                if(contactParts[0]?.Length > 0 && UInt16.TryParse(contactParts[1], out _))
+                    addressInHeader = contactParts[0];
+            }
             return addressInHeader;
         }
 

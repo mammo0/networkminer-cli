@@ -5,7 +5,7 @@ using System.Text;
 namespace PacketParser.PacketHandlers {
     class TabularDataStreamPacketHandler : AbstractPacketHandler, ITcpSessionPacketHandler {
 
-        public override Type ParsedType { get { return typeof(Packets.TabularDataStreamPacket); } }
+        public override Type[] ParsedTypes { get; } = { typeof(Packets.TabularDataStreamPacket) };
 
         public ApplicationLayerProtocol HandledProtocol {
             get { return ApplicationLayerProtocol.TabularDataStream; }

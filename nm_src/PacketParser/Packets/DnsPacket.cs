@@ -142,7 +142,8 @@ namespace PacketParser.Packets {
                 dnsPacket = new DnsPacket(parentFrame, packetStartIndex, packetEndIndex, lengthPrefix);
                 return true;
             }
-            catch {
+            catch (Exception e) {
+                SharedUtils.Logger.Log("Exception when parsing frame " + parentFrame.FrameNumber + " as DNS packet: " + e.Message, SharedUtils.Logger.EventLogEntryType.Warning);
                 return false;
             }
         }
@@ -181,36 +182,43 @@ namespace PacketParser.Packets {
                 this.answerCount = Utils.ByteConverter.ToUInt16(parentFrame.Data, packetStartIndex + 6);
                 this.AnswerRecords=new ResourceRecord[this.answerCount];
 
-                if(this.questionCount > 0) {
-                    int typeStartOffset;
-                    List<NameLabel> nameLabelList=GetNameLabelList(parentFrame.Data, packetStartIndex, 12, out typeStartOffset);
-                    this.questionSectionByteCount=typeStartOffset-12;
 
-                    //we have now decoded the name!
-                    this.questionNameDecoded=new string[nameLabelList.Count];
-                    for(int i=0; i<nameLabelList.Count; i++)
-                        this.questionNameDecoded[i]=nameLabelList[i].ToString();
-                    
-                    this.questionType = Utils.ByteConverter.ToUInt16(parentFrame.Data, packetStartIndex + typeStartOffset);
-                    this.questionSectionByteCount +=2;
-                    this.questionClass = Utils.ByteConverter.ToUInt16(parentFrame.Data, packetStartIndex + typeStartOffset + 2);
-                    this.questionSectionByteCount +=2;
+                const int FIRST_LABEL_OFFSET = 12;
+
+                //if(this.questionCount > 0) {
+                if (this.questionCount < 1) {
+                    this.questionSectionByteCount = 0;
+                    this.questionNameDecoded = null;
                 }
                 else {
-                    this.questionSectionByteCount=0;
-                    this.questionNameDecoded=null;
+                    
+                    for (int qi = 0; qi < this.questionCount; qi++) {
+                        List<NameLabel> nameLabelList = GetNameLabelList(parentFrame.Data, packetStartIndex, FIRST_LABEL_OFFSET + this.questionSectionByteCount, out int typeStartOffset);
+                        this.questionSectionByteCount = typeStartOffset - FIRST_LABEL_OFFSET;
+
+                        //we have now decoded the name!
+                        //only care about the first proper query
+                        if (questionNameDecoded == null || questionNameDecoded.Length == 0) {
+                            this.questionNameDecoded = new string[nameLabelList.Count];
+                            for (int i = 0; i < nameLabelList.Count; i++)
+                                this.questionNameDecoded[i] = nameLabelList[i].ToString();
+                            this.questionType = Utils.ByteConverter.ToUInt16(parentFrame.Data, packetStartIndex + typeStartOffset);
+                            this.questionClass = Utils.ByteConverter.ToUInt16(parentFrame.Data, packetStartIndex + typeStartOffset + 2);
+                        }
+                        this.questionSectionByteCount += 4;
+                    }
                 }
                 //ANSWER RESOURCE RECORDS
-                int packetPositionIndex=packetStartIndex+12+questionSectionByteCount;
-                for(int i=0; i < this.AnswerRecords.Length; i++) {
-                    this.AnswerRecords[i]=new ResourceRecord(this, packetPositionIndex);
-                    packetPositionIndex+= this.AnswerRecords[i].ByteCount;
+                int packetPositionIndex=packetStartIndex + FIRST_LABEL_OFFSET + questionSectionByteCount;
+                for(int ai=0; ai < this.AnswerRecords.Length; ai++) {
+                    this.AnswerRecords[ai]=new ResourceRecord(this, packetPositionIndex);
+                    packetPositionIndex+= this.AnswerRecords[ai].ByteCount;
                     if (!this.ParentFrame.QuickParse) {
-                        if (this.AnswerRecords[i].Type == (ushort)RRTypes.HostAddress) {
-                            if (this.AnswerRecords[i].IP != null)
-                                this.Attributes.Add("IP", this.AnswerRecords[i].IP.ToString());
-                            if (this.AnswerRecords[i].DNS != null)
-                                this.Attributes.Add("DNS", this.AnswerRecords[i].DNS);
+                        if (this.AnswerRecords[ai].Type == (ushort)RRTypes.HostAddress) {
+                            if (this.AnswerRecords[ai].IP != null)
+                                this.Attributes.Add("IP", this.AnswerRecords[ai].IP.ToString());
+                            if (this.AnswerRecords[ai].DNS != null)
+                                this.Attributes.Add("DNS", this.AnswerRecords[ai].DNS);
                         }
                     }
                 }

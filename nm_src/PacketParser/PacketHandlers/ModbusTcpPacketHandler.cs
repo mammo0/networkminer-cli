@@ -11,7 +11,7 @@ namespace PacketParser.PacketHandlers {
             //empty?
         }
 
-        public override Type ParsedType { get { return typeof(Packets.ModbusTcpPacket); } }
+        public override Type[] ParsedTypes { get; } = { typeof(Packets.ModbusTcpPacket) };
 
         public ApplicationLayerProtocol HandledProtocol {
             get { return ApplicationLayerProtocol.ModbusTCP; }

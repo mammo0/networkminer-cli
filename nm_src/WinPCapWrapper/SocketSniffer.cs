@@ -18,6 +18,7 @@ namespace NetworkWrapper{
         private readonly Socket socket;
         private readonly byte[] buffer;
         private bool snifferActive;
+        private bool disposedValue;
 
         public PacketReceivedEventArgs.PacketTypes BasePacketType { get; }
 
@@ -27,7 +28,7 @@ namespace NetworkWrapper{
             this.BasePacketType = adapter.BasePacketType;
 
             this.snifferActive = false;
-            this.buffer = new byte[65535];
+            this.buffer = new byte[65536];
 
             //this does not seem to work for IPv6 traffic.
             //Others seem to have similar problems: http://social.technet.microsoft.com/Forums/en-US/netfxnetcom/thread/95fba78d-aa40-44df-9575-dc98138455f3
@@ -57,24 +58,75 @@ namespace NetworkWrapper{
 
         //destructor
         ~SocketSniffer() {
-            if(this.socket !=null)
-                this.socket.Close();
+            this.socket?.Close();
         }
 
         private void ReceivePacketListener(IAsyncResult result) {
-            int received = this.socket.EndReceive(result);
+            int received = 0;
             try {
-                byte[] data = new byte[received];
-                Array.Copy(this.buffer, 0, data, 0, received);
-
-                PacketReceivedEventArgs eventArgs = new PacketReceivedEventArgs(data, DateTime.Now, this.BasePacketType);
-                PacketReceived(this, eventArgs);
+                received = this.socket.EndReceive(result);
             }
-            catch {
-                // invalid packet; ignore
+            catch (SocketException e) when (e.SocketErrorCode == SocketError.MessageSize) {
+                if (e.ErrorCode == 10040) { //WSAEMSGSIZE
+                    SharedUtils.Logger.Log("Warning: Skipped packet larger than " + buffer.Length + ". Consider disabling Large Send Offload (LSO) on NIC.", SharedUtils.Logger.EventLogEntryType.Warning);
+                }
+                else {
+                    SharedUtils.Logger.Log("SocketException: " + e.Message, SharedUtils.Logger.EventLogEntryType.Error);
+                    throw;
+                }
+            }
+            catch (SocketException e) when (e.SocketErrorCode == SocketError.IOPending) {
+                //997
+                /**
+                * From the .NET source code:
+                * I have guarantees from Brad Williamson that WSARecvMsg() will never return WSAEMSGSIZE directly, since a completion
+                * is queued in this case.  We wouldn't be able to handle this easily because of assumptions OverlappedAsyncResult
+                * makes about whether there would be a completion or not depending on the error code.  If WSAEMSGSIZE would have been
+                * normally returned, it returns WSA_IO_PENDING instead.  That same map is implemented here just in case.
+                * */
+                SharedUtils.Logger.Log("Warning: Skipped packet due to IOPending", SharedUtils.Logger.EventLogEntryType.Warning);
+            }
+            catch (Exception e) {
+                SharedUtils.Logger.Log(e.ToString(), SharedUtils.Logger.EventLogEntryType.Error);
+                throw;
+            }
+            if (received > 0) {
+                try {
+                    byte[] data = new byte[received];
+                    Array.Copy(this.buffer, 0, data, 0, received);
+
+                    PacketReceivedEventArgs eventArgs = new PacketReceivedEventArgs(data, DateTime.UtcNow, this.BasePacketType);
+                    PacketReceived(this, eventArgs);
+                }
+                catch {
+                    // invalid packet; ignore
+                }
             }
             if (this.snifferActive)
                 this.socket.BeginReceive(this.buffer, 0, this.buffer.Length, SocketFlags.None, new AsyncCallback(this.ReceivePacketListener), null);
+        }
+
+        protected virtual void Dispose(bool disposing) {
+            if (!disposedValue) {
+                if (disposing) {
+                    try {
+                        this.socket?.Close();
+                    }
+                    catch (Exception e){
+                        SharedUtils.Logger.Log("Error closing socket when disposing sniffer: " + e.Message, SharedUtils.Logger.EventLogEntryType.Warning);
+                    }
+                }
+
+                // TODO: free unmanaged resources (unmanaged objects) and override finalizer
+                // TODO: set large fields to null
+                disposedValue = true;
+            }
+        }
+
+        public void Dispose() {
+            // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+            this.Dispose(disposing: true);
+            GC.SuppressFinalize(this);
         }
     }
 }

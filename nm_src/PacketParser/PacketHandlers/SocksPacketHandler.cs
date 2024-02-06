@@ -9,7 +9,7 @@ namespace PacketParser.PacketHandlers {
 
         private PopularityList<NetworkTcpSession, KeyValuePair<System.Net.IPAddress, ushort>> socksConnectIpPorts;
 
-        public override Type ParsedType { get { return typeof(Packets.SocksPacket); } }
+        public override Type[] ParsedTypes { get; } = { typeof(Packets.SocksPacket) };
 
         public SocksPacketHandler(PacketHandler mainPacketHandler) : base(mainPacketHandler) {
             this.socksConnectIpPorts = new PopularityList<NetworkTcpSession, KeyValuePair<System.Net.IPAddress, ushort>>(64);//64 parallell SOCKS sessions should be enough for everyone ;)
@@ -19,11 +19,10 @@ namespace PacketParser.PacketHandlers {
         {
             get
             {
-                return ApplicationLayerProtocol.Socks;
+                return ApplicationLayerProtocol.SOCKS;
             }
         }
 
-        //public int ExtractData(NetworkTcpSession tcpSession, NetworkHost sourceHost, NetworkHost destinationHost, IEnumerable<AbstractPacket> packetList) {
         public int ExtractData(NetworkTcpSession tcpSession, bool transferIsClientToServer, IEnumerable<PacketParser.Packets.AbstractPacket> packetList) {
 
 
@@ -93,12 +92,12 @@ namespace PacketParser.PacketHandlers {
                 if (socksPacket.ATyp == SocksPacket.ATYP.DOMAINNAME) {
                     System.Collections.Specialized.NameValueCollection parms = new System.Collections.Specialized.NameValueCollection();
                     parms.Add(paramName, socksPacket.DomainName + ":" + socksPacket.Port.ToString());
-                    MainPacketHandler.OnParametersDetected(new Events.ParametersEventArgs(socksPacket.ParentFrame.FrameNumber, tcpSession.Flow.FiveTuple, transferIsClientToServer, parms, socksPacket.ParentFrame.Timestamp, "SOCKS Connection"));
+                    this.MainPacketHandler.OnParametersDetected(new Events.ParametersEventArgs(socksPacket.ParentFrame.FrameNumber, tcpSession.Flow.FiveTuple, transferIsClientToServer, parms, socksPacket.ParentFrame.Timestamp, "SOCKS Connection"));
                 }
                 else if(socksPacket.ATyp == SocksPacket.ATYP.IPv4 || socksPacket.ATyp == SocksPacket.ATYP.IPv6) {
                     System.Collections.Specialized.NameValueCollection parms = new System.Collections.Specialized.NameValueCollection();
                     parms.Add(paramName, socksPacket.IpAddress.ToString() + ":" + socksPacket.Port.ToString());
-                    MainPacketHandler.OnParametersDetected(new Events.ParametersEventArgs(socksPacket.ParentFrame.FrameNumber, tcpSession.Flow.FiveTuple, transferIsClientToServer, parms, socksPacket.ParentFrame.Timestamp, "SOCKS Connection"));
+                    this.MainPacketHandler.OnParametersDetected(new Events.ParametersEventArgs(socksPacket.ParentFrame.FrameNumber, tcpSession.Flow.FiveTuple, transferIsClientToServer, parms, socksPacket.ParentFrame.Timestamp, "SOCKS Connection"));
                 }
             }
             if (socksPacket != null)

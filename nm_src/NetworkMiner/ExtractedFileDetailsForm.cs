@@ -14,7 +14,7 @@ namespace NetworkMiner {
     public partial class ExtractedFileDetailsForm : Form {
 
         internal PropertyGridDetails FileDetails { get; }
-        private uint maxBytesToRead = 256;
+        private uint maxBytesToRead = 1024;//preferably more than 256 in order to include a full PE header
 
 
         public int PropertyGridLabelWidth

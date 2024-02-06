@@ -10,11 +10,32 @@ namespace SharedUtils {
             return Type.GetType("Mono.Runtime") != null;
         }
 
+        public static bool TryOpenWebsite(string url) {
+            if (string.IsNullOrEmpty(url))
+                return false;
+            else if (System.Uri.TryCreate(url, UriKind.Absolute, out _)) {
+                return TryStartProcess(url, out _);
+            }
+            else
+                return false;
+        }
+
+        public static bool TryStartProcess(string path, out System.Diagnostics.Process process) {
+            process = ProcessStart(path);
+            if (process != null && process.HasExited) {
+                using (process) {
+                    return process.ExitCode >= 0;
+                }
+            }
+            else
+                return process != null;
+        }
+
         //https://github.com/mono/mono/issues/17204
         //https://github.com/dotnet/runtime/issues/28005
         //https://github.com/dotnet/runtime/issues/23877
         //https://github.com/KSP-CKAN/CKAN/blob/16994590ee0318d6bb93c90455e1dead093a02cc/Core/Utilities.cs (ProcessStartURL)
-        public static void ProcessStart(string path) {
+        public static System.Diagnostics.Process ProcessStart(string path) {
             
 
             if (IsRunningOnMono()) {
@@ -30,27 +51,27 @@ namespace SharedUtils {
                     //psi.UseShellExecute = true/false?;
                     try {
                         Logger.Log("Attempting to open " + path + " with " + app, Logger.EventLogEntryType.Information);
-                        System.Diagnostics.Process.Start(psi);
+                        return System.Diagnostics.Process.Start(psi);
                     }
                     catch (System.ComponentModel.Win32Exception) {
                         continue;
                     }
-                    break;
                 }
             }
             else {
                 if (System.IO.File.Exists(path))
-                    System.Diagnostics.Process.Start(path);
+                    return System.Diagnostics.Process.Start(path);
                 else if (System.IO.Directory.Exists(path)) {
                     if (path.Contains(' ') && path[0] != '\"')
                         path = "\"" + path + "\"";
 
-                    System.Diagnostics.Process.Start("explorer.exe", path);
+                    return System.Diagnostics.Process.Start("explorer.exe", path);
                 }
                 else
-                    System.Diagnostics.Process.Start(path);
+                    return System.Diagnostics.Process.Start(path);
             }
 
+            return null;
             
             
         }

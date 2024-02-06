@@ -28,7 +28,9 @@ namespace PacketParser.Packets {
                 else if (packetStartIndex == packetEndIndex)
                     result = new LpdResponsePacket(parentFrame, packetStartIndex);
             }
-            catch { }
+            catch(Exception e){
+                SharedUtils.Logger.Log("Exception when parsing frame " + parentFrame.FrameNumber + " as LPD packet: " + e.Message, SharedUtils.Logger.EventLogEntryType.Warning);
+            }
             return result != null;
         }
 

@@ -739,11 +739,11 @@ namespace PacketParser.Packets {
                     ushort unicodePasswordLength = Utils.ByteConverter.ToUInt16(base.ParentFrame.Data, base.PacketStartIndex + 16, true);
                     if (ansiPasswordLength>0) {
                         //this.accountPassword=ByteConverter.ReadString(parentCifsPacket.ParentFrame.Data, parentCifsPacket.parametersStartIndex+28, ansiPasswordLength);
-                        this.accountPassword = Utils.ByteConverter.ReadHexString(base.ParentFrame.Data, ansiPasswordLength, base.PacketStartIndex + 28);
+                        this.accountPassword = Utils.ByteConverter.ToHexString(base.ParentFrame.Data, ansiPasswordLength, base.PacketStartIndex + 28);
                     }
                     if(unicodePasswordLength>0) {
                         string decodedPassword = accountPassword = Utils.ByteConverter.ReadString(base.ParentFrame.Data, base.PacketStartIndex + 28 + ansiPasswordLength, unicodePasswordLength, true, false);
-                        string hexPassword = accountPassword = Utils.ByteConverter.ReadHexString(base.ParentFrame.Data, unicodePasswordLength, base.PacketStartIndex + 28 + ansiPasswordLength);
+                        string hexPassword = accountPassword = Utils.ByteConverter.ToHexString(base.ParentFrame.Data, unicodePasswordLength, base.PacketStartIndex + 28 + ansiPasswordLength);
                         //this.accountPassword=decodedPassword+" (HEX: "+hexPassword+")";
                         this.accountPassword=hexPassword;
                     }

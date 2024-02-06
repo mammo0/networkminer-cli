@@ -46,7 +46,7 @@ namespace PacketParser.Packets {
             }
         }
         public string ClientUsername { get { return this.username; } }
-        public string PublicKeyHexString { get { return Utils.ByteConverter.ReadHexString(publicKey, publicKey.Length); } }
+        public string PublicKeyHexString { get { return Utils.ByteConverter.ToHexString(publicKey, publicKey.Length); } }
 
 
         //use this one instead of the constructor to speed things up by reducing Exceptions
@@ -67,8 +67,9 @@ namespace PacketParser.Packets {
                 try {
                     result=new SpotifyKeyExchangePacket(parentFrame, packetStartIndex, packetEndIndex, clientToServer);
                 }
-                catch {
-                    result=null;
+                catch (Exception e) {
+                    SharedUtils.Logger.Log("Exception when parsing frame " + parentFrame.FrameNumber + " as Spotify key exchange packet: " + e.Message, SharedUtils.Logger.EventLogEntryType.Warning);
+                    result =null;
                 }
             }
             else {

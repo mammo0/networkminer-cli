@@ -18,7 +18,7 @@ namespace PacketParser.Packets {
                 //The format of the user cookie is: Cookie:[space]mstshash =[ANSI string][0x0d0a]
                 int index = packetStartIndex;
                 string line = Utils.ByteConverter.ReadLine(parentFrame.Data, ref index);
-                if (line.StartsWith(COOKIE_FIELD_HEADER))
+                if(line?.Length > COOKIE_FIELD_HEADER.Length && line.StartsWith(COOKIE_FIELD_HEADER))
                     this.routingCookie = line.Substring(COOKIE_FIELD_HEADER.Length);
             }
 

@@ -9,6 +9,7 @@ using System.Net;
 using System.Collections.Generic;
 using System.Text;
 using System.IO;
+using PacketParser.FileTransfer;
 
 namespace PacketParser {
 
@@ -30,21 +31,18 @@ namespace PacketParser {
 
 
     public class PacketHandler {
-        internal static PopularityList<string, List<Packets.IPv4Packet>> Ipv4Fragments = new PopularityList<string,List<Packets.IPv4Packet>>(1024);
+        internal static PopularityList<string, List<Packets.IPv4Packet>> Ipv4Fragments = new PopularityList<string, List<Packets.IPv4Packet>>(1024);
         private long nFramesReceived, nBytesReceived;
         private CleartextDictionary.WordDictionary dictionary;
-        
+
         private PopularityList<int, NetworkTcpSession> networkTcpSessionList;
         private SortedList<string, NetworkCredential> credentialList;
         //TODO: Add PopularityList of type <FileSegmentAssembler>
         private Func<DateTime, string> toCustomTimeZoneStringFunction;
 
-        //private System.Collections.Generic.Queue<SharedUtils.Pcap.PacketReceivedEventArgs> receivedPacketsQueue;
         private System.Collections.Concurrent.BlockingCollection<SharedUtils.Pcap.PacketReceivedEventArgs> receivedPacketsQueue_BC;
-        //private System.Collections.Concurrent.ConcurrentQueue<SharedUtils.Pcap.PacketReceivedEventArgs> receivedPacketsQueue;
-        public const int RECEIVED_PACKETS_QUEUE_MAX_SIZE=16000;
+        public const int RECEIVED_PACKETS_QUEUE_MAX_SIZE = 16000;
 
-        //private System.Collections.Generic.Queue<Frame> framesToParseQueue;
         private readonly System.Collections.Concurrent.BlockingCollection<Frame> framesToParseQueue;
         private long framesToParseQueuedByteCount;
 
@@ -68,8 +66,6 @@ namespace PacketParser {
         private System.Threading.Thread packetQueueConsumerThread;
         private System.Threading.Thread frameQueueConsumerThread;
 
-        //System.Threading.AutoResetEvent framesToParseQueueEvent, receivedPacketsQueueEvent;
-        //private Utils.QueueThresholdSignaller<Frame> framesToParseThresholdSignaller = null;
         private object insufficientWritePermissionsLock = new object();
         private bool useRelativePathIfAvailable = true;
 
@@ -97,12 +93,11 @@ namespace PacketParser {
         public byte[][] KeywordList { set { this.keywordList = value; } }
         public int CleartextSearchModeSelectedIndex { set { this.cleartextSearchModeSelectedIndex = value; } }
 
-        public CleartextDictionary.WordDictionary Dictionary { set { this.dictionary=value; } }
+        public CleartextDictionary.WordDictionary Dictionary { set { this.dictionary = value; } }
         public List<Fingerprints.IOsFingerprinter> OsFingerprintCollectionList { get; }
-        //internal ICollection<NetworkHost> DetectedHosts { get { return networkHostList.Hosts; } }
         public NetworkHostList NetworkHostList { get; }
-        //internal NetworkMinerForm ParentForm { get { return this.parentForm; } }
         public FileTransfer.FileStreamAssemblerList FileStreamAssemblerList { get; }
+        public PopularityList<(NetworkTcpSession tcpSession, bool clientToServer), ITcpStreamAssembler> TcpStreamAssemblerList { get; }
         public int PacketsInQueue { get { return this.receivedPacketsQueue_BC.Count; } }
         public int FramesInQueue { get { return this.framesToParseQueue.Count; } }
 
@@ -121,13 +116,12 @@ namespace PacketParser {
             set;
         }
 
-        public void ResetCapturedData() {
+        public void ResetCapturedData(bool removeExtractedFilesFromDisk) {
             lock (this.receivedPacketsQueue_BC) {
                 lock (this.NetworkHostList)
                     this.NetworkHostList.Clear();
                 this.nFramesReceived = 0;
                 this.nBytesReceived = 0;
-                //this.fileStreamAssemblerList.ClearAll();
                 this.networkTcpSessionList.Clear();
                 lock (Ipv4Fragments)
                     Ipv4Fragments.Clear();
@@ -141,10 +135,12 @@ namespace PacketParser {
                     packetHandler.Reset();
                 foreach (PacketHandlers.ITcpSessionPacketHandler packetHandler in this.tcpSessionPacketHandlerList)
                     packetHandler.Reset();
-                this.FileStreamAssemblerList.ClearAll();
+                this.FileStreamAssemblerList.Clear(removeExtractedFilesFromDisk);
+                this.TcpStreamAssemblerList.Clear();
+                this.ProtocolFinderFactory.Reset();
 
                 while (this.receivedPacketsQueue_BC.TryTake(out var packetReceivedEventArgs)) { }
-                //while (this.receivedPacketsQueue.TryDequeue(out var packetReceivedEventArgs)) { }
+
             }
             if (this.ExtraHttpPacketHandler != null)
                 this.ExtraHttpPacketHandler.Reset();
@@ -153,7 +149,7 @@ namespace PacketParser {
 #if DEBUG
 
         public void Disable() {
-            this.AnomalyDetected += (o, k) => { System.Diagnostics.Debugger.Break();  throw new ObjectDisposedException("This PacketHandler is disabled, use a different one!"); };
+            this.AnomalyDetected += (o, k) => { System.Diagnostics.Debugger.Break(); throw new ObjectDisposedException("This PacketHandler is disabled, use a different one!"); };
             this.ParametersDetected += (o, k) => { System.Diagnostics.Debugger.Break(); throw new ObjectDisposedException("This PacketHandler is disabled, use a different one!"); };
             this.NetworkHostDetected += (o, k) => { System.Diagnostics.Debugger.Break(); throw new ObjectDisposedException("This PacketHandler is disabled, use a different one!"); };
             this.HttpTransactionDetected += (o, k) => { System.Diagnostics.Debugger.Break(); throw new ObjectDisposedException("This PacketHandler is disabled, use a different one!"); };
@@ -170,29 +166,23 @@ namespace PacketParser {
         }
 #endif
 
-        public PacketHandler(string applicationExecutablePath, string outputPath, List<Fingerprints.IOsFingerprinter> preloadedFingerprints, bool ignoreMissingFingerprintFiles, Func<DateTime, string> toCustomTimeZoneStringFunction, bool useRelativePathIfAvailable, bool verifyX509Certificates) {
+        public PacketHandler(string applicationExecutablePath, string outputPath, List<Fingerprints.IOsFingerprinter> preloadedFingerprints, bool ignoreMissingFingerprintFiles, Func<DateTime, string> toCustomTimeZoneStringFunction, bool useRelativePathIfAvailable, bool verifyX509Certificates, byte vncMaxFPS) {
             this.useRelativePathIfAvailable = useRelativePathIfAvailable;
             this.toCustomTimeZoneStringFunction = toCustomTimeZoneStringFunction;
             this.ProtocolFinderFactory = new PortProtocolFinderFactory(this);
-            //this.parentForm=parentForm;
 
-            this.NetworkHostList=new NetworkHostList();
-            this.nFramesReceived=0;
-            this.nBytesReceived=0;
-            //this.receivedFramesQueue=new LatestFramesQueue(256);
-            this.dictionary=new CleartextDictionary.WordDictionary();
-            this.lastBufferUsagePercent=null;
+            this.NetworkHostList = new NetworkHostList();
+            this.nFramesReceived = 0;
+            this.nBytesReceived = 0;
+            this.dictionary = new CleartextDictionary.WordDictionary();
+            this.lastBufferUsagePercent = null;
 
             this.receivedPacketsQueue_BC = new System.Collections.Concurrent.BlockingCollection<SharedUtils.Pcap.PacketReceivedEventArgs>(RECEIVED_PACKETS_QUEUE_MAX_SIZE);
-            //this.receivedPacketsQueue = new System.Collections.Concurrent.ConcurrentQueue<SharedUtils.Pcap.PacketReceivedEventArgs>();
 
             this.framesToParseQueue = new System.Collections.Concurrent.BlockingCollection<Frame>(RECEIVED_PACKETS_QUEUE_MAX_SIZE);
 
             this.packetQueueConsumerThread = new System.Threading.Thread(new System.Threading.ThreadStart(delegate () { this.CreateFramesFromPacketsInPacketQueue(); }));
             this.frameQueueConsumerThread = new System.Threading.Thread(new System.Threading.ThreadStart(delegate () { this.ParseFramesInFrameQueue(); }));
-
-            //this.framesToParseQueueEvent = new System.Threading.AutoResetEvent(false);
-            //this.receivedPacketsQueueEvent = new System.Threading.AutoResetEvent(false);
 
             string applicationDirectory = Path.GetDirectoryName(applicationExecutablePath) + System.IO.Path.DirectorySeparatorChar;
             this.FingerprintsPath = applicationDirectory + "Fingerprints" + System.IO.Path.DirectorySeparatorChar;
@@ -200,7 +190,7 @@ namespace PacketParser {
             if (!outputPath.EndsWith(System.IO.Path.DirectorySeparatorChar.ToString()))
                 outputPath += System.IO.Path.DirectorySeparatorChar.ToString();
             this.OutputDirectory = Path.GetDirectoryName(outputPath) + System.IO.Path.DirectorySeparatorChar;
-            this.OsFingerprintCollectionList=new List<Fingerprints.IOsFingerprinter>();
+            this.OsFingerprintCollectionList = new List<Fingerprints.IOsFingerprinter>();
             if (preloadedFingerprints != null)
                 this.OsFingerprintCollectionList.AddRange(preloadedFingerprints);
             this.FileCarvers = new Dictionary<FileTransfer.FileStreamTypes, FileTransfer.IFileCarver>();
@@ -214,28 +204,28 @@ namespace PacketParser {
                 //Check CERT NetSA p0f database https://tools.netsa.cert.org/confluence/display/tt/p0f+fingerprints
                 string netsaP0fFile = this.FingerprintsPath + "p0f.fp.netsa";
                 if (System.IO.File.Exists(netsaP0fFile))
-                    OsFingerprintCollectionList.Add(new Fingerprints.P0fOsFingerprintCollection(netsaP0fFile, applicationDirectory + System.IO.Path.DirectorySeparatorChar + "Fingerprints" + System.IO.Path.DirectorySeparatorChar + "p0fa.fp", "p0f (NetSA)", 0.4));
+                    this.OsFingerprintCollectionList.Add(new Fingerprints.P0fOsFingerprintCollection(netsaP0fFile, applicationDirectory + System.IO.Path.DirectorySeparatorChar + "Fingerprints" + System.IO.Path.DirectorySeparatorChar + "p0fa.fp", "p0f (NetSA)", 0.4));
                 else
-                    OsFingerprintCollectionList.Add(new Fingerprints.P0fOsFingerprintCollection(this.FingerprintsPath + "p0f.fp", applicationDirectory + System.IO.Path.DirectorySeparatorChar + "Fingerprints" + System.IO.Path.DirectorySeparatorChar + "p0fa.fp"));
-                OsFingerprintCollectionList.Add(new Fingerprints.SatoriDhcpOsFingerprinter(this.FingerprintsPath + "dhcp.xml"));
-                OsFingerprintCollectionList.Add(new Fingerprints.SatoriTcpOsFingerprinter(this.FingerprintsPath + "tcp.xml"));
+                    this.OsFingerprintCollectionList.Add(new Fingerprints.P0fOsFingerprintCollection(this.FingerprintsPath + "p0f.fp", applicationDirectory + System.IO.Path.DirectorySeparatorChar + "Fingerprints" + System.IO.Path.DirectorySeparatorChar + "p0fa.fp"));
+                this.OsFingerprintCollectionList.Add(new Fingerprints.SatoriDhcpOsFingerprinter(this.FingerprintsPath + "dhcp.xml"));
+                this.OsFingerprintCollectionList.Add(new Fingerprints.SatoriTcpOsFingerprinter(this.FingerprintsPath + "tcp.xml"));
             }
             catch (FileNotFoundException e) {
                 if (!ignoreMissingFingerprintFiles)
-                    throw e;//re-throw the exception
+                    throw;//re-throw the exception
             }
-            //this.networkTcpSessionDictionary=new Dictionary<int, NetworkTcpSession>();
-            this.networkTcpSessionList=new PopularityList<int, NetworkTcpSession>(200);
-            this.networkTcpSessionList.PopularityLost+=new PopularityList<int, NetworkTcpSession>.PopularityLostEventHandler(networkTcpSessionList_PopularityLost);
+            this.networkTcpSessionList = new PopularityList<int, NetworkTcpSession>(200);
+            this.networkTcpSessionList.PopularityLost += (key, session) => session.Close();
             this.FileStreamAssemblerList = new FileTransfer.FileStreamAssemblerList(this, 100, this.OutputDirectory + PacketParser.FileTransfer.FileStreamAssembler.ASSMEBLED_FILES_DIRECTORY + System.IO.Path.DirectorySeparatorChar);
             this.FileStreamAssemblerList.PopularityLost += this.FileStreamAssemblerList_PopularityLost;
-            this.ReconstructedFileList=new List<FileTransfer.ReconstructedFile>();
-            this.credentialList=new SortedList<string, NetworkCredential>();
-            //this.pendingSessionCredentialList=new SortedList<string, NetworkCredential>();
+            this.TcpStreamAssemblerList = new PopularityList<(NetworkTcpSession tcpSession, bool clientToServer), ITcpStreamAssembler>(100);
+            this.TcpStreamAssemblerList.PopularityLost += (key, assembler) => assembler.Clear();
+            this.ReconstructedFileList = new List<FileTransfer.ReconstructedFile>();
+            this.credentialList = new SortedList<string, NetworkCredential>();
 
-            this.nonIpPacketHandlerList=new List<PacketHandlers.IPacketHandler>();
-            this.packetHandlerList=new List<PacketHandlers.IPacketHandler>();
-            this.tcpSessionPacketHandlerList=new List<PacketHandlers.ITcpSessionPacketHandler>();
+            this.nonIpPacketHandlerList = new List<PacketHandlers.IPacketHandler>();
+            this.packetHandlerList = new List<PacketHandlers.IPacketHandler>();
+            this.tcpSessionPacketHandlerList = new List<PacketHandlers.ITcpSessionPacketHandler>();
             //packet handlers should be entered into the handlerList in the order that packets should be processed
             this.nonIpPacketHandlerList.Add(new PacketHandlers.HpSwitchProtocolPacketHandler(this));
             PacketHandlers.DnsPacketHandler dnsPacketHandler = new PacketHandlers.DnsPacketHandler(this);
@@ -252,6 +242,7 @@ namespace PacketParser {
             this.packetHandlerList.Add(new PacketHandlers.SyslogPacketHandler(this));
             this.packetHandlerList.Add(new PacketHandlers.CifsBrowserPacketHandler(this));
             this.tcpSessionPacketHandlerList.Add(dnsPacketHandler);
+            this.tcpSessionPacketHandlerList.Add(new PacketHandlers.BackConnectPacketHandler(this, vncMaxFPS));
             this.tcpSessionPacketHandlerList.Add(new PacketHandlers.FtpPacketHandler(this));
             this.tcpSessionPacketHandlerList.Add(new PacketHandlers.HttpPacketHandler(this));
             this.tcpSessionPacketHandlerList.Add(new PacketHandlers.Http2PacketHandler(this, dnsPacketHandler));
@@ -260,8 +251,10 @@ namespace PacketParser {
             this.tcpSessionPacketHandlerList.Add(new PacketHandlers.KerberosPacketHandler(this));
             this.tcpSessionPacketHandlerList.Add(new PacketHandlers.LpdPacketHandler(this));
             this.tcpSessionPacketHandlerList.Add(new PacketHandlers.NetBiosSessionServicePacketHandler(this));
+            this.tcpSessionPacketHandlerList.Add(new PacketHandlers.NjRatPacketHandler(this));
             this.tcpSessionPacketHandlerList.Add(new PacketHandlers.NtlmSspPacketHandler(this));
             this.tcpSessionPacketHandlerList.Add(new PacketHandlers.Pop3PacketHandler(this));
+            this.tcpSessionPacketHandlerList.Add(new PacketHandlers.RfbPacketHandler(this, vncMaxFPS));
             this.tcpSessionPacketHandlerList.Add(new PacketHandlers.SipPacketHandler(this));
             this.tcpSessionPacketHandlerList.Add(new PacketHandlers.SmbCommandPacketHandler(this));
             this.tcpSessionPacketHandlerList.Add(new PacketHandlers.Smb2PacketHandler(this));
@@ -278,35 +271,29 @@ namespace PacketParser {
             this.tcpSessionPacketHandlerList.Add(new PacketHandlers.RdpPacketHandler(this));
             this.tcpSessionPacketHandlerList.Add(new PacketHandlers.MeterpreterPacketHandler(this));
             this.tcpSessionPacketHandlerList.Add(new PacketHandlers.GenericShimPacketHandler<Packets.OpenFlowPacket>(this, ApplicationLayerProtocol.OpenFlow));
-            this.tcpSessionPacketHandlerList.Add(new PacketHandlers.GenericShimPacketHandler<Packets.TpktPacket>(this, ApplicationLayerProtocol.Tpkt));
+            this.tcpSessionPacketHandlerList.Add(new PacketHandlers.GenericShimPacketHandler<Packets.TpktPacket>(this, ApplicationLayerProtocol.TPKT));
             this.tcpSessionPacketHandlerList.Add(new PacketHandlers.UnusedTcpSessionProtocolsHandler(this));//this one is needed in order to release packets from the TCP reassembly if they are complete.
 
-            this.keywordList=new byte[0][];
+            this.keywordList = new byte[0][];
         }
 
         private void FileStreamAssemblerList_PopularityLost(string key, FileTransfer.FileStreamAssembler value) {
-            if(value is PacketParser.FileTransfer.AuFileAssembler auFile) {
+            if (value is PacketParser.FileTransfer.AuFileAssembler auFile) {
                 auFile.FinishAssembling();
             }
         }
 
-        /*
-        [Obsolete("This function no longer has any effect now that the queue is replaced with a BlockingCollection")]
-        public System.Threading.AutoResetEvent SetFramesToParseSignalThreshold(int threshold) {
-            
-            this.framesToParseThresholdSignaller = new Utils.QueueThresholdSignaller<Frame>(this.framesToParseQueue, threshold);
-            return this.framesToParseThresholdSignaller.BelowThresholdEvent;
-            
-        }
-        */
-
-        void networkTcpSessionList_PopularityLost(int key, NetworkTcpSession value) {
-            value.Close();
+        public void SetUndecidedProtocolsToUnknown() {
+            //Set undecided protocols to Unknown
+            foreach (NetworkTcpSession session in this.networkTcpSessionList.GetValueEnumerator()) {
+                if (session.ProtocolFinder.GetConfirmedApplicationLayerProtocol() == ApplicationLayerProtocol.Unknown)
+                    session.ProtocolFinder.SetConfirmedApplicationLayerProtocol(ApplicationLayerProtocol.Unknown, false);
+            }
         }
 
 
         public void StartBackgroundThreads() {
-            
+
             //packetHandlerThread.Start();
 
             this.packetQueueConsumerThread.Start();
@@ -334,7 +321,7 @@ namespace PacketParser {
             AnomalyDetected?.Invoke(this, ae);
         }
         internal virtual void OnAnomalyDetected(string anomalyMessage) {
-            
+
             OnAnomalyDetected(anomalyMessage, DateTime.Now);
         }
         internal virtual void OnAnomalyDetected(string anomalyMessage, DateTime anomalyTimestamp) {
@@ -395,7 +382,7 @@ namespace PacketParser {
             return GetCleartextWords(packet.ParentFrame.Data, packet.PacketStartIndex, packet.PacketEndIndex);
         }
         private IEnumerable<string> GetCleartextWords(byte[] data) {
-            return GetCleartextWords(data, 0, data.Length-1);
+            return GetCleartextWords(data, 0, data.Length - 1);
         }
         /// <summary>
         /// Displays words in cleartext that exists in the provided data range
@@ -434,12 +421,12 @@ namespace PacketParser {
         /// <param name="sender"></param>
         /// <param name="packet"></param>
         public bool TryEnqueueReceivedPacket(object sender, SharedUtils.Pcap.PacketReceivedEventArgs packet) {
-            if(this.receivedPacketsQueue_BC.Count<RECEIVED_PACKETS_QUEUE_MAX_SIZE) {
-                
+            if (this.receivedPacketsQueue_BC.Count < RECEIVED_PACKETS_QUEUE_MAX_SIZE) {
+
                 this.receivedPacketsQueue_BC.Add(packet);
                 //this.receivedPacketsQueue.Enqueue(packet);
 
-                this.OnBufferUsageChanged(new Events.BufferUsageEventArgs((this.receivedPacketsQueue_BC.Count*100)/RECEIVED_PACKETS_QUEUE_MAX_SIZE));
+                this.OnBufferUsageChanged(new Events.BufferUsageEventArgs((this.receivedPacketsQueue_BC.Count * 100) / RECEIVED_PACKETS_QUEUE_MAX_SIZE));
                 //this.parentForm.SetBufferUsagePercent((this.receivedPacketsQueue.Count*100)/RECEIVED_PACKETS_QUEUE_MAX_SIZE);
                 return true;
             }
@@ -451,58 +438,33 @@ namespace PacketParser {
         }
 
         private void UpdateBufferUsagePercent() {
-            int usage=Math.Min(Math.Max(this.receivedPacketsQueue_BC.Count, this.framesToParseQueue.Count), RECEIVED_PACKETS_QUEUE_MAX_SIZE);
-            int percent=(usage*100)/RECEIVED_PACKETS_QUEUE_MAX_SIZE;
-            if(this.lastBufferUsagePercent ==null || percent!=lastBufferUsagePercent.Value) {
-                this.lastBufferUsagePercent =percent;
-                this.OnBufferUsageChanged(new Events.BufferUsageEventArgs((usage*100)/RECEIVED_PACKETS_QUEUE_MAX_SIZE));
+            int usage = Math.Min(Math.Max(this.receivedPacketsQueue_BC.Count, this.framesToParseQueue.Count), RECEIVED_PACKETS_QUEUE_MAX_SIZE);
+            int percent = (usage * 100) / RECEIVED_PACKETS_QUEUE_MAX_SIZE;
+            if (this.lastBufferUsagePercent == null || percent != lastBufferUsagePercent.Value) {
+                this.lastBufferUsagePercent = percent;
+                this.OnBufferUsageChanged(new Events.BufferUsageEventArgs((usage * 100) / RECEIVED_PACKETS_QUEUE_MAX_SIZE));
             }
         }
 
 
-        internal void CreateFramesFromPacketsInPacketQueue(){
+        internal void CreateFramesFromPacketsInPacketQueue() {
             try {
                 while (true) {
-                    /*
-                    if (this.receivedPacketsQueue.Count > 0 && this.framesToParseQueue.Count < RECEIVED_PACKETS_QUEUE_MAX_SIZE) {
-                        SharedUtils.Pcap.PacketReceivedEventArgs packet;
-                        lock (receivedPacketsQueue)
-                            packet = receivedPacketsQueue.Dequeue();
-                        
-                        UpdateBufferUsagePercent();
-                        Frame frame = this.GetFrame(packet);
-                        //this.ParseFrame(frame);
-                        AddFrameToFrameParsingQueue(frame);
-                    }
-                    else {
-                        //this.nFramesReceived
-                        System.Threading.Thread.Sleep(50);
-                        //this.receivedPacketsQueueEvent.WaitOne(1000);//one second timeout
-                    }
-                    */
+
                     Frame frame = this.GetFrame(this.receivedPacketsQueue_BC.Take());//Take() will block until there is a packet in the queue
-                    if(frame != null)
+                    if (frame != null)
                         this.AddFrameToFrameParsingQueue(frame);
-                    /*
-                    if(receivedPacketsQueue.TryDequeue(out SharedUtils.Pcap.PacketReceivedEventArgs packet)) {
-                        UpdateBufferUsagePercent();
-                        Frame frame = this.GetFrame(packet);
-                        //this.ParseFrame(frame);
-                        AddFrameToFrameParsingQueue(frame);
-                    }
-                    else
-                        System.Threading.Thread.Sleep(50);
-                        */
+
                 }
             }
-            catch(System.Threading.ThreadAbortException) {
+            catch (System.Threading.ThreadAbortException) {
                 throw;
             }
 #if !DEBUG
             catch(Exception e) {
                 SharedUtils.Logger.Log("Error creating frame from packet. " + e.ToString(), SharedUtils.Logger.EventLogEntryType.Warning);
                 if (this.UnhandledException == null)
-                    throw e;
+                    throw;
                 else
                     this.UnhandledException(AppDomain.CurrentDomain, new UnhandledExceptionEventArgs(e, true));
             }
@@ -511,7 +473,7 @@ namespace PacketParser {
 
 
         public void AddFrameToFrameParsingQueue(Frame frame) {
-            if(frame!=null) {
+            if (frame != null) {
 
                 this.framesToParseQueue.Add(frame);
                 System.Threading.Interlocked.Add(ref this.framesToParseQueuedByteCount, frame.Data.Length);
@@ -522,7 +484,7 @@ namespace PacketParser {
             Frame frame = null;
             try {
                 while (true) {
-                    
+
                     frame = this.framesToParseQueue.Take();
                     System.Threading.Interlocked.Add(ref this.framesToParseQueuedByteCount, -frame.Data.Length);
                     this.UpdateBufferUsagePercent();
@@ -537,7 +499,7 @@ namespace PacketParser {
                 if(frame != null)
                     SharedUtils.Logger.Log("Error parsing " + frame.ToString() + ". " + e.ToString(), SharedUtils.Logger.EventLogEntryType.Warning);
                 if (this.UnhandledException == null)
-                    throw e;
+                    throw;
                 else
                     this.UnhandledException(AppDomain.CurrentDomain, new UnhandledExceptionEventArgs(e, true));
             }
@@ -545,40 +507,40 @@ namespace PacketParser {
         }
 
 
-        public Frame GetFrame(DateTime timestamp, byte[] data, SharedUtils.Pcap.PcapFrame.DataLinkTypeEnum dataLinkType) {
+        public Frame GetFrame(DateTime timestamp, byte[] data, SharedUtils.Pcap.PcapFrame.DataLinkTypeEnum dataLinkType, object tag = null) {
 
             Type packetType = Packets.PacketFactory.GetPacketType(dataLinkType);
-            return new Frame(timestamp, data, packetType, ++nFramesReceived);
+            return new Frame(timestamp, data, packetType, ++nFramesReceived) { Tag = tag };
         }
 
         internal Frame GetFrame(SharedUtils.Pcap.PacketReceivedEventArgs packet) {
             //Frame receivedFrame=null;
 
-            if (packet.PacketType==SharedUtils.Pcap.PacketReceivedEventArgs.PacketTypes.Ethernet2Packet) {
+            if (packet.PacketType == SharedUtils.Pcap.PacketReceivedEventArgs.PacketTypes.Ethernet2Packet) {
                 return new Frame(packet.Timestamp, packet.Data, typeof(Packets.Ethernet2Packet), ++nFramesReceived);
             }
-            else if(packet.PacketType==SharedUtils.Pcap.PacketReceivedEventArgs.PacketTypes.IPv4Packet) {
+            else if (packet.PacketType == SharedUtils.Pcap.PacketReceivedEventArgs.PacketTypes.IPv4Packet) {
                 return new Frame(packet.Timestamp, packet.Data, typeof(Packets.IPv4Packet), ++nFramesReceived);
             }
-            else if(packet.PacketType==SharedUtils.Pcap.PacketReceivedEventArgs.PacketTypes.IPv6Packet) {
+            else if (packet.PacketType == SharedUtils.Pcap.PacketReceivedEventArgs.PacketTypes.IPv6Packet) {
                 return new Frame(packet.Timestamp, packet.Data, typeof(Packets.IPv6Packet), ++nFramesReceived);
             }
-            else if(packet.PacketType==SharedUtils.Pcap.PacketReceivedEventArgs.PacketTypes.IEEE_802_11Packet) {
+            else if (packet.PacketType == SharedUtils.Pcap.PacketReceivedEventArgs.PacketTypes.IEEE_802_11Packet) {
                 return new Frame(packet.Timestamp, packet.Data, typeof(Packets.IEEE_802_11Packet), ++nFramesReceived);
             }
-            else if(packet.PacketType==SharedUtils.Pcap.PacketReceivedEventArgs.PacketTypes.IEEE_802_11RadiotapPacket) {
+            else if (packet.PacketType == SharedUtils.Pcap.PacketReceivedEventArgs.PacketTypes.IEEE_802_11RadiotapPacket) {
                 return new Frame(packet.Timestamp, packet.Data, typeof(Packets.IEEE_802_11RadiotapPacket), ++nFramesReceived);
             }
-            else if(packet.PacketType==SharedUtils.Pcap.PacketReceivedEventArgs.PacketTypes.CiscoHDLC) {
+            else if (packet.PacketType == SharedUtils.Pcap.PacketReceivedEventArgs.PacketTypes.CiscoHDLC) {
                 return new Frame(packet.Timestamp, packet.Data, typeof(Packets.CiscoHdlcPacket), ++nFramesReceived);
             }
-            else if(packet.PacketType==SharedUtils.Pcap.PacketReceivedEventArgs.PacketTypes.LinuxCookedCapture) {
+            else if (packet.PacketType == SharedUtils.Pcap.PacketReceivedEventArgs.PacketTypes.LinuxCookedCapture) {
                 return new Frame(packet.Timestamp, packet.Data, typeof(Packets.LinuxCookedCapture), ++nFramesReceived);
             }
             else if (packet.PacketType == SharedUtils.Pcap.PacketReceivedEventArgs.PacketTypes.LinuxCookedCapture2) {
                 return new Frame(packet.Timestamp, packet.Data, typeof(Packets.LinuxCookedCapture2), ++nFramesReceived);
             }
-            else if(packet.PacketType==SharedUtils.Pcap.PacketReceivedEventArgs.PacketTypes.PrismCaptureHeader) {
+            else if (packet.PacketType == SharedUtils.Pcap.PacketReceivedEventArgs.PacketTypes.PrismCaptureHeader) {
                 return new Frame(packet.Timestamp, packet.Data, typeof(Packets.PrismCaptureHeaderPacket), ++nFramesReceived);
             }
             else if (packet.PacketType == SharedUtils.Pcap.PacketReceivedEventArgs.PacketTypes.NullLoopback) {
@@ -587,7 +549,6 @@ namespace PacketParser {
 
             else
                 return null;
-            //ParseFrame(receivedFrame);
         }
 
         private bool FilterMatches(Packets.IPv4Packet ipv4Packet, Packets.IPv6Packet ipv6Packet, Packets.TcpPacket tcpPacket, Packets.UdpPacket udpPacket) {
@@ -619,30 +580,28 @@ namespace PacketParser {
                 return false;
         }
 
-        internal void ParseFrame(Frame receivedFrame){
-            
-            if(receivedFrame!=null) {
-                
+        internal void ParseFrame(Frame receivedFrame) {
 
-                this.nBytesReceived+=receivedFrame.Data.Length;
+            if (receivedFrame != null) {
 
-                //receivedFramesQueue.Enqueue(receivedFrame);
 
-                Packets.Ethernet2Packet ethernet2Packet=null;
-                Packets.IEEE_802_11Packet WlanPacket=null;
-                Packets.ArpPacket arpPacket=null;
-                Packets.IPv4Packet ipv4Packet=null;
-                Packets.IPv6Packet ipv6Packet=null;
-                Packets.TcpPacket tcpPacket=null;
-                Packets.UdpPacket udpPacket=null;
-                Packets.RawPacket rawPacket=null;
+                this.nBytesReceived += receivedFrame.Data.Length;
+
+                Packets.Ethernet2Packet ethernet2Packet = null;
+                Packets.IEEE_802_11Packet WlanPacket = null;
+                Packets.ArpPacket arpPacket = null;
+                Packets.IPv4Packet ipv4Packet = null;
+                Packets.IPv6Packet ipv6Packet = null;
+                Packets.TcpPacket tcpPacket = null;
+                Packets.UdpPacket udpPacket = null;
+                Packets.RawPacket rawPacket = null;
                 List<ushort> vlanIdList = new List<ushort>();
                 HashSet<Type> packetTypeSet = new HashSet<Type>();
 
-                foreach(Packets.AbstractPacket p in receivedFrame.PacketList) {
+                foreach (Packets.AbstractPacket p in receivedFrame.PacketList) {
                     //p.GetType() call takes ~4ns according to Jon Skeet: https://stackoverflow.com/questions/353342/performance-of-object-gettype/353435#353435
                     Type type = p.GetType();
-                    if(!packetTypeSet.Contains(type))
+                    if (!packetTypeSet.Contains(type))
                         packetTypeSet.Add(type);
 
                     if (type == typeof(Packets.IPv4Packet))
@@ -675,13 +634,13 @@ namespace PacketParser {
 
                 if (this.FilterMatches(ipv4Packet, ipv6Packet, tcpPacket, udpPacket)) {
 
-                    foreach(var error in receivedFrame.Errors) {
+                    foreach (var error in receivedFrame.Errors) {
                         this.OnAnomalyDetected(error.ToString(), receivedFrame.Timestamp);
                     }
                     this.OnFrameDetected(new Events.FrameEventArgs(receivedFrame));
                     if (ethernet2Packet != null && arpPacket != null) {
                         //this must be done also for IEEE 802.11 !!!
-                        ExtractArpData(ethernet2Packet, arpPacket);
+                        this.ExtractArpData(ethernet2Packet, arpPacket);
                     }
 
 
@@ -724,10 +683,9 @@ namespace PacketParser {
                             sourceHost = NetworkHostList.GetNetworkHost(ipPacketSourceIp);
                         else {
                             sourceHost = new NetworkHost(ipPacketSourceIp);
-                            lock(this.NetworkHostList)
+                            lock (this.NetworkHostList)
                                 this.NetworkHostList.Add(sourceHost);
                             this.OnNetworkHostDetected(new Events.NetworkHostEventArgs(sourceHost));
-                            //parentForm.ShowDetectedHost(sourceHost);
                         }
                         if (NetworkHostList.ContainsIP(ipPacketDestinationIp))
                             destinationHost = NetworkHostList.GetNetworkHost(ipPacketDestinationIp);
@@ -736,7 +694,6 @@ namespace PacketParser {
                             lock (this.NetworkHostList)
                                 this.NetworkHostList.Add(destinationHost);
                             this.OnNetworkHostDetected(new Events.NetworkHostEventArgs(destinationHost));
-                            //parentForm.ShowDetectedHost(destinationHost);
                         }
                         //we now have sourceHost and destinationHost
                         networkPacket = new NetworkPacket(sourceHost, destinationHost, ipPacket);
@@ -792,7 +749,7 @@ namespace PacketParser {
                             fiveTuple = new FiveTuple(sourceHost, udpPacket.SourcePort, destinationHost, udpPacket.DestinationPort, FiveTuple.TransportProtocol.UDP);
                         }
 
-                        foreach(ushort vlanID in vlanIdList) { 
+                        foreach (ushort vlanID in vlanIdList) {
                             sourceHost.AddVlanID(vlanID);
                             destinationHost.AddVlanID(vlanID);
                         }
@@ -800,11 +757,21 @@ namespace PacketParser {
 
                         //this one is just extra for hosts which don't use TCP for example and therefore can't use the OS fingerprinter to get the TTL distance
                         if (sourceHost.TtlDistance == byte.MaxValue) {//maxValue=default if no TtlDistance exists
-                            foreach (Fingerprints.IOsFingerprinter fingerprinter in this.OsFingerprintCollectionList)
-                                if (typeof(Fingerprints.ITtlDistanceCalculator).IsAssignableFrom(fingerprinter.GetType()))
-                                    //if(fingerprinter.GetType().IsSubclassOf(typeof(Fingerprints.ITtlDistanceCalculator)))
-                                    sourceHost.AddProbableTtlDistance(((Fingerprints.ITtlDistanceCalculator)fingerprinter).GetTtlDistance(ipTTL));
-                            //sourceHost.AddProbableTtlDistance(fingerprinter.GetTtlDistance(ipv4Packet.TimeToLive));
+                            //RFC 4890:
+                            //Multicast Router Discovery messages (must have link-local source address and hop limit = 1)
+                            if (ipPacketSourceIp.IsIPv6LinkLocal && ipTTL == 1)
+                                sourceHost.AddProbableTtlDistance(0);
+                            else {
+                                foreach (Fingerprints.IOsFingerprinter fingerprinter in this.OsFingerprintCollectionList)
+                                    if (typeof(Fingerprints.ITtlDistanceCalculator).IsAssignableFrom(fingerprinter.GetType()))
+                                        sourceHost.AddProbableTtlDistance(((Fingerprints.ITtlDistanceCalculator)fingerprinter).GetTtlDistance(ipTTL));
+                            }
+                        }
+                        if (receivedFrame.Tag != null && receivedFrame.Tag is IEnumerable<KeyValuePair<string, string>> packetTags && sourceHost.TtlDistance == 0) {
+                            foreach (KeyValuePair<string, string> tag in packetTags) {
+                                if (tag.Key.Equals("Longitude", StringComparison.InvariantCultureIgnoreCase) || tag.Key.Equals("Latitude", StringComparison.InvariantCultureIgnoreCase))
+                                    sourceHost.AddNumberedExtraDetail(tag.Key, tag.Value);
+                            }
                         }
 
 
@@ -826,12 +793,9 @@ namespace PacketParser {
 
                         foreach (Fingerprints.IOsFingerprinter fingerprinter in this.OsFingerprintCollectionList) {
 
-                            //IList<string> osList;
-                            IList<PacketParser.Fingerprints.DeviceFingerprint> osList;
-                            if (fingerprinter.TryGetOperatingSystems(out osList, receivedFrame.PacketList/*.Values*/)) {
+                            if (fingerprinter.TryGetOperatingSystems(out IList<Fingerprints.DeviceFingerprint> osList, receivedFrame.PacketList)) {
                                 if (osList != null && osList.Count > 0) {
                                     foreach (PacketParser.Fingerprints.DeviceFingerprint os in osList) {
-                                        //sourceHost.AddProbableOs(fingerprinter.Name, os, fingerprinter.Confidence/osList.Count);
                                         sourceHost.AddProbableOs(os.ToString(), fingerprinter, 1.0 / osList.Count);
                                         if (os.Category != null && os.Category.Length > 0)
                                             sourceHost.AddProbableDeviceCategory(os.Category, fingerprinter, 1.0 / osList.Count);
@@ -839,9 +803,8 @@ namespace PacketParser {
                                             sourceHost.AddProbableDeviceFamily(os.Family, fingerprinter, 1.0 / osList.Count);
                                     }
                                     if (typeof(Fingerprints.ITtlDistanceCalculator).IsAssignableFrom(fingerprinter.GetType())) {
-                                        //if(fingerprinter.GetType().IsSubclassOf(typeof(Fingerprints.ITtlDistanceCalculator))) {
                                         byte ttlDistance;
-                                        if (((Fingerprints.ITtlDistanceCalculator)fingerprinter).TryGetTtlDistance(out ttlDistance, receivedFrame.PacketList/*.Values*/))
+                                        if (((Fingerprints.ITtlDistanceCalculator)fingerprinter).TryGetTtlDistance(out ttlDistance, receivedFrame.PacketList))
                                             sourceHost.AddProbableTtlDistance(ttlDistance);
                                     }
                                 }
@@ -858,7 +821,7 @@ namespace PacketParser {
                     }
 
                     //check the frame content for cleartext
-                    CheckFrameCleartext(receivedFrame);
+                    this.CheckFrameCleartext(receivedFrame);
 
                     //check the frame content for keywords
                     foreach (byte[] keyword in this.keywordList) {
@@ -888,7 +851,7 @@ namespace PacketParser {
 
 
         private void ExtractTcpSessionData(NetworkHost sourceHost, NetworkHost destinationHost, NetworkTcpSession networkTcpSession, Frame receivedFrame, Packets.TcpPacket tcpPacket) {
-            NetworkTcpSession.TcpDataStream currentStream=null;
+            NetworkTcpSession.TcpDataStream currentStream = null;
             bool transferIsClientToServer;
             if (networkTcpSession.ClientHost == sourceHost && networkTcpSession.ClientTcpPort == tcpPacket.SourcePort) {
                 currentStream = networkTcpSession.ClientToServerTcpDataStream;
@@ -904,21 +867,34 @@ namespace PacketParser {
 
             if (currentStream != null && tcpPacket.PayloadDataLength > 0) {
                 //0: Check the number of sequenced packets!
-                NetworkTcpSession.TcpDataStream.VirtualTcpData virtualTcpData=currentStream.GetNextVirtualTcpData();
+                NetworkTcpSession.TcpDataStream.VirtualTcpData virtualTcpData = currentStream.GetNextVirtualTcpData();
 
                 bool nextVirtualFrameIsTrailingDataInTcpSegment = false;
-                while(virtualTcpData!=null && currentStream.CountBytesToRead() > 0) {
+                while (virtualTcpData != null && currentStream.CountBytesToRead() > 0) {
                     //1: check if there is an active file stream assembly going on...
                     //   if yes: add the virtualTcpData to the stream
-                    if(this.FileStreamAssemblerList.ContainsAssembler(networkTcpSession.Flow.FiveTuple, transferIsClientToServer, true)) {
+                    if(this.TcpStreamAssemblerList.ContainsKey((networkTcpSession, transferIsClientToServer))) {
+                        var flowKey = (networkTcpSession, transferIsClientToServer);
+                        var tcpStreamAssembler = this.TcpStreamAssemblerList[flowKey];
+                        int bytesMoved = tcpStreamAssembler.AddData(virtualTcpData.GetBytes(false), virtualTcpData.FirstPacketSequenceNumber);
+                        currentStream.RemoveData(bytesMoved);
+                        if(tcpStreamAssembler.IsCompleted) {
+                            tcpStreamAssembler.Finish();
+                            this.TcpStreamAssemblerList.Remove(flowKey);
+                        }
+                    }
+                    else if (this.FileStreamAssemblerList.ContainsAssembler(networkTcpSession.Flow.FiveTuple, transferIsClientToServer, true)) {
                         //this could be any type of TCP packet... but probably part of a file transfer...
-                        FileTransfer.FileStreamAssembler assembler=FileStreamAssemblerList.GetAssembler(networkTcpSession.Flow.FiveTuple, transferIsClientToServer);
+                        FileTransfer.FileStreamAssembler assembler = this.FileStreamAssemblerList.GetAssembler(networkTcpSession.Flow.FiveTuple, transferIsClientToServer);
                         //HTTP 1.0 (but sometimes 1.1) sends a FIN flag when the last packet of a file is sent
                         //See: http://www.mail-archive.com/wireshark-dev@wireshark.org/msg08695.html
                         //This is also useful for FTP data transfers
-                        if(assembler.FileContentLength==-1 && assembler.FileSegmentRemainingBytes==-1 && tcpPacket.FlagBits.Fin) {//the last packet of the file
+                        if (assembler.FileContentLength == -1 &&
+                            assembler.FileSegmentRemainingBytes == -1 &&
+                            tcpPacket.FlagBits.Fin) {//the last packet of the file
+
                             assembler.SetRemainingBytesInFile(virtualTcpData.GetBytes(false).Length);
-                            assembler.FileSegmentRemainingBytes=virtualTcpData.GetBytes(false).Length;
+                            assembler.FileSegmentRemainingBytes = virtualTcpData.GetBytes(false).Length;
                         }
                         if (assembler.FileStreamType == FileTransfer.FileStreamTypes.HttpGetChunked ||
                             assembler.FileStreamType == FileTransfer.FileStreamTypes.HttpPostMimeMultipartFormData ||
@@ -931,7 +907,10 @@ namespace PacketParser {
                         }
                         else if (assembler.FileSegmentRemainingBytes > 0 &&
                             assembler.FileSegmentRemainingBytes < virtualTcpData.ByteCount &&
-                            (assembler.FileStreamType == FileTransfer.FileStreamTypes.HttpGetNormal || assembler.FileStreamType == FileTransfer.FileStreamTypes.LPD)) {//I would love to add some more FileStreamTypes here!
+                            !assembler.IsSegmentLengthDataTransferType) {
+                            //allow all file transfer types to be completed with a subset of a TCP segment
+                            //This code sement was previously only used for these file stream types:
+                            //HttpGetNormal, LPD, Meterpreter, VNC, njRAT(?)
 
                             byte[] allBytes = virtualTcpData.GetBytes(false);
                             byte[] trimmedBytes = new byte[assembler.FileSegmentRemainingBytes];
@@ -961,7 +940,7 @@ namespace PacketParser {
                                 virtualTcpPacket.IsVirtualPacketFromTrailingDataInTcpSegment = nextVirtualFrameIsTrailingDataInTcpSegment;
                                 packetList.AddRange(virtualTcpPacket.GetSubPackets(true, networkTcpSession.ProtocolFinder, currentStream == networkTcpSession.ClientToServerTcpDataStream));
                             }
-                            foreach(var parsingError in virtualFrame.Errors) {
+                            foreach (var parsingError in virtualFrame.Errors) {
                                 this.OnAnomalyDetected("Frame " + virtualFrame.FrameNumber + " : " + parsingError.ToString(), virtualFrame.Timestamp);
                             }
                             int parsedBytes = 0;
@@ -987,19 +966,19 @@ namespace PacketParser {
                             }
                         }
                         catch (Exception e) {
-                            this.OnAnomalyDetected(new Events.AnomalyEventArgs("Error parsing TCP contents of frame " + tcpPacket.ParentFrame.FrameNumber + " (src "+ tcpPacket.SourcePort +", dst "+tcpPacket.DestinationPort+") : " + e.ToString(), tcpPacket.ParentFrame.Timestamp));
+                            this.OnAnomalyDetected(new Events.AnomalyEventArgs("Error parsing TCP contents of frame " + tcpPacket.ParentFrame.FrameNumber + " (src " + tcpPacket.SourcePort + ", dst " + tcpPacket.DestinationPort + ") : " + e.ToString(), tcpPacket.ParentFrame.Timestamp));
                         }
 
                     }
 
                     //   if no: try to read more packets to the virtyalTcpData
-                    virtualTcpData=currentStream.GetNextVirtualTcpData();
+                    virtualTcpData = currentStream.GetNextVirtualTcpData();
                 }
 
 
 
             }
-            else{
+            else {
                 //we now have a tcpPacket without a payload. Probably a SYN, ACK or other control packet
 
                 //some packets (such as FTP) need to see new upcoming TCP sessions since they identify/activate file transfer sessions that way
@@ -1016,12 +995,12 @@ namespace PacketParser {
                     }
                 }
             }
-            if(networkTcpSession.FinPacketReceived || networkTcpSession.SessionClosed) {
+            if (networkTcpSession.FinPacketReceived || networkTcpSession.SessionClosed) {
 
                 //see if there is a file stream assembler and close it
                 this.closeAssemblerIfExists(networkTcpSession.Flow.FiveTuple, true);
                 this.closeAssemblerIfExists(networkTcpSession.Flow.FiveTuple, false);
-               
+
 
 
             }
@@ -1030,46 +1009,46 @@ namespace PacketParser {
 
         private void closeAssemblerIfExists(NetworkHost sourceHost, ushort sourcePort, NetworkHost destinationHost, ushort destinationPort, FiveTuple.TransportProtocol transport, bool transferIsClientToServer) {
             FiveTuple tmpFiveTuple = new FiveTuple(sourceHost, sourcePort, destinationHost, destinationPort, transport);
-            closeAssemblerIfExists(tmpFiveTuple, transferIsClientToServer);
+            this.closeAssemblerIfExists(tmpFiveTuple, transferIsClientToServer);
         }
 
-        private void closeAssemblerIfExists(FiveTuple fiveTuple, bool transferIsClientToServer) { 
-            if (FileStreamAssemblerList.ContainsAssembler(fiveTuple, transferIsClientToServer, true)) {
+        private void closeAssemblerIfExists(FiveTuple fiveTuple, bool transferIsClientToServer) {
+            if (this.FileStreamAssemblerList.ContainsAssembler(fiveTuple, transferIsClientToServer, true)) {
                 //we have an assembler, let's close it
-                using (FileTransfer.FileStreamAssembler assembler = FileStreamAssemblerList.GetAssembler(fiveTuple, transferIsClientToServer)) {
+                using (FileTransfer.FileStreamAssembler assembler = this.FileStreamAssemblerList.GetAssembler(fiveTuple, transferIsClientToServer)) {
                     if (assembler.IsActive && assembler.AssembledByteCount > 0 && (assembler.FileSegmentRemainingBytes <= 0 || assembler.ContentRange != null)) {
                         //I'll assume that the file transfer was OK
                         assembler.FinishAssembling();
                     }
                     else {
-                        FileStreamAssemblerList.Remove(assembler, true);
+                        this.FileStreamAssemblerList.Remove(assembler, true);
                     }
                 }
             }
         }
 
-        
 
-        private void AddNetworkTcpSessionToPool(NetworkTcpSession session){
-            int sessionHash=session.GetHashCode();
-            if(this.networkTcpSessionList.ContainsKey(sessionHash))//earlier session with the same IP's and port numbers
-                this.networkTcpSessionList[sessionHash]=session;//replace the old with the new in the dictionary only!
+
+        private void AddNetworkTcpSessionToPool(NetworkTcpSession session) {
+            int sessionHash = session.GetHashCode();
+            if (this.networkTcpSessionList.ContainsKey(sessionHash))//earlier session with the same IP's and port numbers
+                this.networkTcpSessionList[sessionHash] = session;//replace the old with the new in the dictionary only!
             else
                 this.networkTcpSessionList.Add(sessionHash, session);
         }
         private NetworkTcpSession GetNetworkTcpSession(Packets.TcpPacket tcpPacket, NetworkHost sourceHost, NetworkHost destinationHost) {
-            if(tcpPacket.FlagBits.Synchronize) {
-                if(!tcpPacket.FlagBits.Acknowledgement) {//the first SYN packet
-                    NetworkTcpSession session=new NetworkTcpSession(tcpPacket, sourceHost, destinationHost, this.ProtocolFinderFactory, this.toCustomTimeZoneStringFunction);
-                    AddNetworkTcpSessionToPool(session);
+            if (tcpPacket.FlagBits.Synchronize) {
+                if (!tcpPacket.FlagBits.Acknowledgement) {//the first SYN packet
+                    NetworkTcpSession session = new NetworkTcpSession(tcpPacket, sourceHost, destinationHost, this.ProtocolFinderFactory, this.toCustomTimeZoneStringFunction);
+                    this.AddNetworkTcpSessionToPool(session);
                     return session;
                 }
                 else {//SYN+ACK packet (server -> client)
-                    int key=NetworkTcpSession.GetHashCode(destinationHost, sourceHost, tcpPacket.DestinationPort, tcpPacket.SourcePort);
+                    int key = NetworkTcpSession.GetHashCode(destinationHost, sourceHost, tcpPacket.DestinationPort, tcpPacket.SourcePort);
 
-                    if(this.networkTcpSessionList.ContainsKey(key)) {
-                        NetworkTcpSession session=networkTcpSessionList[key];
-                        if(session.SynPacketReceived && !session.SynAckPacketReceived) {//we now have an established session
+                    if (this.networkTcpSessionList.ContainsKey(key)) {
+                        NetworkTcpSession session = networkTcpSessionList[key];
+                        if (session.SynPacketReceived && !session.SynAckPacketReceived) {//we now have an established session
 
                             return session;
                         }
@@ -1078,33 +1057,33 @@ namespace PacketParser {
                     }
                     else//stray SYN+ACK packet
                         return null;
-                    
+
                 }
             }
             else {//No SYN packet. There should be an active session
 
-                int clientToServerKey=NetworkTcpSession.GetHashCode(sourceHost, destinationHost, tcpPacket.SourcePort, tcpPacket.DestinationPort);
-                int serverToClientKey=NetworkTcpSession.GetHashCode(destinationHost, sourceHost, tcpPacket.DestinationPort, tcpPacket.SourcePort);
+                int clientToServerKey = NetworkTcpSession.GetHashCode(sourceHost, destinationHost, tcpPacket.SourcePort, tcpPacket.DestinationPort);
+                int serverToClientKey = NetworkTcpSession.GetHashCode(destinationHost, sourceHost, tcpPacket.DestinationPort, tcpPacket.SourcePort);
 
 
-                if(this.networkTcpSessionList.ContainsKey(clientToServerKey)) {//see if packet is client to server
-                    NetworkTcpSession session=this.networkTcpSessionList[clientToServerKey];
-                    if(session.SynAckPacketReceived)
+                if (this.networkTcpSessionList.ContainsKey(clientToServerKey)) {//see if packet is client to server
+                    NetworkTcpSession session = this.networkTcpSessionList[clientToServerKey];
+                    if (session.SynAckPacketReceived)
                         return session;
                     else
                         return null;
                 }
-                else if(this.networkTcpSessionList.ContainsKey(serverToClientKey)) {//see if packet is server to client
-                    NetworkTcpSession session=this.networkTcpSessionList[serverToClientKey];
-                    if(session.SynAckPacketReceived)
+                else if (this.networkTcpSessionList.ContainsKey(serverToClientKey)) {//see if packet is server to client
+                    NetworkTcpSession session = this.networkTcpSessionList[serverToClientKey];
+                    if (session.SynAckPacketReceived)
                         return session;
                     else {
                         return null;
                     }
                 }
                 else {//no such session.... exists. Try to create a new non-complete session
-                    NetworkTcpSession session=new NetworkTcpSession(sourceHost, destinationHost, tcpPacket, this.ProtocolFinderFactory, this.toCustomTimeZoneStringFunction);//create a truncated session
-                    AddNetworkTcpSessionToPool(session);
+                    NetworkTcpSession session = new NetworkTcpSession(sourceHost, destinationHost, tcpPacket, this.ProtocolFinderFactory, this.toCustomTimeZoneStringFunction);//create a truncated session
+                    this.AddNetworkTcpSessionToPool(session);
                     return session;
                 }
             }
@@ -1122,16 +1101,15 @@ namespace PacketParser {
 
             this.ReconstructedFileList.Add(file);
             this.OnFileReconstructed(new Events.FileEventArgs(file, this.useRelativePathIfAvailable));
-            //parentForm.ShowReconstructedFile(file);
         }
         internal void AddCredential(NetworkCredential credential) {
 
-            if(!credentialList.ContainsKey(credential.Key)) {
+            if (!credentialList.ContainsKey(credential.Key)) {
                 this.credentialList.Add(credential.Key, credential);
-                if(credential.Password!=null)
+                if (credential.Password != null)
                     this.OnCredentialDetected(new Events.CredentialEventArgs(credential));
-                    //parentForm.ShowCredential(credential);
-            }          
+                //parentForm.ShowCredential(credential);
+            }
 
         }
         public IList<NetworkCredential> GetCredentials() {
@@ -1140,74 +1118,68 @@ namespace PacketParser {
 
 
         private void ExtractArpData(Packets.IEEE_802_11Packet wlanPacket, Packets.ArpPacket arpPacket) {
-            if(arpPacket.SenderIPAddress!=null && wlanPacket!=null)
+            if (arpPacket.SenderIPAddress != null && wlanPacket != null)
                 ExtractArpData(wlanPacket.SourceMAC, arpPacket);
         }
         private void ExtractArpData(Packets.Ethernet2Packet ethernet2Packet, Packets.ArpPacket arpPacket) {
-            if(arpPacket.SenderIPAddress!=null && ethernet2Packet!=null)
+            if (arpPacket.SenderIPAddress != null && ethernet2Packet != null)
                 ExtractArpData(ethernet2Packet.SourceMACAddress, arpPacket);
         }
         private void ExtractArpData(System.Net.NetworkInformation.PhysicalAddress sourceMAC, Packets.ArpPacket arpPacket) {
-            if(sourceMAC!=null) {
-                if(arpPacket.SenderHardwareAddress.Equals(sourceMAC)) {
-                    NetworkHost host=null;
-                    if(!this.NetworkHostList.ContainsIP(arpPacket.SenderIPAddress)) {
-                        host=new NetworkHost(arpPacket.SenderIPAddress);
-                        host.MacAddress=arpPacket.SenderHardwareAddress;
-                        lock(this.NetworkHostList)
+            if (sourceMAC != null) {
+                if (arpPacket.SenderHardwareAddress.Equals(sourceMAC)) {
+                    NetworkHost host = null;
+                    if (!this.NetworkHostList.ContainsIP(arpPacket.SenderIPAddress)) {
+                        host = new NetworkHost(arpPacket.SenderIPAddress);
+                        host.MacAddress = arpPacket.SenderHardwareAddress;
+                        lock (this.NetworkHostList)
                             this.NetworkHostList.Add(host);
                         //parentForm.ShowDetectedHost(host);
                         this.OnNetworkHostDetected(new Events.NetworkHostEventArgs(host));
                     }
-                    if(host!=null)
+                    if (host != null)
                         host.AddQueriedIP(arpPacket.TargetIPAddress);
 
                 }
                 else {
                     this.OnAnomalyDetected(
-                        "Different source MAC addresses in Ethernet and ARP packet: "+
-                                "Ethernet MAC="+sourceMAC+
-                                ", ARP MAC="+arpPacket.SenderHardwareAddress+
-                                ", ARP IP="+arpPacket.SenderIPAddress+
-                                " (frame: "+arpPacket.ParentFrame.ToString()+")", arpPacket.ParentFrame.Timestamp);
+                        "Different source MAC addresses in Ethernet and ARP packet: " +
+                                "Ethernet MAC=" + sourceMAC +
+                                ", ARP MAC=" + arpPacket.SenderHardwareAddress +
+                                ", ARP IP=" + arpPacket.SenderIPAddress +
+                                " (frame: " + arpPacket.ParentFrame.ToString() + ")", arpPacket.ParentFrame.Timestamp);
                 }
 
             }
         }
-
-        /*
-        internal void ExtractMultipartFormData(IEnumerable<Mime.MultipartPart> formMultipartData, FiveTuple fiveTuple, bool transferIsClientToServer, DateTime timestamp, long frameNumber, ApplicationLayerProtocol applicationLayerProtocol) {
-            ExtractMultipartFormData(formMultipartData, fiveTuple, transferIsClientToServer sourceHost, destinationHost, timestamp, frameNumber, sourcePort, destinationPort, applicationLayerProtocol, null);
-        }
-        */
-        //internal void ExtractMultipartFormData(IEnumerable<Mime.MultipartPart> formMultipartData, NetworkHost sourceHost, NetworkHost destinationHost, DateTime timestamp, long frameNumber, string sourcePort, string destinationPort, ApplicationLayerProtocol applicationLayerProtocol, System.Collections.Specialized.NameValueCollection cookieParams) {
+               
         internal void ExtractMultipartFormData(IEnumerable<Mime.MultipartPart> formMultipartData, FiveTuple fiveTuple, bool transferIsClientToServer, DateTime timestamp, long frameNumber, ApplicationLayerProtocol applicationLayerProtocol, System.Collections.Specialized.NameValueCollection cookieParams = null, string domain = null) {
-            System.Collections.Specialized.NameValueCollection formParameters=new System.Collections.Specialized.NameValueCollection();
+            System.Collections.Specialized.NameValueCollection formParameters = new System.Collections.Specialized.NameValueCollection();
 
-            foreach(Mime.MultipartPart part in formMultipartData) {
-                if(part.Attributes!=null && part.Attributes.Count>0) {
-                    if(part.Data!=null && part.Data.Length>0) {
+            foreach (Mime.MultipartPart part in formMultipartData) {
+                if (part.Attributes != null && part.Attributes.Count > 0) {
+                    if (part.Data != null && part.Data.Length > 0) {
                         //lookup name and convert multipart data to string
-                        string attributeName=part.Attributes["name"];
-                        foreach(string key in part.Attributes) {
-                            if(key=="name")
-                                attributeName=part.Attributes["name"];
+                        string attributeName = part.Attributes["name"];
+                        foreach (string key in part.Attributes) {
+                            if (key == "name")
+                                attributeName = part.Attributes["name"];
                             else
                                 formParameters.Add(key, part.Attributes[key]);
                         }
 
-                        int partDataTruncateSize=250;//max 250 characters
-                        
+                        int partDataTruncateSize = 250;//max 250 characters
+
                         string partData = Utils.ByteConverter.ReadString(part.Data, 0, partDataTruncateSize).Trim();
-                           
-                        if(attributeName!=null && attributeName.Length>0) {
+
+                        if (attributeName != null && attributeName.Length > 0) {
                             if (partData != null && partData.Length > 0) {
                                 formParameters.Add(attributeName, partData);
-                                if(part.Data.Length > partDataTruncateSize) {
+                                if (part.Data.Length > partDataTruncateSize) {
                                     //create a fake "filename" header to save full data to disk if it has been truncated
                                     if (formParameters["filename"] == null) {
                                         string filename = attributeName;
-                                        if(formParameters["Content-Type"]?.Length > 0)
+                                        if (formParameters["Content-Type"]?.Length > 0)
                                             filename = PacketHandlers.HttpPacketHandler.AppendMimeContentTypeAsExtension(filename, formParameters["Content-Type"]);
                                         part.Attributes.Add("filename", filename);
                                     }
@@ -1222,12 +1194,12 @@ namespace PacketParser {
                     }
                 }
             }
-            if(formParameters.Count>0)
+            if (formParameters.Count > 0)
                 this.OnParametersDetected(new Events.ParametersEventArgs(frameNumber, fiveTuple, transferIsClientToServer, formParameters, timestamp, "MIME/MultiPart"));
             //check for credentials (usernames and passwords)
-            NetworkCredential credential=NetworkCredential.GetNetworkCredential(formParameters, fiveTuple.ClientHost, fiveTuple.ServerHost, "MIME/MultiPart", timestamp, domain);
+            NetworkCredential credential = NetworkCredential.GetNetworkCredential(formParameters, fiveTuple.ClientHost, fiveTuple.ServerHost, "MIME/MultiPart", timestamp, domain);
 
-            if(credential!=null && credential.Username!=null && credential.Password!=null) {
+            if (credential != null && credential.Username != null && credential.Password != null) {
                 //mainPacketHandler.AddCredential(new NetworkCredential(sourceHost, destinationHost, "HTTP POST", username, password, httpPacket.ParentFrame.Timestamp));
                 this.AddCredential(credential);
             }
@@ -1239,7 +1211,7 @@ namespace PacketParser {
                         formParameters[key] = cookieParams[key];
 
             PacketParser.Events.MessageEventArgs messageEventArgs = GetMessageEventArgs(applicationLayerProtocol, fiveTuple, transferIsClientToServer, frameNumber, timestamp, formParameters);
-            if(messageEventArgs!=null)
+            if (messageEventArgs != null)
                 this.OnMessageDetected(messageEventArgs);
         }
 
@@ -1249,7 +1221,7 @@ namespace PacketParser {
             string subject = null;
             string message = null;
 
-            string[] fromNames = { "from", "From", "fFrom", "profile_id", "username", "guest_id", "author", "email", "anonName", "rawOpenId"};
+            string[] fromNames = { "from", "From", "fFrom", "profile_id", "username", "guest_id", "author", "email", "anonName", "rawOpenId" };
             string[] toNames = { "to", "To", "req0_to", "fTo", "ids", "send_to", "emails[0]" };
             string[] subjectNames = { "subject", "Subj", "Subject", "fSubject" };
             string[] messageNames = { "req0_text", "body", "Body", "message", "Message", "text", "Text", "fMessageBody", "status", "PlainBody", "RichBody", "comment", "postBody" };
@@ -1270,15 +1242,15 @@ namespace PacketParser {
              */
             for (int i = 0; i < fromNames.Length && (from == null || from.Length == 0); i++)
                 from = parameters[fromNames[i]];
-            for(int i=0; i<toNames.Length && (to==null || to.Length == 0); i++)
+            for (int i = 0; i < toNames.Length && (to == null || to.Length == 0); i++)
                 to = parameters[toNames[i]];
             for (int i = 0; i < subjectNames.Length && (subject == null || subject.Length == 0); i++)
                 subject = parameters[subjectNames[i]];
             for (int i = 0; i < messageNames.Length && (message == null || message.Length == 0); i++)
                 message = parameters[messageNames[i]];
 
-            if(subject==null && message!=null && message.Length>0)
-                subject=message;
+            if (subject == null && message != null && message.Length > 0)
+                subject = message;
             if (subject != null && subject.Length > 0 && (from != null || to != null)) {
                 long totalLength = subject.Length;
                 if (from != null)
@@ -1288,7 +1260,7 @@ namespace PacketParser {
                 if (message != null)
                     totalLength += message.Length;
 
-                if(transferIsClientToServer)
+                if (transferIsClientToServer)
                     return new PacketParser.Events.MessageEventArgs(applicationLayerProtocol, fiveTuple.ClientHost, fiveTuple.ServerHost, frameNumber, timestamp, from, to, subject, message, parameters, totalLength);
                 else
                     return new PacketParser.Events.MessageEventArgs(applicationLayerProtocol, fiveTuple.ServerHost, fiveTuple.ClientHost, frameNumber, timestamp, from, to, subject, message, parameters, totalLength);
@@ -1298,51 +1270,50 @@ namespace PacketParser {
         }
 
         private void CheckFrameCleartext(Frame frame) {
-            int wordCharCount=0;
-            int totalByteCount=0;
-            IEnumerable<string> words=null;
+            int wordCharCount = 0;
+            int totalByteCount = 0;
+            IEnumerable<string> words = null;
 
-            if(this.cleartextSearchModeSelectedIndex==0){//0 = full packet search
-                words=GetCleartextWords(frame.Data);
-                totalByteCount=frame.Data.Length;
+            if (this.cleartextSearchModeSelectedIndex == 0) {//0 = full packet search
+                words = GetCleartextWords(frame.Data);
+                totalByteCount = frame.Data.Length;
             }
-            else if(cleartextSearchModeSelectedIndex==1) {//1 = TCP and UDP payload search
-                foreach(Packets.AbstractPacket p in frame.PacketList/*.Values*/) {
-                    if(p.GetType()==typeof(Packets.TcpPacket)) {
-                        Packets.TcpPacket tcpPacket=(Packets.TcpPacket)p;
-                        words=GetCleartextWords(tcpPacket.ParentFrame.Data, tcpPacket.PacketStartIndex+tcpPacket.DataOffsetByteCount, tcpPacket.PacketEndIndex);
-                        totalByteCount=tcpPacket.PacketEndIndex-tcpPacket.DataOffsetByteCount-tcpPacket.PacketStartIndex+1;
+            else if (cleartextSearchModeSelectedIndex == 1) {//1 = TCP and UDP payload search
+                foreach (Packets.AbstractPacket p in frame.PacketList/*.Values*/) {
+                    if (p.GetType() == typeof(Packets.TcpPacket)) {
+                        Packets.TcpPacket tcpPacket = (Packets.TcpPacket)p;
+                        words = this.GetCleartextWords(tcpPacket.ParentFrame.Data, tcpPacket.PacketStartIndex + tcpPacket.DataOffsetByteCount, tcpPacket.PacketEndIndex);
+                        totalByteCount = tcpPacket.PacketEndIndex - tcpPacket.DataOffsetByteCount - tcpPacket.PacketStartIndex + 1;
                     }
-                    else if(p.GetType()==typeof(Packets.UdpPacket)) {
-                        Packets.UdpPacket udpPacket=(Packets.UdpPacket)p;
-                        words=GetCleartextWords(udpPacket.ParentFrame.Data, udpPacket.PacketStartIndex+udpPacket.DataOffsetByteCount, udpPacket.PacketEndIndex);
-                        totalByteCount=udpPacket.PacketEndIndex-udpPacket.DataOffsetByteCount-udpPacket.PacketStartIndex+1;
+                    else if (p.GetType() == typeof(Packets.UdpPacket)) {
+                        Packets.UdpPacket udpPacket = (Packets.UdpPacket)p;
+                        words = this.GetCleartextWords(udpPacket.ParentFrame.Data, udpPacket.PacketStartIndex + udpPacket.DataOffsetByteCount, udpPacket.PacketEndIndex);
+                        totalByteCount = udpPacket.PacketEndIndex - udpPacket.DataOffsetByteCount - udpPacket.PacketStartIndex + 1;
                     }
                 }
             }
-            else if(cleartextSearchModeSelectedIndex==2) {//2 = raw packet search
-                foreach(Packets.AbstractPacket p in frame.PacketList/*.Values*/) {
-                    if(p.GetType()==typeof(Packets.RawPacket)){
-                        words=GetCleartextWords(p);
-                        totalByteCount=p.PacketByteCount;
+            else if (cleartextSearchModeSelectedIndex == 2) {//2 = raw packet search
+                foreach (Packets.AbstractPacket p in frame.PacketList/*.Values*/) {
+                    if (p.GetType() == typeof(Packets.RawPacket)) {
+                        words = this.GetCleartextWords(p);
+                        totalByteCount = p.PacketByteCount;
                     }
                 }
             }
             //3 = don't search
 
             //add data to Form
-            if(totalByteCount>0 && words!=null){
+            if (totalByteCount > 0 && words != null) {
                 List<string> wordList = new List<string>();
                 foreach (string cleartextWord in words) {
                     wordCharCount += cleartextWord.Length;
                     wordList.Add(cleartextWord);
                 }
                 if (wordList.Count > 0) {
-                    OnCleartextWordsDetected(new Events.CleartextWordsEventArgs(wordList, wordCharCount, totalByteCount, frame.FrameNumber, frame.Timestamp));
-                    //parentForm.ShowCleartextWords(words, wordCharCount, totalByteCount);
+                    this.OnCleartextWordsDetected(new Events.CleartextWordsEventArgs(wordList, wordCharCount, totalByteCount, frame.FrameNumber, frame.Timestamp));
                 }
             }
-                
+
 
         }
 

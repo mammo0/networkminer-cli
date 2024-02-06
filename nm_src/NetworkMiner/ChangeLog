@@ -1,3 +1,56 @@
+NetworkMiner 2.8.1
+	* CapWapPacket.cs: Fixed bug in CapWap parser for packets with T flag set to 0.
+	* HttpPacketHandler.cs: Added public IP address extraction from JSON bodies.
+	* RfbPacket.cs: Added support for screenshot extraction from VNC traffic
+	* NjRatPacket.cs: Added extraction of njRAT artifacts, like screenshots and modules
+	* BackConnectPacket.cs: Added parser for BackConnect protocol used by IcedID etc.
+	  This enables decapsulation of SOCKS traffic inside BackConnect.
+	* NetworkMinerForm.cs: Improved Images tab to support filtering and improved performance.
+	  Also added support for copying image data to clipboard with Ctrl+C
+	* HttpPacketHandler.cs: Added extraction of files sent with HTTP PUT
+	* BackConnectPacket.cs: Added decryption of encrypted BackConnect traffic
+	* SipPacket.cs: Added support for CRLF Keep-Alive messages. This could otherwise break SIP parsing in version 2.8.
+
+NetworkMiner 2.8
+	* NetworkHostTreeNode.cs: Nodes on the Hosts tab can now be filtered using string
+	  or regex matching!
+	* TlsRecordPacket.cs: Fixed two bugs in JA3S signature, one when Server Hello has a
+	  Session ID length larger than zero and another when the server lists only one
+	  supported TLS version using the Supported Versions extension (#43).
+	* IEC_104_PacketHandler.cs: Added support for file transfers over IEC-104.
+	  Added support for several additional IEC-104 commands.
+	  Better representation of IEC-104 commands on Parameters tab.
+	  Fixed bug when AsduInformationObjectCount is actually an element count.
+	* FileStreamAssembly.cs: Added ability to differentiate between .EXE and .DLL
+	* SocketSniffer.cs: Added exception handling of SocketException ErrorCode 10040
+	  (WSAEMSGSIZE)
+	  Thanks to René Perraux for reporting the issue with VMware's Large Send Offload!
+	* HttpPacketHandler.cs: Added CobaltStrike and Meterpreter URI chemsum8 verifier
+	  to indicate possible CobaltStrike/Meterpreter URIs like "/aaa9" in Host Details.
+	* PacketHandler.cs: Improved meterpreter DLL extraction from TCP where final payload
+	  is delivered in the same TCP segment as follow-on C2 comms
+	* NetworkMinerForm.cs: Added code to flush all TCP sessions to Sessions tab when
+	  all capture files have been loaded in order to also show sessions whose L7 protocol
+	  is still unknown. Thanks to Matt Smith for highliting this issue.
+	* NetworkMinerForm.cs: More accurate error message shown when user fails to capture
+	  packets using raw sockets on a disconnected network interface.
+	  Thanks to Anand Kumar Singh for notifying about this issue!
+	* NetworkMinerForm.cs: All SocketAdapters now get refreshed when the interface
+	  drop-down list is expanded in order to show if they are currently connected or not.
+	* TcpPacket.cs: Allow TCP sessions to the same server to switch application layer
+	  protocol between HTTP 1.x and HTTP/2.
+	* NamedPipeReader.cs: Replaced "Read from PacketCache" with generic "Read from Named Pipe".
+	* NetworkMinerForm.cs: Added support for copying text from selected rows by
+	  pressing Ctrl+C or right-click "Copy selected rows" in Files, Messages, Credentials,
+	  Sessions, DNS, Parameters and Keywords tabs. A maximum of 10 rows can be copied at
+	  a time using the free version of NetworkMiner.
+	* CapwapPacket.cs: Added decapsulation support for the CAPWAP protocol.
+	* DnsPacket.cs: Better handling of DNS packet containing multiple query records
+	* SocksPacket.cs: Improved parsing of traffic inside SOCKS tunnels
+	* FtpPacket.cs: Improved parsing speed of FTP traffic
+	* MacCollection.cs: Added support for oui36.csv database to identify NIC vendors from MAC.
+	* PacketReceivedEventArgs.cs: Ensured captured timestamps are always in UTC.
+
 NetworkMiner 2.7.3
 	* TcpPortProtocolFinder.cs: Port 3000 and 8000 configured as be parsed as HTTP
 	  in order to support WEBrick traffic. Feature added thanks to RangeForce and

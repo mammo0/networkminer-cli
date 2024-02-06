@@ -19,6 +19,8 @@ namespace PacketParser.Utils {
 
         public const string PLAIN_CONTENT_TYPE_EXTENSION = "txt";
 
+        private static readonly HashSet<char> BASE64_CHARS = new HashSet<char>(UPPER_CASE.Concat(LOWER_CASE).Concat(NUMBERS).Concat( new char[] {'+', '/', '=' }));
+
         /// <summary>
         /// Converts a byte into a printable char.
         /// Non-printable chars are replaced by a dot: '.'
@@ -189,6 +191,65 @@ namespace PacketParser.Utils {
             else
                 return text.Replace("\r\n", System.Environment.NewLine);
             
+        }
+
+        public static bool TryParseIpColonPort(string ipColonPort, out System.Net.IPAddress ip, out ushort port) {
+            if(TryParseIpColonHostname(ipColonPort, out string hostname, out port)) {
+                return System.Net.IPAddress.TryParse(hostname, out ip);
+            }
+            ip = null;
+            port = 0;
+            return false;
+        }
+        public static bool TryParseIpColonHostname(string ipColonPort, out string hostname, out ushort port) {
+            if (ipColonPort.Contains(':')) {
+                //format: hostname:port (note: hostname might be an IP(v4/v6) address
+                int splitPos = ipColonPort.LastIndexOf(':');
+                if (ushort.TryParse(ipColonPort.Substring(splitPos + 1), out port)) {
+                    hostname = ipColonPort.Substring(0, splitPos).Trim();
+                    return !string.IsNullOrEmpty(hostname);
+                }
+            }
+            hostname = null;
+            port = 0;
+            return false;
+        }
+
+        /// <summary>
+        /// Converts numbers like 65536 to "64 kB" or 10485760 to "10 MB"
+        /// </summary>
+        /// <param name="fileSize"></param>
+        /// <returns></returns>
+        public static string ToFileSizeText(long fileSize) {
+            string[] suffixes = { "B", "kB", "MB", "GB", "TB" };
+            int suffixIndex = 0;
+            while(suffixIndex + 1 < suffixes.Length && fileSize >= 1024) {
+                suffixIndex++;
+                fileSize /= 1024;
+            }
+            return fileSize.ToString() + " " + suffixes[suffixIndex];
+        }
+
+        public static bool TryReadFromBase64(string base64string, out string decodedString) {
+            return TryReadFromBase64(base64string, Encoding.ASCII, out decodedString);
+        }
+        public static bool TryReadFromBase64(string base64string, Encoding encoding, out string decodedString, bool trimBeforeParsing = true) {
+            decodedString = null;
+            if(trimBeforeParsing)
+                base64string = base64string.Trim();
+            if (string.IsNullOrEmpty(base64string) || base64string.Length < 4)
+                return false;
+            else if (base64string.All(c => BASE64_CHARS.Contains(c))) {
+                try {
+                    decodedString = encoding.GetString(Convert.FromBase64String(base64string));
+                    return true;
+                }
+                catch {
+                    return false;
+                }
+            }
+            else
+                return false;
         }
     }
 

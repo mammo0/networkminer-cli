@@ -18,7 +18,7 @@
     <StartupObject>NetworkMiner.Program</StartupObject>
     <ApplicationIcon>networkminericon.ico</ApplicationIcon>
     <TargetZone>LocalIntranet</TargetZone>
-    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileUpgradeFlags>
     </FileUpgradeFlags>
     <OldToolsVersion>2.0</OldToolsVersion>
@@ -107,6 +107,7 @@
     </Compile>
     <Compile Include="GuiExtensions.cs" />
     <Compile Include="GuiProperties.cs" />
+    <Compile Include="ImageHandler.cs" />
     <Compile Include="KeywordFilterControl.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -119,6 +120,13 @@
     <Compile Include="KeywordFilterControlForTreeNodes.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="NamedPipeForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="NamedPipeForm.Designer.cs">
+      <DependentUpon>NamedPipeForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ReconstructedImage.cs" />
     <Compile Include="ToolInterfaces\IVoipCallHandler.cs" />
     <Compile Include="UpdateCheck.cs">
       <SubType>Form</SubType>
@@ -187,6 +195,9 @@
     <EmbeddedResource Include="LoadingProcess.resx">
       <SubType>Designer</SubType>
       <DependentUpon>LoadingProcess.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="NamedPipeForm.resx">
+      <DependentUpon>NamedPipeForm.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="NetworkMinerAboutBox.resx">
       <SubType>Designer</SubType>
@@ -329,7 +340,6 @@
     <None Include="Resources\1344785209_edit-clear.png" />
     <None Include="Resources\clear.png" />
     <None Include="Resources\ClearGUI.png" />
-    <None Include="Resources\VCSExpress.exe" />
     <None Include="Resources\AboutImage.png" />
     <BaseApplicationManifest Include="Properties\app.manifest" />
     <None Include="Resources\Filter2HS.png" />

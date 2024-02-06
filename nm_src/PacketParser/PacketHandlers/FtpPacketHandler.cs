@@ -148,13 +148,13 @@ namespace PacketParser.PacketHandlers {
         //FTP data sessions (from TCP/20 if active)
         private PopularityList<string, PendingFileTransfer> pendingFileTransferList;
 
-        public override Type ParsedType { get { return typeof(Packets.FtpPacket); } }
+        public override Type[] ParsedTypes { get; } = { typeof(Packets.FtpPacket) };
         public override bool CanParse(HashSet<Type> packetTypeSet) {
-            return packetTypeSet.Contains(this.ParsedType) || packetTypeSet.Contains(typeof(Packets.TcpPacket));
+            return packetTypeSet.Overlaps(this.ParsedTypes) || packetTypeSet.Contains(typeof(Packets.TcpPacket));
         }
 
         public ApplicationLayerProtocol HandledProtocol {
-            get { return ApplicationLayerProtocol.FtpControl; }
+            get { return ApplicationLayerProtocol.FTP; }
         }
 
         //public FtpPacketHandler(NetworkMinerForm parentForm, FileTransfer.FileStreamAssemblerPool fileStreamAssemblerPool, SortedList<NetworkCredential, NetworkCredential> credentialList): base(parentForm) {
@@ -392,7 +392,7 @@ namespace PacketParser.PacketHandlers {
                         **/
                         //Unfortunately we haven't stored the request, so we can't know if the client was asking for TLS or some other security measure
                         if(ftpPacket.ResponseArgument.Contains("TLS") || ftpPacket.ResponseArgument.Contains("SSL")) {
-                            tcpSession.ProtocolFinder.SetConfirmedApplicationLayerProtocol(ApplicationLayerProtocol.Ssl, false);
+                            tcpSession.ProtocolFinder.SetConfirmedApplicationLayerProtocol(ApplicationLayerProtocol.SSL, false);
                         }
 
                     }

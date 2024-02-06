@@ -13,7 +13,7 @@ namespace PacketParser.PacketHandlers {
 
         }
 
-        public override Type ParsedType { get { return typeof(CifsBrowserPacket); } }
+        public override Type[] ParsedTypes { get; } =  { typeof(CifsBrowserPacket) };
 
         public void ExtractData(ref NetworkHost sourceHost, NetworkHost destinationHost, IEnumerable<AbstractPacket> packetList) {
 

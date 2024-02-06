@@ -6,17 +6,20 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace PacketParser.PacketHandlers {
     class UnusedTcpSessionProtocolsHandler : AbstractPacketHandler, ITcpSessionPacketHandler {
 
-        private System.Collections.Generic.List<Type> unusedPacketTypes;
+        //private System.Collections.Generic.List<Type> unusedPacketTypes;
 
-        public override Type ParsedType { get { return null; } }
+        public override Type[] ParsedTypes { get; } = new Type[0];
+        /*
         public override bool CanParse(HashSet<Type> packetTypeSet) {
             return packetTypeSet.Overlaps(this.unusedPacketTypes);
         }
+        */
 
         public ApplicationLayerProtocol HandledProtocol {
             get { return ApplicationLayerProtocol.Unknown; }
@@ -24,16 +27,16 @@ namespace PacketParser.PacketHandlers {
 
         public UnusedTcpSessionProtocolsHandler(PacketHandler mainPacketHandler)
             : base(mainPacketHandler) {
-            
-            this.unusedPacketTypes=new List<Type>();
 
+            List<Type> unusedPacketTypes = new List<Type> {
+                typeof(Packets.NetBiosDatagramServicePacket),
+                typeof(Packets.NetBiosNameServicePacket)
+            };
             //this.unusedPacketTypes.Add(typeof(Packets.CifsPacket));
-            this.unusedPacketTypes.Add(typeof(Packets.NetBiosDatagramServicePacket));
-            this.unusedPacketTypes.Add(typeof(Packets.NetBiosNameServicePacket));
             //this.unusedPacketTypes.Add(typeof(Packets.NetBiosPacket));
             //this.unusedPacketTypes.Add(typeof(Packets.NetBiosSessionService));
             //this.unusedPacketTypes.Add(typeof(Packets.OpenFlowPacket));
-
+            this.ParsedTypes = unusedPacketTypes.ToArray();
         }
 
         #region ITcpSessionPacketHandler Members
@@ -43,7 +46,8 @@ namespace PacketParser.PacketHandlers {
 
 
             foreach (Packets.AbstractPacket p in packetList) {
-                if(this.unusedPacketTypes.Contains(p.GetType()))
+                //if(this.unusedPacketTypes.Contains(p.GetType()))
+                if (this.ParsedTypes.Contains(p.GetType()))
                     return p.ParentFrame.Data.Length;//it is OK to return larger values than the parsed # bytes as long as there aren't additional trailing packets to parse at the end of the data
             }
 

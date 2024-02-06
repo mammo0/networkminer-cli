@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace PacketParser.Utils {
@@ -19,6 +20,19 @@ namespace PacketParser.Utils {
             int[] byteTable = MakeByteTable(needle);
             int[] offsetTable = MakeOffsetTable(needle);
             return IndexOf(haystack, needle, byteTable, offsetTable, offset);
+        }
+
+        public static int LastIndexOf(byte[] haystack, byte[] needle, int offset = 0) {
+            int lastNeedleIndex = -1;//not found
+            int needleIndex;
+            do {
+                needleIndex = IndexOf(haystack, needle, offset);
+                offset = needleIndex + 1;
+                if(needleIndex >= 0)
+                    lastNeedleIndex = needleIndex;
+
+            } while (needleIndex >= 0 && offset < haystack.Length);
+            return lastNeedleIndex;
         }
 
         public static int IndexOf(byte[] haystack, byte[] needle, int[] byteTable, int[] offsetTable, bool ignoreCase, int offset = 0) {

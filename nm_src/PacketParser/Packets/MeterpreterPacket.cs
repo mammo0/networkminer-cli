@@ -20,7 +20,8 @@ namespace PacketParser.Packets {
                 else
                     return false;
             }
-            catch {
+            catch (Exception e){
+                SharedUtils.Logger.Log("Exception when parsing frame " + parentFrame.FrameNumber + " as Meterpreter packet: " + e.Message, SharedUtils.Logger.EventLogEntryType.Warning);
                 return false;
             }
         }

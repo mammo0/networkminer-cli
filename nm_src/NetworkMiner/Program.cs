@@ -16,6 +16,7 @@ namespace NetworkMiner {
         [STAThread]
         static void Main(string[] args) {
 
+
             SetupLogger("NetworkMiner");
 
             bool legacyGui = false;
@@ -27,9 +28,13 @@ namespace NetworkMiner {
                     checkForUpdates = false;
             }
 
-            if(!legacyGui)
+            if (!legacyGui) {
                 Application.EnableVisualStyles();
-            //Application.SetCompatibleTextRenderingDefault(false);//causes mono on OSX to hang?
+                /*
+                if(!SharedUtils.SystemHelper.IsRunningOnMono())
+                    Application.SetCompatibleTextRenderingDefault(false);//causes mono on OSX to hang?
+                */
+            }
             SharedUtils.Logger.Log("Starting the application", SharedUtils.Logger.EventLogEntryType.Information);
 
             try {
@@ -54,7 +59,7 @@ namespace NetworkMiner {
                 }
                 SharedUtils.Logger.Log("Error creating NetworkMiner GUI Form: " + e.Message, SharedUtils.Logger.EventLogEntryType.Error);
 #if DEBUG
-                throw e;
+                throw;
 #else
                 return;
 #endif

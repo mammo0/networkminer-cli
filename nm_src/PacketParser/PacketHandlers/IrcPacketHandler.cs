@@ -31,10 +31,10 @@ namespace PacketParser.PacketHandlers {
 
         private PopularityList<NetworkTcpSession, IrcSession> ircSessionList;
 
-        public override Type ParsedType { get { return typeof(Packets.IrcPacket); } }
+        public override Type[] ParsedTypes { get; } = { typeof(Packets.IrcPacket) };
 
         public ApplicationLayerProtocol HandledProtocol {
-            get { return ApplicationLayerProtocol.Irc; }
+            get { return ApplicationLayerProtocol.IRC; }
         }
 
         public IrcPacketHandler(PacketHandler mainPacketHandler)
@@ -138,7 +138,7 @@ namespace PacketParser.PacketHandlers {
                             }
                             for(int i=0; i<parameters.Count; i++)
                                 attributes.Add("Parameter "+(i+1), parameters[i]);
-                            base.MainPacketHandler.OnMessageDetected(new PacketParser.Events.MessageEventArgs( ApplicationLayerProtocol.Irc, sourceHost, destinationHost, ircPacket.ParentFrame.FrameNumber, ircPacket.ParentFrame.Timestamp, from, parameters[0], parameters[1], parameters[1], attributes, ircPacket.PacketLength));
+                            base.MainPacketHandler.OnMessageDetected(new PacketParser.Events.MessageEventArgs( ApplicationLayerProtocol.IRC, sourceHost, destinationHost, ircPacket.ParentFrame.FrameNumber, ircPacket.ParentFrame.Timestamp, from, parameters[0], parameters[1], parameters[1], attributes, ircPacket.PacketLength));
                         }
                     }
                 }

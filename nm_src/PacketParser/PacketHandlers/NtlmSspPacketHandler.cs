@@ -8,7 +8,7 @@ namespace PacketParser.PacketHandlers {
 
         private PopularityList<int, string> ntlmChallengeList;
 
-        public override Type ParsedType { get { return typeof(Packets.NtlmSspPacket); } }
+        public override Type[] ParsedTypes { get; } = { typeof(Packets.NtlmSspPacket) };
 
         public ApplicationLayerProtocol HandledProtocol {
             get { return ApplicationLayerProtocol.NetBiosSessionService; }
@@ -53,7 +53,7 @@ namespace PacketParser.PacketHandlers {
                             sourceHost.AddHostName(ntlmPacket.UserName.TrimEnd(new[] { '$'}), ntlmPacket.PacketTypeDescription);
                         }
                         else {
-                            sourceHost.AddNumberedExtraDetail("NTLM Username ", ntlmPacket.UserName);
+                            sourceHost.AddNumberedExtraDetail(NetworkHost.ExtraDetailType.User, ntlmPacket.UserName);
                         }
 
                         string lanManagerHashInfo = null;

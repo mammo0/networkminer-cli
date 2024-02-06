@@ -16,19 +16,11 @@ namespace PacketParser {
     /// </summary>
     public class NetworkServiceMetadata {
         private NetworkHost serverHost;
-        private ushort tcpPort;
         private PacketParser.ApplicationLayerProtocol applicationLayerProtocol = ApplicationLayerProtocol.Unknown;
-        //private int incomingPacketsCount, outgoingPacketsCount;//counts total number of recieved packets
-        //private int[] incomingByteCount, outgoingByteCount;//contains counts of each possible byte
-        //private int[,] firstFourIncomingBytesCount, firstFourOutgoingBytesCount;//contains counts of each possible byte for different offsets in the TCP packet
-        //private int[] first256IncomingTrueBitsCount, first256OutgoingTrueBitsCount;//First 32 Bytes are counted. Total number if recieved bytes must me known. Cna be calculated using incomingBytesCount
-        //private int[] dataLengthCount;//int[0]=#0-length packets, int[32]=#32-byte packets, 
 
-        private TrafficMetadata incomingTraffic, outgoingTraffic;
-
-        public ushort TcpPort { get { return tcpPort; } }
-        public TrafficMetadata IncomingTraffic { get { return incomingTraffic; } }
-        public TrafficMetadata OutgoingTraffic { get { return outgoingTraffic; } }
+        public ushort TcpPort { get; }
+        public TrafficMetadata IncomingTraffic { get; }
+        public TrafficMetadata OutgoingTraffic { get; }
         public PacketParser.ApplicationLayerProtocol ApplicationLayerProtocol {
             get { return this.applicationLayerProtocol; }
             set { 
@@ -40,10 +32,10 @@ namespace PacketParser {
 
         public NetworkServiceMetadata(NetworkHost serverHost, ushort tcpPort) {
             this.serverHost=serverHost;
-            this.tcpPort=tcpPort;
+            this.TcpPort=tcpPort;
 
-            this.incomingTraffic=new TrafficMetadata(true);
-            this.outgoingTraffic=new TrafficMetadata(false);
+            this.IncomingTraffic=new TrafficMetadata(true);
+            this.OutgoingTraffic=new TrafficMetadata(false);
         }
 
         /// <summary>
@@ -148,7 +140,7 @@ namespace PacketParser {
 
 
         public override string ToString() {
-            return "TCP "+tcpPort;
+            return "TCP "+TcpPort;
             //return base.ToString();
         }
     }

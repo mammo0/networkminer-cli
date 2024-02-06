@@ -125,26 +125,14 @@ namespace PacketParser.Packets {
             if(crIndex>=packetEndIndex || (crIndex!=-1 && parentFrame.Data[crIndex+1]!=(byte)ircChars.LF))
                 if(packetEndIndex - packetStartIndex > MAX_MESSAGE_LENGTH) //some implementations ignore line breaks for short messages
                     return false;
-            /*
-            for(int i=packetStartIndex; i<=packetEndIndex; i++) {
-                if(parentFrame.Data[i]==(byte)ircChars.CR) {
-                    if(i<packetEndIndex && parentFrame.Data[i+1]==(byte)ircChars.LF)
-                        containsLf=true;
-                    break;
-                }
-                else if(parentFrame.Data[i]==(byte)ircChars.LF) {
-                    containsLf=true;
-                    break;
-                }
-            }
-            if(!containsLf)
-                return false;
-            */
+
+            //TODO avoid classifying FTP as Irc by returning false when the request is 3 digits and then space, line feed or other delimiter
 
             try {
                 result = new IrcPacket(parentFrame, packetStartIndex, packetEndIndex);
             }
-            catch {
+            catch (Exception e) {
+                SharedUtils.Logger.Log("Exception when parsing frame " + parentFrame.FrameNumber + " as IRC packet: " + e.Message, SharedUtils.Logger.EventLogEntryType.Warning);
                 result = null;
             }
 

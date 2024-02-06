@@ -24,13 +24,13 @@ namespace PacketParser.Packets {
         port SHOULD be configurable.
             */
 
-        private int vxlanNetworkIdentifier = -1;
+        public int? VxlanNetworkIdentifier { get; } = null;
         private Ethernet2Packet innerEthernetPacket = null;
 
         internal VxlanPacket(Frame parentFrame, int packetStartIndex, int packetEndIndex)
         : base(parentFrame, packetStartIndex, packetEndIndex, "VXLAN") {
             if (packetEndIndex >= packetStartIndex + 16) {
-                this.vxlanNetworkIdentifier = (int)Utils.ByteConverter.ToUInt32(parentFrame.Data, packetStartIndex + 4, 3);
+                this.VxlanNetworkIdentifier = (int)Utils.ByteConverter.ToUInt32(parentFrame.Data, packetStartIndex + 4, 3);
             }
         }
 
@@ -42,7 +42,7 @@ namespace PacketParser.Packets {
 
         if (this.innerEthernetPacket != null)
             yield return this.innerEthernetPacket;
-        else if(this.vxlanNetworkIdentifier >= 0) {
+        else if(this.VxlanNetworkIdentifier.HasValue) {
             this.innerEthernetPacket = new Ethernet2Packet(base.ParentFrame, base.PacketStartIndex + 8, base.PacketEndIndex);
             yield return this.innerEthernetPacket;
             foreach (AbstractPacket subPacket in this.innerEthernetPacket.GetSubPackets(false))

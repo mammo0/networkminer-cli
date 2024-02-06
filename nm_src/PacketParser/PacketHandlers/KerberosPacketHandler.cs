@@ -37,7 +37,7 @@ namespace PacketParser.PacketHandlers {
         //private readonly PopularityList<int, TicketPrimitives> ticketPrimitivesList;
         private readonly PopularityList<int, string> saltList;
 
-        public override Type ParsedType { get { return typeof(KerberosPacket); } }
+        public override Type[] ParsedTypes { get; } = { typeof(KerberosPacket) };
 
         public KerberosPacketHandler(PacketHandler mainPacketHandler, IUdpPayloadProtocolFinder udpPayloadProtocolFinder = null)
             : base(mainPacketHandler) {
@@ -169,15 +169,15 @@ namespace PacketParser.PacketHandlers {
                                             sb.Append("$");
                                             if (encryptionType == 23) {
                                                 //string checksum = Data.Substring(0, 32);
-                                                string checksum = Utils.ByteConverter.ReadHexString(data, 16, 0, true);
+                                                string checksum = Utils.ByteConverter.ToHexString(data, 16, 0, true);
                                                 //string encTimestamp = Data.Substring(32);
-                                                string encTimestamp = Utils.ByteConverter.ReadHexString(data, data.Length - 16, 16, true);
+                                                string encTimestamp = Utils.ByteConverter.ToHexString(data, data.Length - 16, 16, true);
                                                 //"%s:$krb5pa$%s$%s$%s$%s$%s%s\n" % (user, etype, user, realm, salt, enc_timestamp, checksum)
                                                 sb.Append(encTimestamp);
                                                 sb.Append(checksum);
                                             }
                                             else //"%s:$krb5pa$%s$%s$%s$%s$%s\n" % (user, etype, user, realm, salt, PA_DATA_ENC_TIMESTAMP)
-                                                sb.Append(Utils.ByteConverter.ReadHexString(data, data.Length, true));
+                                                sb.Append(Utils.ByteConverter.ToHexString(data, data.Length, true));
                                             kerberosHashes.Add((username, sb.ToString()));
                                         }
                                     }
@@ -200,8 +200,8 @@ namespace PacketParser.PacketHandlers {
                                     sb.Append("$krb5tgs$");
                                     sb.Append(encryptionType);
                                     sb.Append("$");
-                                    string encPart1 = Utils.ByteConverter.ReadHexString(data, 16, 0, true);
-                                    string encPart2 = Utils.ByteConverter.ReadHexString(data, data.Length - 16, 16, true);
+                                    string encPart1 = Utils.ByteConverter.ToHexString(data, 16, 0, true);
+                                    string encPart2 = Utils.ByteConverter.ToHexString(data, data.Length - 16, 16, true);
                                     sb.Append(encPart1);
                                     sb.Append("$");
                                     sb.Append(encPart2);
@@ -223,8 +223,8 @@ namespace PacketParser.PacketHandlers {
                                     }
                                     if (encryptionType == 23) {
                                         //sys.stdout.write("$krb5asrep$%s$%s$%s\n" % (etype, data[0:32], data[32:]))
-                                        string encPart1 = Utils.ByteConverter.ReadHexString(data, 16, 0, true);
-                                        string encPart2 = Utils.ByteConverter.ReadHexString(data, data.Length - 16, 16, true);
+                                        string encPart1 = Utils.ByteConverter.ToHexString(data, 16, 0, true);
+                                        string encPart2 = Utils.ByteConverter.ToHexString(data, data.Length - 16, 16, true);
                                         sb.Append(encPart1);
                                         sb.Append("$");
                                         sb.Append(encPart2);
@@ -235,8 +235,8 @@ namespace PacketParser.PacketHandlers {
                                         //sys.stdout.write("$krb5asrep$%s$%s$%s$%s\n" % (etype, salt, data[0:-24], data[-24:]))
                                         sb.Append(sessionSalt);
                                         sb.Append("$");
-                                        string encPart1 = Utils.ByteConverter.ReadHexString(data, 12, 0, true);
-                                        string encPart2 = Utils.ByteConverter.ReadHexString(data, data.Length - 12, 12, true);
+                                        string encPart1 = Utils.ByteConverter.ToHexString(data, 12, 0, true);
+                                        string encPart2 = Utils.ByteConverter.ToHexString(data, data.Length - 12, 12, true);
                                         sb.Append(encPart1);
                                         sb.Append("$");
                                         sb.Append(encPart2);
@@ -296,7 +296,7 @@ namespace PacketParser.PacketHandlers {
                                 SharedUtils.Logger.Log("Error extracting kerberos salt from OctetString (30.30.a1): " + e.Message, SharedUtils.Logger.EventLogEntryType.Error);
                             }
                             //backup is to save salt as hex
-                            return Utils.ByteConverter.ReadHexString(entry.Item3, entry.Item3.Length, true);
+                            return Utils.ByteConverter.ToHexString(entry.Item3, entry.Item3.Length, true);
                         }
                     }
                 }
@@ -327,7 +327,7 @@ namespace PacketParser.PacketHandlers {
                         SharedUtils.Logger.Log("Error extracting kerberos salt from OctetString: " + e.Message, SharedUtils.Logger.EventLogEntryType.Error);
                     }
                     //backup is to save salt as hex
-                    return Utils.ByteConverter.ReadHexString(item.Item3, item.Item3.Length, true);
+                    return Utils.ByteConverter.ToHexString(item.Item3, item.Item3.Length, true);
                 }
             }
             return null;
@@ -379,12 +379,12 @@ namespace PacketParser.PacketHandlers {
                     else if (item.Item2 == Utils.ByteConverter.Asn1TypeTag.GeneralString && (usernameRequestPaths.Contains(item.Item1) || usernameResponsePaths.Contains(item.Item1)) && !itemString.EndsWith("$")) {
                         if (usernameRequestPaths.Contains(item.Item1)) {
                             base.MainPacketHandler.AddCredential(new NetworkCredential(sourceHost, destinationHost, "Kerberos", itemString, kerberosPacket.ParentFrame.Timestamp));
-                            sourceHost.AddNumberedExtraDetail("Kerberos Username", itemString);
+                            sourceHost.AddNumberedExtraDetail(NetworkHost.ExtraDetailType.User, itemString);
                             username = itemString;
                         }
                         else if (usernameResponsePaths.Contains(item.Item1)) {
                             base.MainPacketHandler.AddCredential(new NetworkCredential(destinationHost, sourceHost, "Kerberos", itemString, kerberosPacket.ParentFrame.Timestamp));
-                            destinationHost.AddNumberedExtraDetail("Kerberos Username", itemString);
+                            destinationHost.AddNumberedExtraDetail(NetworkHost.ExtraDetailType.User, itemString);
                             username = itemString;
                         }
 #if DEBUG

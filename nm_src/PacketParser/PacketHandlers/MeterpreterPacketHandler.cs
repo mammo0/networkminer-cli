@@ -8,7 +8,7 @@ using PacketParser.Packets;
 namespace PacketParser.PacketHandlers {
     class MeterpreterPacketHandler : AbstractPacketHandler, ITcpSessionPacketHandler {
 
-        public override Type ParsedType { get { return typeof(Packets.MeterpreterPacket); } }
+        public override Type[] ParsedTypes { get; } = { typeof(Packets.MeterpreterPacket) };
 
         public ApplicationLayerProtocol HandledProtocol {
             get {

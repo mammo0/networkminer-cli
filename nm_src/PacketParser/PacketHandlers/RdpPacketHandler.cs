@@ -7,7 +7,7 @@ namespace PacketParser.PacketHandlers {
     class RdpPacketHandler : AbstractPacketHandler, ITcpSessionPacketHandler {
 
 
-        public override Type ParsedType { get { return typeof(Packets.RdpPacket.Cookie); } }
+        public override Type[] ParsedTypes { get; } = { typeof(Packets.RdpPacket.Cookie) };
 
         public RdpPacketHandler(PacketHandler mainPacketHandler)
             : base(mainPacketHandler) {

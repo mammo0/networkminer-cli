@@ -1,13 +1,13 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <!--<TargetFramework>netstandard2.0</TargetFramework>-->
-	<TargetFramework>net472</TargetFramework>
+	  <!--<TargetFramework>netstandard2.0</TargetFramework>-->
+	  <TargetFramework>net48</TargetFramework>
     <Company>NETRESEC</Company>
     <Authors>Erik Hjelmvik</Authors>
     <AssemblyVersion>2.7.3</AssemblyVersion>
     <FileVersion>2.7.3</FileVersion>
-    <Version>2.7.3</Version>
+    <Version>2.8.0</Version>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
@@ -30,6 +30,7 @@
     <None Remove="Fingerprints\mac-ages_LICENSE" />
     <None Remove="Fingerprints\nmap-mac-prefixes" />
     <None Remove="Fingerprints\oui.txt" />
+    <None Remove="Fingerprints\oui36.csv" />
     <None Remove="Fingerprints\p0f.fp" />
     <None Remove="Fingerprints\p0f.fp.netsa" />
     <None Remove="Fingerprints\p0fa.fp" />
@@ -64,6 +65,9 @@
     <Content Include="Fingerprints\oui.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="Fingerprints\oui36.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="Fingerprints\p0f.fp">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
@@ -85,10 +89,10 @@
     <ProjectReference Include="..\SharedUtils\SharedUtils.csproj" />
   </ItemGroup>
 
-<!--System.Web is required when targeting net472, but not for netstandard2.0
--->
-  <ItemGroup>
-    <Reference Include="System.Web" />
-  </ItemGroup>
+<!--System.Web is required when targeting net472, but not for netstandard2.0-->
+
+<ItemGroup>
+	<Reference Include="System.Web" />
+</ItemGroup>
 
 </Project>

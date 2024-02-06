@@ -100,7 +100,8 @@ namespace PacketParser.Packets {
                 else
                     result = new OpenFlowPacket(parentFrame, packetStartIndex, packetEndIndex);
             }
-            catch(Exception) {
+            catch(Exception e) {
+                SharedUtils.Logger.Log("Exception when parsing frame " + parentFrame.FrameNumber + " as OpenFlow packet: " + e.Message, SharedUtils.Logger.EventLogEntryType.Warning);
                 return false;
             }
             return result != null;

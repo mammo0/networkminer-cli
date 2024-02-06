@@ -119,8 +119,23 @@ namespace PacketParser.Packets {
             }
         }
 
+        public static new bool TryParse(Frame parentFrame, int packetStartIndex, int packetEndIndex, out AbstractPacket netBiosNameServicePacket) {
+            ushort questionCount = Utils.ByteConverter.ToUInt16(parentFrame.Data, packetStartIndex + 4);
+            var answerCount = Utils.ByteConverter.ToUInt16(parentFrame.Data, packetStartIndex + 6);
+            var authorityCount = Utils.ByteConverter.ToUInt16(parentFrame.Data, packetStartIndex + 8);
+            var additionalCount = Utils.ByteConverter.ToUInt16(parentFrame.Data, packetStartIndex + 10);
 
-        internal NetBiosNameServicePacket(Frame parentFrame, int packetStartIndex, int packetEndIndex)
+            if (questionCount < 10 && answerCount < 64 && authorityCount < 64 && additionalCount < 64) {
+                netBiosNameServicePacket = new NetBiosNameServicePacket(parentFrame, packetStartIndex, packetEndIndex);
+                return true;
+            }
+            else {
+                netBiosNameServicePacket = null;
+                return false;
+            }
+        }
+
+        private NetBiosNameServicePacket(Frame parentFrame, int packetStartIndex, int packetEndIndex)
             : base(parentFrame, packetStartIndex, packetEndIndex, "NetBIOS Name Service") {
 
             this.AnswerResourceRecords = new List<ResourceRecord>();
@@ -151,34 +166,10 @@ namespace PacketParser.Packets {
                 i+=2;
             }
 
-            //this.answerNameDecoded=null;
-            //this.answerAddress=new System.Net.IPAddress((long)0);
             //ANSWER RESOURCE RECORDS
             for(int a=0; a<answerCount;a++) {
                 this.AnswerResourceRecords.Add(new ResourceRecord(this, ref i));
-                /*
-                this.answerNameDecoded=NetBiosPacket.DecodeNetBiosName(parentFrame, ref i, this);
-                //Get Question Type
-                this.answerType = Utils.ByteConverter.ToUInt16(parentFrame.Data, i);
-                i+=2;
-                //Get Question Class
-                this.answerClass = Utils.ByteConverter.ToUInt16(parentFrame.Data, i);
-                i+=2;
-                //TTL
-                this.answerTTL = Utils.ByteConverter.ToUInt32(parentFrame.Data, i);
-                i+=4;
-                //data length
-                this.answerDataLength = Utils.ByteConverter.ToUInt16(parentFrame.Data, i);
-                i+=2;
-                //flags
-                this.answerFlags = Utils.ByteConverter.ToUInt16(parentFrame.Data, i);
-                i+=2;
-                //addr
-                byte[] ipBytes=new byte[4];//IP4...
-                Array.Copy(parentFrame.Data, i, ipBytes, 0, ipBytes.Length);
-                this.answerAddress=new System.Net.IPAddress(ipBytes);
-                i+=4;
-                */
+               
             }
             for (int a = 0; a < authorityCount; a++) {
                 this.AuthorityResourceRecords.Add(new ResourceRecord(this, ref i));

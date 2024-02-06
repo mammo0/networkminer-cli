@@ -33,7 +33,8 @@ namespace PacketParser.Packets {
             try {
                 result = new TpktPacket(parentFrame, packetStartIndex, packetEndIndex, parentTcpPacket);
             }
-            catch {
+            catch (Exception e){
+                SharedUtils.Logger.Log("Exception when parsing frame " + parentFrame.FrameNumber + " as TPKT packet: " + e.Message, SharedUtils.Logger.EventLogEntryType.Warning);
                 result = null;
             }
 

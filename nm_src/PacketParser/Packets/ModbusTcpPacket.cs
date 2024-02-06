@@ -50,7 +50,7 @@ namespace PacketParser.Packets {
             public GenericByteCountRegisterValueResponse(byte[] frameData, int functionCodeOffset)
                 : base(frameData, functionCodeOffset) {
                     byte byteCount = frameData[functionCodeOffset + 1];
-                    this.registerValuesHex = Utils.ByteConverter.ReadHexString(frameData, byteCount, functionCodeOffset + 2);
+                    this.registerValuesHex = Utils.ByteConverter.ToHexString(frameData, byteCount, functionCodeOffset + 2);
             }
 
             public override string ToString() {
@@ -322,7 +322,7 @@ namespace PacketParser.Packets {
             public ReportSlaveIdResponse(byte[] frameData, int functionCodeOffset)
                 : base(frameData, functionCodeOffset) {
                 ushort byteCount = frameData[functionCodeOffset + 1];
-                this.slaveIdHex = Utils.ByteConverter.ReadHexString(frameData, byteCount, functionCodeOffset + 2);
+                this.slaveIdHex = Utils.ByteConverter.ToHexString(frameData, byteCount, functionCodeOffset + 2);
                 this.slaveIdPrintable = Utils.ByteConverter.ReadString(frameData, functionCodeOffset + 2, byteCount, "");
             }
 
@@ -356,7 +356,7 @@ namespace PacketParser.Packets {
                 : base(frameData, functionCodeOffset) {
                 int payloadLength = length - 2;//remove slave address and function code from payload
                 if (length > 0 && payloadLength <= frameData.Length)
-                    this.payloadHex = Utils.ByteConverter.ReadHexString(frameData, payloadLength, functionCodeOffset + 1);
+                    this.payloadHex = Utils.ByteConverter.ToHexString(frameData, payloadLength, functionCodeOffset + 1);
                 else
                     this.payloadHex = "";
             }
@@ -463,7 +463,8 @@ namespace PacketParser.Packets {
                 }
                 else
                     return false;
-            } catch {
+            } catch(Exception e) {
+                SharedUtils.Logger.Log("Exception when parsing frame " + parentFrame.FrameNumber + " as Modbus packet: " + e.Message, SharedUtils.Logger.EventLogEntryType.Warning);
                 return false;
             }
         }

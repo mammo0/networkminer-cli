@@ -6,7 +6,7 @@ namespace PacketParser.PacketHandlers {
     class SnmpPacketHandler : AbstractPacketHandler, IPacketHandler {
 
 
-        public override Type ParsedType { get { return typeof(Packets.SnmpPacket); } }
+        public override Type[] ParsedTypes { get; } = { typeof(Packets.SnmpPacket) };
 
         public SnmpPacketHandler(PacketHandler mainPacketHandler)
             : base(mainPacketHandler) {
@@ -35,22 +35,21 @@ namespace PacketParser.PacketHandlers {
                     }
                     foreach(string snmpString in snmpPacket.CarvedStrings) {
                         if (!string.IsNullOrEmpty(snmpString)) {
-                            string SNMP_PARAMETER = "SNMP parameter";
-                            tmpCol.Add(SNMP_PARAMETER, snmpString);
+                            tmpCol.Add("SNMP parameter", snmpString);
 
                             //https://opensource.apple.com/source/cups/cups-218/cups/backend/snmp.txt.auto.html
                             if (snmpString.StartsWith("MFG:"))
-                                sourceHost.AddNumberedExtraDetail(SNMP_PARAMETER, snmpString);
+                                sourceHost.AddNumberedExtraDetail(NetworkHost.ExtraDetailType.SnmpParameter, snmpString);
                             else if(snmpString.IndexOf("printer", StringComparison.InvariantCultureIgnoreCase) >= 0)
-                                sourceHost.AddNumberedExtraDetail(SNMP_PARAMETER, snmpString);
+                                sourceHost.AddNumberedExtraDetail(NetworkHost.ExtraDetailType.SnmpParameter, snmpString);
                             else if (snmpString.IndexOf("MANUFACTURER", StringComparison.InvariantCultureIgnoreCase) >= 0)
-                                sourceHost.AddNumberedExtraDetail(SNMP_PARAMETER, snmpString);
+                                sourceHost.AddNumberedExtraDetail(NetworkHost.ExtraDetailType.SnmpParameter, snmpString);
                             else if (snmpString.IndexOf("JETDIRECT", StringComparison.InvariantCultureIgnoreCase) >= 0)
-                                sourceHost.AddNumberedExtraDetail(SNMP_PARAMETER, snmpString);
+                                sourceHost.AddNumberedExtraDetail(NetworkHost.ExtraDetailType.SnmpParameter, snmpString);
                             else if (snmpString.IndexOf("http", StringComparison.InvariantCultureIgnoreCase) >= 0)
-                                sourceHost.AddNumberedExtraDetail(SNMP_PARAMETER, snmpString);
+                                sourceHost.AddNumberedExtraDetail(NetworkHost.ExtraDetailType.SnmpParameter, snmpString);
                             else if (snmpString.IndexOf("Firmware", StringComparison.InvariantCultureIgnoreCase) >= 0)
-                                sourceHost.AddNumberedExtraDetail(SNMP_PARAMETER, snmpString);
+                                sourceHost.AddNumberedExtraDetail(NetworkHost.ExtraDetailType.SnmpParameter, snmpString);
 
                         }
                     }

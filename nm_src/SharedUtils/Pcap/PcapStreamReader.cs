@@ -30,7 +30,7 @@ namespace SharedUtils.Pcap {
 
         protected StreamReadCompletedCallback streamReadCompletedCallback;
 
-        public const int MAX_FRAME_SIZE = 131072;//Gigabit Ethernet Jumbo Frames are 9000 bytes (this is 15 times larger, so we should be safe)
+        public const int MAX_FRAME_SIZE = 131072;//Gigabit Ethernet Jumbo Frames are 9000 bytes. Total length field in IPv4 is a 16 bit number, allowing a theoretic max length of 64 kB.
 
         //[System.Obsolete("Data Link info is now available in PcapFileHandler.PcapPacket instead!")]
         public IList<PcapFrame.DataLinkTypeEnum> FileDataLinkType { get { return this.PcapParser.DataLinkTypes; } }

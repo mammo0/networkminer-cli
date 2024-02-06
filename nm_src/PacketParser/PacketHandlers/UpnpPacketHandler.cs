@@ -12,7 +12,7 @@ namespace PacketParser.PacketHandlers {
     class UpnpPacketHandler : AbstractPacketHandler, IPacketHandler {
 
 
-        public override Type ParsedType { get { return typeof(Packets.UpnpPacket); } }
+        public override Type[] ParsedTypes { get; } = { typeof(Packets.UpnpPacket) };
 
         public UpnpPacketHandler(PacketHandler mainPacketHandler)
             : base(mainPacketHandler) {

@@ -10,7 +10,7 @@ using System.Text;
 using SharedUtils.Pcap;
 
 namespace NetworkWrapper {
-    public interface ISniffer {
+    public interface ISniffer : IDisposable {
         PacketReceivedEventArgs.PacketTypes BasePacketType{get;}
         void StartSniffing();
         void StopSniffing();

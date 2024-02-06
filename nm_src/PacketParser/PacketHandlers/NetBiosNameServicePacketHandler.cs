@@ -12,7 +12,7 @@ namespace PacketParser.PacketHandlers {
     class NetBiosNameServicePacketHandler : AbstractPacketHandler, IPacketHandler {
 
 
-        public override Type ParsedType { get { return typeof(Packets.NetBiosNameServicePacket); } }
+        public override Type[] ParsedTypes { get; } = { typeof(Packets.NetBiosNameServicePacket) };
 
         public NetBiosNameServicePacketHandler(PacketHandler mainPacketHandler)
             : base(mainPacketHandler) {

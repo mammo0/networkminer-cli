@@ -14,11 +14,6 @@ namespace PacketParser.Packets {
     /// This class shall be implemented by all packet classes such as PacketIP, PacketEthernet, PacketTCP etc.
     /// </summary>
     public abstract class AbstractPacket : IPacket {
-        
-        public static bool TryParse(Frame parentFrame, int packetStartIndex, int packetEndIndex, out AbstractPacket result) {
-            result=null;
-            return false;
-        }
 
         private Frame parentFrame;
         private string packetTypeDescription;

@@ -34,8 +34,9 @@ namespace PacketParser.Packets {
             try {
                 result=new SshPacket(parentFrame, packetStartIndex, packetEndIndex);
             }
-            catch {
-                result=null;
+            catch (Exception e) {
+                SharedUtils.Logger.Log("Exception when parsing frame " + parentFrame.FrameNumber + " as SSH packet: " + e.Message, SharedUtils.Logger.EventLogEntryType.Warning);
+                result =null;
             }
 
 

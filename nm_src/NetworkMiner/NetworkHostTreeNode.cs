@@ -18,7 +18,7 @@ namespace NetworkMiner {
         private Func<System.Net.IPAddress, string> ipLocator;
         private ToolInterfaces.IHostDetailsGenerator hostDetailsGenerator;
         private readonly Func<System.Net.NetworkInformation.PhysicalAddress, System.Net.IPAddress, IEnumerable<NetworkHostTreeNode>> macSiblingsFunction;
-        
+        private readonly List<string> nodeKeywords;//for filtering in the GUI
         
 
         public PacketParser.NetworkHost NetworkHost { get { return this.networkHost; } }
@@ -29,6 +29,7 @@ namespace NetworkMiner {
             this.ipLocator=ipLocator;
             this.hostDetailsGenerator = hostDetailsGenerator;
             this.macSiblingsFunction = macSiblingsFunction;
+            this.nodeKeywords = new List<string>();
 
             this.Text=networkHost.ToString();
             this.Nodes.Add("dummie node");
@@ -77,6 +78,42 @@ namespace NetworkMiner {
         }
         private string GetOsImageKey() {
             return NetworkHostTreeNode.GetOsImageKey(networkHost);
+        }
+
+        public bool AnyKeywordMatches(System.Text.RegularExpressions.Regex regex) {
+            if (this.nodeKeywords.Count == 0)
+                this.BeforeExpand();//will generate nodes and update keywords list
+            lock (this.nodeKeywords) {
+                foreach (string kw in this.nodeKeywords)
+                    if (regex.IsMatch(kw))
+                        return true;
+            }
+            lock(this.networkHost.ExtraDetailsList) {
+                foreach (KeyValuePair<string, string> kvp in this.networkHost.ExtraDetailsList) {
+                    if (regex.IsMatch(kvp.Key))
+                        return true;
+                    if (regex.IsMatch(kvp.Value))
+                        return true;
+                }
+            }
+            //the HostDetailCollection doesn't need a lock, a new collection is generated when accessed
+            System.Collections.Specialized.NameValueCollection details = this.networkHost.GetHostDetailCollection();
+            foreach (string key in details.Keys) {
+                if (regex.IsMatch(key))
+                    return true;
+                if (regex.IsMatch(details[key]))
+                    return true;
+            }
+
+            /*
+            foreach (string domain in this.NetworkHost.HostNames)
+                if (regex.IsMatch(domain))
+                    return true;
+            foreach (string ja3 in this.NetworkHost.Ja3Hashes)
+                if (regex.IsMatch(ja3))
+                    return true;
+            */
+            return false;
         }
 
         public static string GetOsImageKey(PacketParser.NetworkHost networkHost) {
@@ -134,8 +171,10 @@ namespace NetworkMiner {
                 nicNode.Tag = networkHost.MacAddress.ToString();
                 if(this.macSiblingsFunction != null) {
                     foreach(NetworkHostTreeNode sibling in this.macSiblingsFunction.Invoke(this.networkHost.MacAddress, this.networkHost.IPAddress)) {
-                        TreeNodeLink link = new TreeNodeLink(sibling.NetworkHost.IPAddress, sibling);
-                        nicNode.Nodes.Add(link);
+                        if (sibling?.NetworkHost != null) {
+                            TreeNodeLink link = new TreeNodeLink(sibling.NetworkHost.IPAddress, sibling);
+                            nicNode.Nodes.Add(link);
+                        }
                     }
                 }
 
@@ -150,7 +189,7 @@ namespace NetworkMiner {
                     nicVendorNode.Tag = "";
                 }
                 if (PacketParser.Fingerprints.MacAges.GetMacAges(System.IO.Path.GetFullPath(System.Windows.Forms.Application.ExecutablePath)).TryGetDateAndSource(networkHost.MacAddress.ToString(), out DateTime date, out string source)) {
-                    this.Nodes.Add("macAge", "MAC Age: " + date.ToShortDateString(), "nic", "nic");
+                    this.Nodes.Add("macAge", "MAC Age: " + date.ToString("yyyy'-'MM'-'dd"), "nic", "nic");
                 }
             }
             else {
@@ -209,11 +248,22 @@ namespace NetworkMiner {
                             this.networkHost.ExtraDetailsList.Add(extraDetails.Keys[i], extraDetails[i]);
                 }
             }
-            
-            if (this.networkHost.HostDetailCollection.Count>0) {
-                this.Nodes.Add(new HostDetailListTreeNode(this.networkHost.HostDetailCollection));
+            var details = this.networkHost.GetHostDetailCollection();
+            if (details.Count>0) {
+                this.Nodes.Add(new HostDetailListTreeNode(details));
             }
+            lock(this.nodeKeywords) {
+                this.AddNodeTextRecursive(this);
+            }
+        }
 
+        private void AddNodeTextRecursive(TreeNode node) {
+            //this.keywords should have been locked before running this function!
+            if (!string.IsNullOrEmpty(node?.Text))
+                this.nodeKeywords.Add(node.Text);
+            foreach (TreeNode childNode in node?.Nodes?.OfType<TreeNode>()) {
+                this.AddNodeTextRecursive(childNode);
+            }
         }
 
         internal class TreeNodeLink : TreeNode {
@@ -221,8 +271,15 @@ namespace NetworkMiner {
 
 
             public TreeNodeLink(System.Net.IPAddress ip, TreeNode linkedTreeNode) : base(ip.ToString() + " (same MAC address)") {
-                this.NodeFont = new System.Drawing.Font(linkedTreeNode.TreeView.Font, System.Drawing.FontStyle.Underline);
-                this.LinkedTreeNode = linkedTreeNode;
+                if (linkedTreeNode.TreeView != null) {
+                    this.NodeFont = new System.Drawing.Font(linkedTreeNode.TreeView.Font, System.Drawing.FontStyle.Underline);
+                    this.LinkedTreeNode = linkedTreeNode;
+                }
+#if DEBUG
+                else
+                    System.Diagnostics.Debugger.Break();
+#endif
+                
             }
         }
 
@@ -341,62 +398,8 @@ namespace NetworkMiner {
                 this.SelectedImageKey=this.ImageKey;
             }
 
-            /*
-            [Obsolete("This function will be removed")]
-            public void BeforeExpand() {
-                //if(sourceHost.SentPackets.Count>0) {
-                    this.Nodes.Clear();
-                
-                    if(hostIsSender) {
-                        foreach(KeyValuePair<PacketParser.NetworkHost, PacketParser.NetworkPacketList> hostList in host.GetSentPacketListsPerDestinationHost()) {
-                            this.Nodes.Add(new SubNetworkHostTreeNode(host, hostList.Key, hostList.Value));
-                        }
-                    }
-                    else {
-                        foreach(KeyValuePair<PacketParser.NetworkHost, PacketParser.NetworkPacketList> hostList in host.GetReceivedPacketListsPerSourceHost()) {
-                            this.Nodes.Add(new SubNetworkHostTreeNode(hostList.Key, host, hostList.Value));
-                        }
-                    }
-                //}
-              */
         }
 
-
-        /*
-        /// <summary>
-        /// Holds information regarding sub hosts that the host has communicated with
-        /// </summary>
-        internal class SubNetworkHostTreeNode : TreeNode {
-                private PacketParser.NetworkHost sourceHost, destinationHost;
-                private PacketParser.NetworkPacketList packetList;
-
-                internal SubNetworkHostTreeNode(PacketParser.NetworkHost sourceHost, PacketParser.NetworkHost destinationHost, PacketParser.NetworkPacketList packetList) {
-                    this.sourceHost=sourceHost;
-                    this.destinationHost=destinationHost;
-                    this.packetList=packetList;
-                    this.Text=sourceHost.ToString()+" -> "+destinationHost.ToString()+" : "+packetList.ToString();
-                    if(packetList.Count>0)
-                        this.Nodes.Add("dummie node");//so that it can be expanded
-                }
-
-                [Obsolete("This function will be removed")]
-                public void BeforeExpand() {
-                    this.Nodes.Clear();
-                    
-                    ICollection<KeyValuePair<ushort[], PacketParser.NetworkPacketList>> tcpPortPairLists=packetList.GetSubsetPerTcpPortPair();
-                    foreach(KeyValuePair<ushort[], PacketParser.NetworkPacketList> portPairList in tcpPortPairLists)
-                        this.Nodes.Add("REMOVEME TCP: "+portPairList.Key[0]+" -> "+portPairList.Key[1]+" : "+portPairList.Value.ToString());
-
-                    ICollection<KeyValuePair<ushort[], PacketParser.NetworkPacketList>> udpPortPairLists=packetList.GetSubsetPerUdpPortPair();
-                    foreach(KeyValuePair<ushort[], PacketParser.NetworkPacketList> portPairList in udpPortPairLists)
-                        this.Nodes.Add("REMOVEME UDP: "+portPairList.Key[0]+" -> "+portPairList.Key[1]+" : "+portPairList.Value.ToString());
-                    
-                }
-            }
-
-
-        }
-        */
 
         internal class HostDetailListTreeNode : TreeNode, ToolInterfaces.IBeforeExpand {
             private System.Collections.Specialized.NameValueCollection details;

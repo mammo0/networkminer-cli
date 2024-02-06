@@ -51,10 +51,14 @@ namespace PacketParser.Packets {
         public PhysicalAddress DestinationMAC { get { return this.destinationMAC; } }
         public PhysicalAddress BSSID { get { return this.basicServiceSetMAC; } }
 
-        internal IEEE_802_11Packet(Frame parentFrame, int packetStartIndex, int packetEndIndex)
+        internal IEEE_802_11Packet(Frame parentFrame, int packetStartIndex, int packetEndIndex, bool swapFrameControlBytes = false)
             : base(parentFrame, packetStartIndex, packetEndIndex, "IEEE 802.11") {
 
-            this.frameControl=new FrameControl(parentFrame.Data[packetStartIndex], parentFrame.Data[packetStartIndex+1]);
+            if(swapFrameControlBytes)
+                this.frameControl = new FrameControl(parentFrame.Data[packetStartIndex + 1], parentFrame.Data[packetStartIndex]);
+            else
+                this.frameControl=new FrameControl(parentFrame.Data[packetStartIndex], parentFrame.Data[packetStartIndex+1]);
+                
             if (!this.ParentFrame.QuickParse) {
                 this.Attributes.Add("Protocol version", this.frameControl.ProtocolVersion.ToString());
                 this.Attributes.Add("Type", this.frameControl.Type.ToString());

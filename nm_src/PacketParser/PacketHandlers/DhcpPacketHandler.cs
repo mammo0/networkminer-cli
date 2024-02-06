@@ -13,7 +13,7 @@ namespace PacketParser.PacketHandlers {
 
         private SortedList<string, System.Net.IPAddress> previousIpList;
 
-        public override Type ParsedType { get { return typeof(Packets.DhcpPacket); } }
+        public override Type[] ParsedTypes { get; } = { typeof(Packets.DhcpPacket) };
 
         public DhcpPacketHandler(PacketHandler mainPacketHandler)
             : base(mainPacketHandler) {

@@ -5,7 +5,7 @@ using System.Text;
 namespace PacketParser.PacketHandlers {
     class SyslogPacketHandler : AbstractPacketHandler, IPacketHandler {
 
-        public override Type ParsedType { get { return typeof(Packets.SyslogPacket); } }
+        public override Type[] ParsedTypes { get; } = { typeof(Packets.SyslogPacket) };
 
         public SyslogPacketHandler(PacketHandler mainPacketHandler)
             : base(mainPacketHandler) {

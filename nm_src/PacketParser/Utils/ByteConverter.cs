@@ -76,6 +76,15 @@ namespace PacketParser.Utils {
                 throw new Exception("HexString must start with \"0x\"");
         }
 
+        public static bool[] ToBoolArray(params byte[] bytes) {
+            List<bool> boolList = new List<bool>();
+            foreach(byte b in bytes) {
+                for (int i = 7; i >= 0; i--) {
+                    boolList.Add(((b >> i) & 0x01) == 0x01) ;
+                }
+            }
+            return boolList.ToArray();
+        }
         public static byte[] ToByteArray(ushort value, bool littleEndian = false) {
             byte[] b = BitConverter.GetBytes(value);
             if (BitConverter.IsLittleEndian != littleEndian)
@@ -308,19 +317,39 @@ namespace PacketParser.Utils {
         }
 
 
+        [Obsolete("Use ToHexString instead")]
         public static string ReadHexString(byte[] data, int nBytesToRead, bool lowercase = false) {
-            return ReadHexString(data, nBytesToRead, 0, lowercase);
+            return ReadHexString(data, nBytesToRead, lowercase);
         }
+        [Obsolete("Use ToHexString instead")]
         public static string ReadHexString(byte[] data, int nBytesToRead, int offset, bool lowercase = false) {
             StringBuilder sb = new StringBuilder();
             for (int i = 0; i < nBytesToRead; i++) {
-                if(lowercase)
+                if (lowercase)
                     sb.Append(data[offset + i].ToString("x2"));
                 else
                     sb.Append(data[offset + i].ToString("X2"));
 
             }
             return sb.ToString();
+        }
+
+        public static string ToHexString(byte[] data, int nBytesToRead, bool lowercase = false, bool spacesBetweenBytes = false) {
+            return ToHexString(data, nBytesToRead, 0, lowercase, spacesBetweenBytes);
+        }
+        public static string ToHexString(byte[] data, int nBytesToRead, int offset, bool lowercase = false, bool spacesBetweenBytes = false) {
+            List<string> hexParts = new List<string>();
+            for (int i = 0; i < nBytesToRead; i++) {
+                if(lowercase)
+                    hexParts.Add(data[offset + i].ToString("x2"));
+                else
+                    hexParts.Add(data[offset + i].ToString("X2"));
+
+            }
+            if (spacesBetweenBytes)
+                return string.Join(" ", hexParts);
+            else
+                return string.Concat<string>(hexParts);
         }
 
         public static string ReadString(byte[] data) {
@@ -482,7 +511,7 @@ namespace PacketParser.Utils {
                 StringBuilder sb = new StringBuilder();
                 for (int offset = 0; offset < data.Length; offset += maxBytesPerRow) {
                     int nBytesToRead = Math.Min(maxBytesPerRow, data.Length - offset);
-                    string hexPart = ReadHexString(data, nBytesToRead, offset);
+                    string hexPart = ToHexString(data, nBytesToRead, offset);
                     string asciiPart = StringManglerUtil.GetAsciiString(data, offset, nBytesToRead, false);
                     //string asciiPart = ReadString(data, offset, nBytesToRead);
                     if(asciiPart.Length < maxBytesPerRow) {
@@ -494,7 +523,7 @@ namespace PacketParser.Utils {
                 return sb.ToString();
             }
             else {
-                string hexPart = ReadHexString(data, data.Length);
+                string hexPart = ToHexString(data, data.Length);
                 string asciiPart = ReadString(data, ".");
                 return hexPart + "\t" + asciiPart;
             }

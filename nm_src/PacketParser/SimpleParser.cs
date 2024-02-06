@@ -28,7 +28,7 @@ namespace PacketParser {
                 //string exePath = System.IO.Path.GetFullPath(System.Windows.Forms.Application.ExecutablePath);
                 //string executablePath = System.IO.Path.GetFullPath(System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName);
                 string executablePath = System.IO.Path.GetFullPath(System.Reflection.Assembly.GetEntryAssembly().Location);
-                PacketParser.PacketHandler packetHandler = new PacketHandler(executablePath, System.Environment.CurrentDirectory, null, true, new Func<DateTime, string>((DateTime dateTime) => { return dateTime.ToUniversalTime().ToString("u"); }), false, false);
+                PacketParser.PacketHandler packetHandler = new PacketHandler(executablePath, System.Environment.CurrentDirectory, null, true, new Func<DateTime, string>((DateTime dateTime) => { return dateTime.ToUniversalTime().ToString("u"); }), false, false, 1);
                 packetHandler.StartBackgroundThreads();
 
                 int readFrames = 0;

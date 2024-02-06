@@ -56,7 +56,7 @@ namespace NetworkMiner {
 
         //private int nFilesReceived;
         private NetworkWrapper.ISniffer sniffer;
-        private ImageList imageList;
+        //private ImageList imageList;
         private PacketHandlerWrapper packetHandlerWrapper;
         private PacketParser.CleartextDictionary.WordDictionary dictionary;
         private int pcapFileReaderQueueSize = 1000;
@@ -73,6 +73,9 @@ namespace NetworkMiner {
         public Func<string, ToolStripMenuItem> GetHashLookupToolStripMenuItem;
         public Func<string, ToolStripMenuItem> GetJa3HashLookupToolStripMenuItem;
         public Func<string, ToolStripMenuItem> GetSubmitFileToolStripMenuItem;
+        //For CIDR handling
+        public Func<System.Net.IPAddress, System.Net.IPAddress, byte, bool> IpInNetFunction = null;
+        public Func<string, Tuple<System.Net.IPAddress, byte>> GetCIDR = (s) => throw new NotImplementedException("CIDR filters are not available in the free version of NetworkMiner");
         
 
         //private NetworkWrapper.PacketReceivedHandler packetReceivedHandler = null;
@@ -98,18 +101,8 @@ namespace NetworkMiner {
 
         private ConcurrentQueue<PacketParser.Frame> frameQueue;
         private ConcurrentQueue<string> cleartextQueue;
-        private ConcurrentQueue<PacketParser.FileTransfer.ReconstructedFile> fileQueue;
-        private ConcurrentQueue<PacketParser.Events.ParametersEventArgs> parametersQueue;
-        private ConcurrentQueue<PacketParser.NetworkCredential> credentialQueue;
-        private ConcurrentQueue<PacketParser.NetworkHost> hostQueue;
-        private ConcurrentQueue<PacketParser.Events.HttpClientEventArgs> httpClientQueue;
-        private ConcurrentQueue<PacketParser.Events.DnsRecordEventArgs> dnsQueue;
-        private ConcurrentQueue<PacketParser.Events.AnomalyEventArgs> anomalyQueue;
-        private ConcurrentQueue<PacketParser.Events.SessionEventArgs> sessionQueue;
-        private ConcurrentQueue<PacketParser.Events.MessageEventArgs> messageQueue;
         private int _snifferBufferToolStripProgressBarNewValue;
         private ConcurrentDictionary<Control, string> controlTextDictionary;
-        private ConcurrentQueue<PacketParser.Events.KeywordEventArgs> keywordQueue;
         private Dictionary<System.Net.NetworkInformation.PhysicalAddress, HashSet<NetworkHostTreeNode>> macToTreeNodeDictionary;//used to get "Siblings" for hosts with the same MAC (for example IPv4 and IPv6 addresses on the same PC)
         //private bool useRelativePathIfAvailable = false;
         private bool _verifyX509Certificates = false;
@@ -120,6 +113,7 @@ namespace NetworkMiner {
         //Settings
         //public int MaxFramesToShow = 1000;
         private GuiProperties _guiProperties;
+        private ImageHandler imageHandler;
 
         //private ListViewItem dragAndDropListViewItem = null;
         
@@ -128,16 +122,16 @@ namespace NetworkMiner {
 
         public event EventHandler GuiCleared;
 
-        internal ConcurrentQueue<PacketParser.FileTransfer.ReconstructedFile> FileQueue { get { return this.fileQueue; } }
-        internal ConcurrentQueue<PacketParser.Events.ParametersEventArgs> ParametersQueue { get { return this.parametersQueue; } }
-        internal ConcurrentQueue<PacketParser.NetworkCredential> CredentialQueue { get { return this.credentialQueue; } }
-        internal ConcurrentQueue<PacketParser.NetworkHost> HostQueue { get { return this.hostQueue; } }
-        internal ConcurrentQueue<PacketParser.Events.HttpClientEventArgs> HttpClientQueue { get { return this.httpClientQueue; } }
-        internal ConcurrentQueue<PacketParser.Events.DnsRecordEventArgs> DnsQueue { get { return this.dnsQueue; } }
-        internal ConcurrentQueue<PacketParser.Events.AnomalyEventArgs> AnomalyQueue { get { return this.anomalyQueue; } }
-        internal ConcurrentQueue<PacketParser.Events.SessionEventArgs> SessionQueue { get { return this.sessionQueue; } }
-        internal ConcurrentQueue<PacketParser.Events.MessageEventArgs> MessageQueue { get { return this.messageQueue; } }
-        internal ConcurrentQueue<PacketParser.Events.KeywordEventArgs> KeywordQueue { get { return this.keywordQueue; } }
+        internal ConcurrentQueue<PacketParser.FileTransfer.ReconstructedFile> FileQueue { get; }
+        internal ConcurrentQueue<PacketParser.Events.ParametersEventArgs> ParametersQueue { get; }
+        internal ConcurrentQueue<PacketParser.NetworkCredential> CredentialQueue { get; }
+        internal ConcurrentQueue<PacketParser.NetworkHost> HostQueue { get; }
+        internal ConcurrentQueue<PacketParser.Events.HttpClientEventArgs> HttpClientQueue { get; }
+        internal ConcurrentQueue<PacketParser.Events.DnsRecordEventArgs> DnsQueue { get; }
+        internal ConcurrentQueue<PacketParser.Events.AnomalyEventArgs> AnomalyQueue { get; }
+        internal ConcurrentQueue<PacketParser.Events.SessionEventArgs> SessionQueue { get; }
+        internal ConcurrentQueue<PacketParser.Events.MessageEventArgs> MessageQueue { get; }
+        internal ConcurrentQueue<PacketParser.Events.KeywordEventArgs> KeywordQueue { get; }
         //internal ConcurrentQueue<PacketParser.AudioStream> AudioStreamQueue { get; }
         //internal ConcurrentQueue<Tuple<System.Net.IPAddress, ushort, System.Net.IPAddress, ushort, string, string, string>> VoipCallQueue { get; }
 
@@ -172,7 +166,10 @@ namespace NetworkMiner {
         public ToolInterfaces.IColorHandler<System.Net.IPAddress> IpColorHandler
         {
             get { return this._ipColorHandler; }
-            set { this._ipColorHandler = value; }
+            set {
+                this._ipColorHandler = value;
+                this.imageHandler.IpColorHandler = value;
+            }
         }
 
         public GuiProperties GuiProperties
@@ -189,7 +186,7 @@ namespace NetworkMiner {
                 this.setTabPageVisibility(this.tabPageDetectedHosts, this._guiProperties.UseHostsTab);
                 this.setTabPageVisibility(this.tabPageBrowsers, this._guiProperties.UseBrowsersTab);
                 this.setTabPageVisibility(this.tabPageFiles, this._guiProperties.UseFilesTab);
-                this.setTabPageVisibility(this.tabPageImages, this._guiProperties.UseImagesTab);
+                this.setTabPageVisibility(this.tabPageImagesFiltered, this._guiProperties.UseImagesTab);
                 this.setTabPageVisibility(this.tabPageMessages, this._guiProperties.UseMessagesTab);
                 this.setTabPageVisibility(this.tabPageCredentials, this._guiProperties.UseCredentialsTab);
                 this.setTabPageVisibility(this.tabPageVoIP, this._guiProperties.UseVoipTab);
@@ -348,19 +345,20 @@ namespace NetworkMiner {
 
         public NetworkMinerForm(bool showWinPcapAdapterMissingError, bool removeBrowsersAndVoipTab) {
             this.frameQueue = new ConcurrentQueue<PacketParser.Frame>();
-            this.fileQueue = new ConcurrentQueue<PacketParser.FileTransfer.ReconstructedFile>();
-            this.parametersQueue = new ConcurrentQueue<PacketParser.Events.ParametersEventArgs>();
+            this.FileQueue = new ConcurrentQueue<PacketParser.FileTransfer.ReconstructedFile>();
+            this.ParametersQueue = new ConcurrentQueue<PacketParser.Events.ParametersEventArgs>();
             this.cleartextQueue = new ConcurrentQueue<string>();
-            this.credentialQueue = new ConcurrentQueue<PacketParser.NetworkCredential>();
-            this.hostQueue = new ConcurrentQueue<PacketParser.NetworkHost>();
-            this.httpClientQueue = new ConcurrentQueue<PacketParser.Events.HttpClientEventArgs>();
-            this.dnsQueue = new ConcurrentQueue<PacketParser.Events.DnsRecordEventArgs>();
-            this.anomalyQueue = new ConcurrentQueue<PacketParser.Events.AnomalyEventArgs>();
-            this.sessionQueue = new ConcurrentQueue<PacketParser.Events.SessionEventArgs>();
-            this.messageQueue = new ConcurrentQueue<PacketParser.Events.MessageEventArgs>();
-            this.keywordQueue = new ConcurrentQueue<PacketParser.Events.KeywordEventArgs>();
+            this.CredentialQueue = new ConcurrentQueue<PacketParser.NetworkCredential>();
+            this.HostQueue = new ConcurrentQueue<PacketParser.NetworkHost>();
+            this.HttpClientQueue = new ConcurrentQueue<PacketParser.Events.HttpClientEventArgs>();
+            this.DnsQueue = new ConcurrentQueue<PacketParser.Events.DnsRecordEventArgs>();
+            this.AnomalyQueue = new ConcurrentQueue<PacketParser.Events.AnomalyEventArgs>();
+            this.SessionQueue = new ConcurrentQueue<PacketParser.Events.SessionEventArgs>();
+            this.MessageQueue = new ConcurrentQueue<PacketParser.Events.MessageEventArgs>();
+            this.KeywordQueue = new ConcurrentQueue<PacketParser.Events.KeywordEventArgs>();
             this.aboutText = new System.Collections.Specialized.NameValueCollection();
             this.macToTreeNodeDictionary = new Dictionary<System.Net.NetworkInformation.PhysicalAddress, HashSet<NetworkHostTreeNode>>();
+            
             //this.AudioStreamQueue = new ConcurrentQueue<PacketParser.AudioStream>();
             //this.VoipCallQueue = new ConcurrentQueue<Tuple<System.Net.IPAddress, ushort, System.Net.IPAddress, ushort, string, string, string>>();
 
@@ -376,13 +374,17 @@ namespace NetworkMiner {
             }
 
             SharedUtils.Logger.Log("Initializing Component", SharedUtils.Logger.EventLogEntryType.Information);
+            
             InitializeComponent();
+
+            this.imageHandler = new ImageHandler(this.imagesFilteredListView);
+            this.hostsFilterComboBox.SelectedIndex = 0;
             SharedUtils.Logger.Log("Component Initialized", SharedUtils.Logger.EventLogEntryType.Information);
             this.hostMenuStripExtraItems = new List<ToolStripItem>();
             this.browsersMenuStripExtraItems = new List<ToolStripItem>();
             this.filesMenuStripExtraItems = new List<ToolStripItem>();
             this.GetIpLookupToolStripMenuItem = new Func<System.Net.IPAddress, DateTime, ToolStripMenuItem>((ip, date) => {
-                ToolStripMenuItem notAvailable = new ToolStripMenuItem("OSINT lookup of " + ip + "isn't available in the free version");
+                ToolStripMenuItem notAvailable = new ToolStripMenuItem("OSINT lookup of " + ip + " isn't available in the free version");
                 notAvailable.Enabled = false;
                 return notAvailable;
             });
@@ -421,7 +423,7 @@ namespace NetworkMiner {
                 SharedUtils.Logger.Log(ex.Message, SharedUtils.Logger.EventLogEntryType.Error);
                 MessageBox.Show("Make sure you are not running NetworkMiner from a network share!\n\nIf you need to run NetworkMiner from a non-trusted location (like a network share), then use Caspol.exe or Mscorcfg.msc to grant NetworkMiner full trust.", "File Permission Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 //Application.Exit();
-                throw ex;
+                throw;
             }
             try {
                 //require FileIOPermission to be PermissionState.Unrestricted
@@ -432,7 +434,7 @@ namespace NetworkMiner {
             catch (System.Security.SecurityException ex) {
                 SharedUtils.Logger.Log(ex.Message, SharedUtils.Logger.EventLogEntryType.Error);
                 DialogResult result = MessageBox.Show("Please ensure that the user has write permissions in the AssembledFiles directory." + Environment.NewLine + Environment.NewLine + ex.Message, "Unauthorized Access", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                throw ex;
+                throw;
             }
             /*
             this.SupportedCaptureFileExtensions = new List<string>() { 
@@ -459,7 +461,7 @@ namespace NetworkMiner {
                         sb.AppendLine(p);
                     MessageBox.Show(sb.ToString(), "System.Web assembly is missing");
                     SharedUtils.Logger.Log(sb.ToString().Replace(Environment.NewLine, " "), SharedUtils.Logger.EventLogEntryType.Error);
-                    throw e;
+                    throw;
                 }
                 try {
                     System.Net.WebRequest request = System.Net.WebRequest.Create("https://localhost");
@@ -472,7 +474,7 @@ namespace NetworkMiner {
                         sb.AppendLine(p);
                     MessageBox.Show(sb.ToString(), "System.Net assembly is missing");
                     SharedUtils.Logger.Log(sb.ToString().Replace(Environment.NewLine, " "), SharedUtils.Logger.EventLogEntryType.Error);
-                    throw e;
+                    throw;
                 }
                 try {
                     //In Mono, there is no Windows Certificate store. Mono has it's own store. By default, it is empty (there are no default CA's that are trusted).
@@ -529,39 +531,116 @@ namespace NetworkMiner {
                 //this.snifferBufferToolStripProgressBar.Visible = false;
                 //this.toolStripStatusLabel1.Text = "Running NetworkMiner with Mono";
                 this.readFromPacketCacheToolStripMenuItem.Visible = false;
+                this.readFromNamedPipeToolStripMenuItem.Visible = false;
 
+            }
 
+            ToolStripMenuItem CreateCopyRowsItem(ListView lv = null, bool addCtrlCShortcut = false) {
+                const string COPY_ROWS_TEXT = "Copy selected rows";
+                if (lv == null) {
+                    if (addCtrlCShortcut)
+                        return new ToolStripMenuItem(COPY_ROWS_TEXT, null, (sender, e) => this.CopySelectedRowsToClipboard(sender), Keys.Control | Keys.C);
+                    else
+                        return new ToolStripMenuItem(COPY_ROWS_TEXT, null, (sender, e) => this.CopySelectedRowsToClipboard(sender));
+                }
+                else {
+                    if (addCtrlCShortcut)
+                        return new ToolStripMenuItem(COPY_ROWS_TEXT, null, (sender, e) => this.CopySelectedRowsToClipboard(lv), Keys.Control | Keys.C);
+                    else
+                        return new ToolStripMenuItem(COPY_ROWS_TEXT, null, (sender, e) => this.CopySelectedRowsToClipboard(lv));
+                }
+            }
+
+            ToolStripMenuItem CreateSelectAllRowsItem(ListView lv = null, bool addCtrlCShortcut = false) {
+                const string SELECT_ALL_ROWS_TEXT = "Select all rows";
+
+                if (lv == null) {
+                    if (addCtrlCShortcut)
+                        return new ToolStripMenuItem(SELECT_ALL_ROWS_TEXT, null, (sender, e) => this.SelectAllRows(sender), Keys.Control | Keys.A);
+                    else
+                        return new ToolStripMenuItem(SELECT_ALL_ROWS_TEXT, null, (sender, e) => this.SelectAllRows(sender));
+                }
+                else {
+                    if (addCtrlCShortcut)
+                        return new ToolStripMenuItem(SELECT_ALL_ROWS_TEXT, null, (sender, e) => this.SelectAllRows(lv), Keys.Control | Keys.A);
+                    else
+                        return new ToolStripMenuItem(SELECT_ALL_ROWS_TEXT, null, (sender, e) => this.SelectAllRows(lv));
+                }
+            }
+
+            void AddSelectAllAndCopyRowsItems(ListView lv, bool addCtrlShortcut = false) {
+                lock (lv) {
+                    if (lv.ContextMenuStrip == null)
+                        lv.ContextMenuStrip = new ContextMenuStrip();
+                    if(lv.MultiSelect)
+                        lv.ContextMenuStrip.Items.Add(CreateSelectAllRowsItem(lv, addCtrlShortcut));
+                    lv.ContextMenuStrip.Items.Add(CreateCopyRowsItem(lv, addCtrlShortcut));
+                }
             }
 
             ContextMenuStrip fileCommandStrip = new ContextMenuStrip(this.components);
             fileCommandStrip.Items.Add(new ToolStripMenuItem("Open file", null, new EventHandler(this.OpenFile_Click)));
 
-            fileCommandStrip.Items.Add(new ToolStripMenuItem("Open folder", global::NetworkMiner.Properties.Resources.openHS, new EventHandler(this.OpenFileFolder_Click)));
+            //fileCommandStrip.Items.Add(new ToolStripMenuItem("Open folder", global::NetworkMiner.Properties.Resources.openHS, new EventHandler(this.OpenFileFolder_Click)));
+            //see: ms-help://MS.VSCC.v80/MS.MSDN.v80/MS.NETDEVFX.v20.en/CPref17/html/C_System_Windows_Forms_ToolStripMenuItem_ctor_2_8a3c7c15.htm
+            fileCommandStrip.Items.Add(new ToolStripMenuItem("Open folder", global::NetworkMiner.Properties.Resources.openHS, (o,s) => OpenFolder_Click(this.filesListView)));
             fileCommandStrip.Items.Add(new ToolStripMenuItem("Copy path to clipboard", null, new EventHandler(this.CopySelectedListViewItemTagToClipBoard)));
+            if(filesListView.MultiSelect)
+                fileCommandStrip.Items.Add(CreateSelectAllRowsItem(filesListView));//files not a multi select list view
+            fileCommandStrip.Items.Add(CreateCopyRowsItem(filesListView));
             fileCommandStrip.Items.Add(new ToolStripMenuItem("File details", null, new EventHandler(this.ShowFileDetails)));
             //toolstripseparator
             fileCommandStrip.Items.Add(new ToolStripSeparator());
             fileCommandStrip.Items.Add(new ToolStripMenuItem("Auto-resize all columns", null, new EventHandler(autoResizeFileColumns_Click)));
             this.filesListView.ContextMenuStrip = fileCommandStrip;
 
+            
+
             ContextMenuStrip attachmentCommandStrip = new ContextMenuStrip(this.components);
             attachmentCommandStrip.Items.Add(new ToolStripMenuItem("Open file", null, new EventHandler(OpenAttachment_Click)));
-            attachmentCommandStrip.Items.Add(new ToolStripMenuItem("Open folder", null, new EventHandler(OpenAttachmentFolder_Click)));
+            //attachmentCommandStrip.Items.Add(new ToolStripMenuItem("Open folder", null, new EventHandler(OpenAttachmentFolder_Click)));
+            attachmentCommandStrip.Items.Add(new ToolStripMenuItem("Open folder", null, (o,s) => OpenFolder_Click(this.messageAttachmentListView)));
             this.messageAttachmentListView.ContextMenuStrip = attachmentCommandStrip;
 
             ContextMenuStrip credentialCommandStrip = new ContextMenuStrip(this.components);
             credentialCommandStrip.Items.Add(new ToolStripMenuItem("Copy Username", null, new EventHandler(CopyCredentialUsernameToClipboard_Click)));
             credentialCommandStrip.Items.Add(new ToolStripMenuItem("Copy Password", null, new EventHandler(CopyCredentialPasswordToClipboard_Click)));
+            //CreateSelectAllRowsItem
+            credentialCommandStrip.Items.Add(CreateSelectAllRowsItem(credentialsListView));
+            credentialCommandStrip.Items.Add(CreateCopyRowsItem(credentialsListView));
             credentialCommandStrip.Items.Add(new ToolStripMenuItem("Auto-resize all columns", null, new EventHandler(autoResizeCredentialsColumns_Click)));
             this.credentialsListView.ContextMenuStrip = credentialCommandStrip;
 
+
+
+            if (this.parametersContextMenuStrip.Items.Count > 2) {
+                //CreateSelectAllRowsItem()
+                this.parametersContextMenuStrip.Items.Insert(2, CreateSelectAllRowsItem(this.parametersListView));
+                this.parametersContextMenuStrip.Items.Insert(3, CreateCopyRowsItem(this.parametersListView));
+            }
+            else {
+                this.parametersContextMenuStrip.Items.Add(CreateSelectAllRowsItem(this.parametersListView));
+                this.parametersContextMenuStrip.Items.Add(CreateCopyRowsItem(this.parametersListView));
+            }
             this.parametersContextMenuStrip.Items.Add(new ToolStripMenuItem("Auto-resize all columns", null, new EventHandler(autoResizeParameterColumns_Click)));
+
+            AddSelectAllAndCopyRowsItems(this.messagesListView, false);
+            AddSelectAllAndCopyRowsItems(this.sessionsListView, false);
+            AddSelectAllAndCopyRowsItems(this.dnsListView, false);
+            AddSelectAllAndCopyRowsItems(this.detectedKeywordsListView, false);
+
 
             ContextMenuStrip imageCommandStrip = new ContextMenuStrip(this.components);
             imageCommandStrip.Items.Add(new ToolStripMenuItem("Open image", null, new EventHandler(OpenImage_Click)));
+            imageCommandStrip.Items.Add(new ToolStripMenuItem("Open folder", global::NetworkMiner.Properties.Resources.openHS, (o,s) => OpenFolder_Click(this.imagesFilteredListView)));
+            var copyImageToClipboard = new ToolStripMenuItem("Copy to Clipboard", null, new EventHandler(CopyImage_Click));
+            //copyImageToClipboard.ShortcutKeyDisplayString = "Ctrl + C";
+            copyImageToClipboard.ShortcutKeys = Keys.Control | Keys.C;
+            imageCommandStrip.Items.Add(copyImageToClipboard);
             ToolStripMenuItem imageZoomInItem1 = new ToolStripMenuItem("Zoom in", null, new EventHandler(ImageZoomIn), Keys.Control | Keys.Oemplus);
             ToolStripMenuItem imageZoomInItem2 = new ToolStripMenuItem("Zoom in", null, new EventHandler(ImageZoomIn), Keys.Control | Keys.Add);
             imageZoomInItem1.ShortcutKeyDisplayString = "Ctrl + '+'";
+            //imageZoomInItem1.ShortcutKeys = Keys.Control | Keys.Oemplus;
             imageZoomInItem2.Visible = false;
             imageCommandStrip.Items.Add(imageZoomInItem1);
             imageCommandStrip.Items.Add(imageZoomInItem2);
@@ -569,19 +648,22 @@ namespace NetworkMiner {
             ToolStripMenuItem imageZoomOutItem1 = new ToolStripMenuItem("Zoom out", null, new EventHandler(ImageZoomOut), Keys.Control | Keys.OemMinus);
             ToolStripMenuItem imageZoomOutItem2 = new ToolStripMenuItem("Zoom out", null, new EventHandler(ImageZoomOut), Keys.Control | Keys.Subtract);
             imageZoomOutItem1.ShortcutKeyDisplayString = "Ctrl + '-'";
+            //imageZoomOutItem1.ShortcutKeys = Keys.Control | Keys.OemMinus;
             imageZoomOutItem2.Visible = false;
             imageCommandStrip.Items.Add(imageZoomOutItem1);
             imageCommandStrip.Items.Add(imageZoomOutItem2);
-            this.imagesListView.ContextMenuStrip = imageCommandStrip;
+            //this.imagesListView.ContextMenuStrip = imageCommandStrip;
+            this.imagesFilteredListView.ContextMenuStrip = imageCommandStrip;
 
             this.CreateNewPacketHandlerWrapper(new System.IO.DirectoryInfo(System.IO.Path.GetDirectoryName(System.Windows.Forms.Application.ExecutablePath)));
 
+            /*
             this.imagesListView.View = View.LargeIcon;
             this.imageList = new ImageList();
             this.imageList.ImageSize = new Size(64, 64);
             this.imageList.ColorDepth = ColorDepth.Depth32Bit;
             this.imagesListView.LargeImageList = imageList;
-
+            */
 
 
             //this.networkAdaptersComboBox.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
@@ -622,7 +704,7 @@ namespace NetworkMiner {
                         MessageBox.Show("Unable to find any WinPcap adapter, live sniffing with Raw Sockets is still possible though.\nPlease install WinPcap (www.winpcap.org) or Wireshark (www.wireshark.org) if you wish to sniff with a WindPcap adapter.\n\n" + ex.Message, "NetworkMiner", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
             }
-            //get all SocketAdapters
+            //get all SocketAdapters, must be added last because they get replaced on the list on networkAdaptersComboBox drop down event!
             SharedUtils.Logger.Log("Loading Raw Sockets Adapters", SharedUtils.Logger.EventLogEntryType.Information);
             networkAdapters.AddRange(NetworkWrapper.SocketAdapter.GetAdapters());
 
@@ -630,7 +712,12 @@ namespace NetworkMiner {
             //get all MicroOLAP adapters
             networkAdapters.AddRange(NetworkWrapper.MicroOlapAdapter.GetAdapters());
             */
-            this.networkAdaptersComboBox.DataSource = networkAdapters;
+
+            //this.networkAdaptersComboBox.DataSource = networkAdapters;
+            BindingSource bs = new BindingSource();
+            bs.DataSource = networkAdapters;
+            this.networkAdaptersComboBox.DataSource = bs;
+
 
             this.framesTreeView.Nodes.Clear();
 
@@ -640,7 +727,11 @@ namespace NetworkMiner {
 
             foreach (TreeView treeView in treeViewsWithHostIcons) {
 
-                treeView.ImageList = new ImageList();
+
+                treeView.ImageList = new ImageList {
+                    ColorDepth = ColorDepth.Depth32Bit
+                };
+                
                 //AddImage(networkHostTreeView, "white", "white.gif");
                 this.AddImage(treeView, "white", "white.jpg");//first is default
                 this.AddImage(treeView, "iana", "iana.jpg");
@@ -737,7 +828,8 @@ namespace NetworkMiner {
             */
 
             this.httpTransactionTreeView.SetDoubleBuffered(true);
-            this.imagesListView.SetDoubleBuffered(true);
+            //this.imagesListView.SetDoubleBuffered(true);
+            this.imagesFilteredListView.SetDoubleBuffered(true);
             this.credentialsListView.SetDoubleBuffered(true);
             this.detectedKeywordsListView.SetDoubleBuffered(true);
             this.cleartextTextBox.SetDoubleBuffered(true);
@@ -866,17 +958,17 @@ namespace NetworkMiner {
                 }
                 if (this.FileQueue.Count > 0) {
                     List<PacketParser.FileTransfer.ReconstructedFile> fList = new List<PacketParser.FileTransfer.ReconstructedFile>();
-                    while (this.fileQueue.TryDequeue(out PacketParser.FileTransfer.ReconstructedFile file))
+                    while (this.FileQueue.TryDequeue(out PacketParser.FileTransfer.ReconstructedFile file))
                         fList.Add(file);
                     this.AddFilesToFileList(fList);
                 }
-                if (this.credentialQueue.Count > 0) {
+                if (this.CredentialQueue.Count > 0) {
                     List<PacketParser.NetworkCredential> cList = new List<PacketParser.NetworkCredential>();
-                    while (this.credentialQueue.TryDequeue(out PacketParser.NetworkCredential credential))
+                    while (this.CredentialQueue.TryDequeue(out PacketParser.NetworkCredential credential))
                         cList.Add(credential);
                     this.AddCredentialsToCredentialList(cList);
                 }
-                if (this.hostQueue.Count > 0) {
+                if (this.HostQueue.Count > 0) {
                     List<PacketParser.NetworkHost> hList = new List<PacketParser.NetworkHost>();
                     while (this.HostQueue.TryDequeue(out PacketParser.NetworkHost host))
                         hList.Add(host);
@@ -891,7 +983,7 @@ namespace NetworkMiner {
                 if (this.DnsQueue.Count > 0) {
                     PacketParser.Events.DnsRecordEventArgs dre;
                     List<PacketParser.Events.DnsRecordEventArgs> rList = new List<PacketParser.Events.DnsRecordEventArgs>();
-                    while (this.dnsQueue.TryDequeue(out dre)) {
+                    while (this.DnsQueue.TryDequeue(out dre)) {
                         rList.Add(dre);
                         //this.AddDnsRecordToDnsList(dre.Record, dre.DnsServer, dre.DnsClient, dre.IpPacket, dre.UdpPacket);
                     }
@@ -900,34 +992,34 @@ namespace NetworkMiner {
 
                 if (this.AnomalyQueue.Count > 0) {
                     List<PacketParser.Events.AnomalyEventArgs> aList = new List<PacketParser.Events.AnomalyEventArgs>();
-                    while (this.anomalyQueue.TryDequeue(out PacketParser.Events.AnomalyEventArgs ae))
+                    while (this.AnomalyQueue.TryDequeue(out PacketParser.Events.AnomalyEventArgs ae))
                         aList.Add(ae);
                     this.ShowAnomaly(aList);
                 }
-                if (this.sessionQueue.Count > 0) {
+                if (this.SessionQueue.Count > 0) {
                     List<PacketParser.Events.SessionEventArgs> sList = new List<PacketParser.Events.SessionEventArgs>();
-                    while (this.sessionQueue.TryDequeue(out PacketParser.Events.SessionEventArgs se))
+                    while (this.SessionQueue.TryDequeue(out PacketParser.Events.SessionEventArgs se))
                         sList.Add(se);
                     //this.AddSessionToSessionList(se.Protocol, se.Client, se.Server, se.ClientPort, se.ServerPort, se.Tcp, se.StartFrameNumber, se.StartTimestamp);
                     this.AddSessionsToSessionList(sList);
                 }
-                if (this.messageQueue.Count > 0) {
+                if (this.MessageQueue.Count > 0) {
                     List<PacketParser.Events.MessageEventArgs> mList = new List<PacketParser.Events.MessageEventArgs>();
-                    while (this.messageQueue.TryDequeue(out PacketParser.Events.MessageEventArgs me)) {
+                    while (this.MessageQueue.TryDequeue(out PacketParser.Events.MessageEventArgs me)) {
                         mList.Add(me);
                         //this.AddMessage(me.Protocol, me.SourceHost, me.DestinationHost, me.StartFrameNumber, me.StartTimestamp, me.From, me.To, me.Subject, me.Message, me.MessageEncoding, me.Attributes);
                     }
                     this.AddMessages(mList);
                 }
-                if (this.parametersQueue.Count > 0) {
+                if (this.ParametersQueue.Count > 0) {
                     List<PacketParser.Events.ParametersEventArgs> peList = new List<PacketParser.Events.ParametersEventArgs>();
-                    while (this.parametersQueue.TryDequeue(out PacketParser.Events.ParametersEventArgs pe))
+                    while (this.ParametersQueue.TryDequeue(out PacketParser.Events.ParametersEventArgs pe))
                         peList.Add(pe);
                     this.AddParameters(peList);
                 }
-                if (this.keywordQueue.Count > 0) {
+                if (this.KeywordQueue.Count > 0) {
                     List<ListViewItem> keywordListViewItems = new List<ListViewItem>();
-                    while (this.keywordQueue.TryDequeue(out PacketParser.Events.KeywordEventArgs ke))
+                    while (this.KeywordQueue.TryDequeue(out PacketParser.Events.KeywordEventArgs ke))
                         keywordListViewItems.Add(this.createDetectedKeywordItem(ke.Frame, ke.KeywordIndex, ke.KeywordLength, ke.SourceHost, ke.DestinationHost, ke.SourcePort, ke.DestinationPort));
                     this.detectedKeywordsListView.Items.AddRange(keywordListViewItems.ToArray());
                     this.controlTextDictionary[this.tabPageKeywords] = "Keywords (" + this.detectedKeywordsListView.Items.Count + ")";
@@ -1054,6 +1146,11 @@ namespace NetworkMiner {
             List<TreeNode> tnList = new List<TreeNode>();
             foreach (PacketParser.Frame frame in frames) {
                 TreeNode frameNode = new TreeNode(frame.ToString());
+                if(frame.Tag != null && frame.Tag is IEnumerable<KeyValuePair<string, string>> tags) {
+                    foreach(var tag in tags) {
+                        frameNode.Nodes.Add(tag.Key + " = " + tag.Value);
+                    }
+                }
                 foreach (PacketParser.Packets.AbstractPacket p in frame.PacketList/*.Values*/) {
                     TreeNode packetNode = new TreeNode(p.PacketTypeDescription + " [" + p.PacketStartIndex + "-" + p.PacketEndIndex + "]");
                     foreach (string attributeKey in p.Attributes.AllKeys)
@@ -1076,6 +1173,11 @@ namespace NetworkMiner {
 
         private IEnumerable<NetworkHostTreeNode> GetSiblings(System.Net.NetworkInformation.PhysicalAddress mac, System.Net.IPAddress selfIp) {
             lock (this.macToTreeNodeDictionary) {
+                if(this.macToTreeNodeDictionary.Count > 0) {
+                    //Check if all nodes have been unlinked from the treeview, so it must be rebuilt
+                    if (this.macToTreeNodeDictionary.FirstOrDefault().Value?.FirstOrDefault()?.TreeView == null)
+                        this.macToTreeNodeDictionary.Clear();
+                }
                 if (this.macToTreeNodeDictionary.Count == 0) {
                     foreach (NetworkHostTreeNode nhtv in this.networkHostTreeView.Nodes) {
                         if (nhtv.NetworkHost.MacAddress != null && nhtv.NetworkHost.IPAddress != null) {
@@ -1092,8 +1194,6 @@ namespace NetworkMiner {
                 }
                 else
                     yield break;
-                //if (nhtv.NetworkHost.MacAddress?.Equals(mac) == true && !selfIp.Equals(nhtv.NetworkHost.IPAddress))
-                    //yield return nhtv;
             }
         }
 
@@ -1106,7 +1206,16 @@ namespace NetworkMiner {
                 if (this._ipColorHandler != null)
                     this._ipColorHandler.Colorize(networkHost.IPAddress, treeNode);
 
-                tnList.Add(treeNode);
+                if (this.hostsFilterTextBox.Tag is Tuple<System.Net.IPAddress, byte> cidr) {
+                    if(this.IpInNetFunction?.Invoke(networkHost.IPAddress, cidr.Item1, cidr.Item2) == true)
+                        tnList.Add(treeNode);
+                }
+                else if (this.hostsFilterTextBox.Tag is Regex regex) {
+                    if (treeNode.AnyKeywordMatches(regex))
+                        tnList.Add(treeNode);
+                }
+                else
+                    tnList.Add(treeNode);
 
             }
             this.networkHostTreeView.Nodes.AddRange(tnList.ToArray());
@@ -1128,18 +1237,18 @@ namespace NetworkMiner {
                     }
                     catch (KeyNotFoundException) {
                         if (httpClientId == null) {
-                            this.anomalyQueue.Enqueue(new PacketParser.Events.AnomalyEventArgs("HTTP Client ID is null", DateTime.Now));
+                            this.AnomalyQueue.Enqueue(new PacketParser.Events.AnomalyEventArgs("HTTP Client ID is null", DateTime.Now));
 
 
                         }
                         else {
-                            this.anomalyQueue.Enqueue(new PacketParser.Events.AnomalyEventArgs("Could not find HTTP TreeNode for " + httpClientId, DateTime.Now));
+                            this.AnomalyQueue.Enqueue(new PacketParser.Events.AnomalyEventArgs("Could not find HTTP TreeNode for " + httpClientId, DateTime.Now));
                         }
                     }
                 }
             }
             this.httpTransactionTreeView.Nodes.AddRange(tnList.ToArray());
-            this.controlTextDictionary[this.tabPageBrowsers] = "Browsers (" + (this.httpClientQueue.Count + this.httpTransactionTreeView.Nodes.Count) + ")";
+            this.controlTextDictionary[this.tabPageBrowsers] = "Browsers (" + (this.HttpClientQueue.Count + this.httpTransactionTreeView.Nodes.Count) + ")";
         }
 
         private void OpenParentFolderInExplorer(string filePath) {
@@ -1229,7 +1338,7 @@ namespace NetworkMiner {
                         }
                     }
                     else if (file.IsIcon()) {
-                        Icon icon = new Icon(file.FilePath);
+                        Icon icon = new Icon(file.FilePath);//this can throw an Exception saying "Argument 'picture' must be a picture that can be used as a Icon."
                         imageFilesList.Add(new Tuple<PacketParser.FileTransfer.ReconstructedFile, Bitmap>(file, icon.ToBitmap()));
                         //AddImageToImageList(file, icon.ToBitmap());
                         if (
@@ -1247,15 +1356,22 @@ namespace NetworkMiner {
                         }
                     }
                 }
+                catch(ArgumentException ae) when (ae.HResult == -2147024809 || ae.Message.StartsWith("Argument 'picture' must")) {//HResult 0x80070057
+                    //do nothing
+                    SharedUtils.Logger.Log("Not an icon: " + file.Filename, SharedUtils.Logger.EventLogEntryType.Information);
+                }
                 catch (Exception e) {
-                    this.anomalyQueue.Enqueue(new PacketParser.Events.AnomalyEventArgs("Error: Exception when loading image \"" + file.Filename + "\". " + e.Message, DateTime.Now));
-                    //this.ShowAnomaly("Error: Exception when loading image \"" + file.Filename + "\". " + e.Message, DateTime.Now);
+                    this.AnomalyQueue.Enqueue(new PacketParser.Events.AnomalyEventArgs("Exception when loading image \"" + file.Filename + "\". " + e.Message, DateTime.Now));
                 }
             }
             this.filesKeywordFilterControl.AddRange(itemList);
             this.controlTextDictionary[this.tabPageFiles] = "Files (" + this.filesKeywordFilterControl.UnfilteredList.Count + ")";
             if(imageFilesList.Count > 0)
                 this.AddImagesToImageList(imageFilesList);
+            
+            foreach ((PacketParser.FileTransfer.ReconstructedFile file, Bitmap bitmap) in imageFilesList) {
+                bitmap.Dispose();
+            }
 
         }
 
@@ -1304,16 +1420,7 @@ namespace NetworkMiner {
         private void AddSessionsToSessionList(List<PacketParser.Events.SessionEventArgs> sList){
             List<ListViewItem> newItems = new List<ListViewItem>();
             foreach (PacketParser.Events.SessionEventArgs se in sList) {
-                /*
-                PacketParser.ApplicationLayerProtocol protocol;
-                PacketParser.NetworkHost client;
-                PacketParser.NetworkHost server;
-                ushort clientPort;
-                ushort serverPort;
-                bool tcp;
-                long startFrameNumber;
-                DateTime startTimestamp;
-                */
+
                 string protocolString = "";
                 if (se.Protocol != PacketParser.ApplicationLayerProtocol.Unknown)
                     protocolString = se.Protocol.ToString();
@@ -1468,6 +1575,9 @@ namespace NetworkMiner {
         }
 
         private void AddImagesToImageList(IEnumerable<Tuple<PacketParser.FileTransfer.ReconstructedFile, Bitmap>> imageTuples) {
+            this.imageHandler.AddImages(imageTuples);
+            this.controlTextDictionary[this.tabPageImagesFiltered] = "Images (" + this.imageHandler.ImageCount + ")";
+            /*
             List<ListViewItem> newItems = new List<ListViewItem>();
             foreach (var t in imageTuples) {
                 PacketParser.FileTransfer.ReconstructedFile file = t.Item1;
@@ -1485,8 +1595,10 @@ namespace NetworkMiner {
                 }
 
             }
+            
             this.imagesListView.Items.AddRange(newItems.ToArray());
-            this.controlTextDictionary[this.tabPageImages] = "Images (" + this.imageList.Images.Count + ")";
+            this.controlTextDictionary[this.tabPageImages] = "Images old (" + this.imageList.Images.Count + ")";
+            */
         }
 
 
@@ -1615,7 +1727,7 @@ namespace NetworkMiner {
             this.controlTextDictionary[this.tabPageReceivedFrames] = "Frames (" + frame.FrameNumber + ")";
 
             foreach (PacketParser.Frame.Error error in frame.Errors) {
-                this.anomalyQueue.Enqueue(new PacketParser.Events.AnomalyEventArgs(error.ToString() + " (frame nr: " + frame.FrameNumber + ")", frame.Timestamp));
+                this.AnomalyQueue.Enqueue(new PacketParser.Events.AnomalyEventArgs(error.ToString() + " (frame nr: " + frame.FrameNumber + ")", frame.Timestamp));
             }
 
 
@@ -1649,7 +1761,7 @@ namespace NetworkMiner {
                     System.Diagnostics.Debugger.Break();
 #endif
                 SharedUtils.Logger.Log(errorText, SharedUtils.Logger.EventLogEntryType.Information);
-                sb.AppendLine("[" + this._guiProperties.ToCustomTimeZoneString(errorTimestamp) + "] Error : " + errorText);
+                sb.AppendLine("[" + this._guiProperties.ToCustomTimeZoneString(errorTimestamp) + "] " + errorText);
             }
             //this.anomalyLog.AppendText("\r\n[" + this.guiProperties.ToCustomTimeZoneString(errorTimestamp) + "] Error : " + errorText);
             this.anomalyLog.AppendText(sb.ToString());
@@ -1700,58 +1812,70 @@ namespace NetworkMiner {
         private void CopyCredentialUsernameToClipboard_Click(object sender, EventArgs e) {
             if (credentialsListView.SelectedItems.Count > 0) {
                 PacketParser.NetworkCredential c = (PacketParser.NetworkCredential)credentialsListView.SelectedItems[0].Tag;
-                Clipboard.SetDataObject(c.Username, true);
+                //Clipboard.SetDataObject(c.Username, true);
+                Clipboard.SetText(c.Username);
             }
         }
         private void CopyCredentialPasswordToClipboard_Click(object sender, EventArgs e) {
             if (credentialsListView.SelectedItems.Count > 0) {
                 PacketParser.NetworkCredential c = (PacketParser.NetworkCredential)credentialsListView.SelectedItems[0].Tag;
-                Clipboard.SetDataObject(c.Password, true);
+                //Clipboard.SetDataObject(c.Password, true);
+                Clipboard.SetText(c.Password);
             }
         }
         private void OpenImage_Click(object sender, EventArgs e) {
-            if (imagesListView.SelectedItems.Count > 0) {
-                PacketParser.FileTransfer.ReconstructedFile file = (PacketParser.FileTransfer.ReconstructedFile)imagesListView.SelectedItems[0].Tag;
-                try {
-                    //System.Diagnostics.Process.Start(file.FilePath);
-                    SharedUtils.SystemHelper.ProcessStart(file.FilePath);
-                }
-                catch (Exception ex) {
-                    MessageBox.Show(ex.Message);
+            if (this.imagesFilteredListView.Visible) {
+                if (imagesFilteredListView.SelectedItems.Count > 0) {
+
+                    ReconstructedImage imageFile = imagesFilteredListView.SelectedItems[0].Tag as ReconstructedImage;
+                    try {
+                        //System.Diagnostics.Process.Start(file.FilePath);
+                        SharedUtils.SystemHelper.ProcessStart(imageFile.ImageFile.FilePath);
+                    }
+                    catch (Exception ex) {
+                        MessageBox.Show(ex.Message);
+                    }
                 }
             }
+          
         }
+
+        private void CopyImage_Click(object sender, EventArgs e) {
+            if (this.imagesFilteredListView.Visible) {
+                if (imagesFilteredListView.SelectedItems.Count > 0) {
+                    ReconstructedImage imageFile = imagesFilteredListView.SelectedItems[0].Tag as ReconstructedImage;
+                    Clipboard.SetImage(imageFile.GetBitmap());
+                }
+            }
+
+        }
+
         private void ImageZoomIn(object sender, EventArgs e) {
-            this.imageZoom(1.5);
+            if (this.imagesFilteredListView.Visible) {
+                if(this.iconSizeToolStripDropDownButton.Tag is Int32 zoom) {
+                    this.iconSizeToolStripDropDownButton.Tag = (int)(zoom * 1.25);
+                    this.imagesFilteredUpdateButton_Click(sender, e);
+                }
+                else if(Int32.TryParse(this.iconSizeToolStripDropDownButton.Tag as string, out zoom)) {
+                    this.iconSizeToolStripDropDownButton.Tag = (int)(zoom * 1.25);
+                    this.imagesFilteredUpdateButton_Click(sender, e);
+                }
+            }
         }
+
         private void ImageZoomOut(object sender, EventArgs e) {
-            this.imageZoom(1.0 / 1.5);
+            if (this.imagesFilteredListView.Visible) {
+                if (this.iconSizeToolStripDropDownButton.Tag is Int32 zoom) {
+                    this.iconSizeToolStripDropDownButton.Tag = (int)Math.Max(zoom * 0.8, 10);
+                    this.imagesFilteredUpdateButton_Click(sender, e);
+                }
+                else if (Int32.TryParse(this.iconSizeToolStripDropDownButton.Tag as string, out zoom)) {
+                    this.iconSizeToolStripDropDownButton.Tag = (int)Math.Max(zoom * 0.8, 10);
+                    this.imagesFilteredUpdateButton_Click(sender, e);
+                }
+            }
         }
 
-        private void imageZoom(double zoomFactor) {
-            List<ListViewItem> itemList = new List<ListViewItem>();
-            foreach (ListViewItem item in this.imagesListView.Items) {
-                itemList.Add(item);
-            }
-            Size imageSize = new Size(Math.Min((int)(this.imagesListView.LargeImageList.ImageSize.Width * zoomFactor), 256), Math.Min((int)(this.imagesListView.LargeImageList.ImageSize.Height * zoomFactor), 256));
-            this.imagesListView.LargeImageList.ImageSize = imageSize;
-            //this.imagesListView.LargeImageList.ImageSize.Width = this.imagesListView.LargeImageList.ImageSize.Width * 2;
-            this.imageList.Images.Clear();
-            this.imagesListView.Visible = false;
-            this.imagesListView.Items.Clear();
-            //this.imagesListView.Font = new Font(this.imagesListView.Font.FontFamily, (float)(this.imagesListView.Font.Size * Math.Sqrt(zoomFactor)));
-
-            for (int i = 0; i < itemList.Count; i++) {
-                PacketParser.FileTransfer.ReconstructedFile file = itemList[i].Tag as PacketParser.FileTransfer.ReconstructedFile;
-                this.imageList.Images.Add(new Bitmap(file.FilePath));
-                ListViewItem lvItem = this.imagesListView.Items.Add(itemList[i].Text, i);
-                lvItem.Tag = file;
-                lvItem.ToolTipText = "Source: " + file.SourceHost + "\nDestination: " + file.DestinationHost + "\nReconstructed file path: " + file.FilePath;
-            }
-            
-            this.imagesListView.Visible = true;
-            this.imagesListView.Select();
-        }
 
         private void autoResizeFileColumns_Click(object sender, EventArgs e) {
             this.resizeListViewColumns(this.filesListView);
@@ -1836,16 +1960,23 @@ namespace NetworkMiner {
                 }
             }
         }
-        //see: ms-help://MS.VSCC.v80/MS.MSDN.v80/MS.NETDEVFX.v20.en/CPref17/html/C_System_Windows_Forms_ToolStripMenuItem_ctor_2_8a3c7c15.htm
-        private void OpenFileFolder_Click(object sender, EventArgs e) {
-            OpenFolder_Click(this.filesListView);
-        }
-        private void OpenAttachmentFolder_Click(object sender, EventArgs e) {
-            OpenFolder_Click(this.messageAttachmentListView);
-        }
+
         private static void OpenFolder_Click(ListView listView) {
             if (listView.SelectedItems.Count > 0) {
-                string filePath = listView.SelectedItems[0].Tag.ToString();//.Text;
+                object tag = listView.SelectedItems[0].Tag;
+                if (tag is string filePath) {
+                    //do nothing
+                }
+                else if (tag is ReconstructedImage image) {
+                    filePath = image.ImageFile.FilePath;
+                }
+                else if (tag is PacketParser.FileTransfer.ReconstructedFile file) {
+                    filePath = file.FilePath;
+                }
+                else
+                    return;
+
+                //string filePath = listView.SelectedItems[0].Tag.ToString();//.Text;
                 string folderPath = filePath;
                 if (filePath.Contains(System.IO.Path.DirectorySeparatorChar.ToString()))
                     folderPath = filePath.Substring(0, filePath.LastIndexOf(System.IO.Path.DirectorySeparatorChar) + 1);
@@ -1940,6 +2071,16 @@ namespace NetworkMiner {
         }
 
         private void networkAdaptersComboBox_SelectedIndexChanged(object sender, EventArgs e) {
+            if (this.sniffer != null) {
+                try {
+                    this.sniffer?.StopSniffing();
+                    this.sniffer?.Dispose();
+                }
+                catch (Exception ex) {
+                    SharedUtils.Logger.Log("Exception when stopping or disposing sniffer: " + ex.Message, SharedUtils.Logger.EventLogEntryType.Error);
+                }
+                this.sniffer = null;
+            }
             if (this.networkAdaptersComboBox.SelectedValue.GetType().Equals(typeof(NetworkWrapper.WinPCapAdapter))) {
                 this.sniffer = new NetworkWrapper.WinPCapSniffer((NetworkWrapper.WinPCapAdapter)this.networkAdaptersComboBox.SelectedValue);
                 this.startButton.Enabled = true;
@@ -1951,7 +2092,7 @@ namespace NetworkMiner {
                     this.startButton.Enabled = true;
                     this.startCapturingToolStripMenuItem.Enabled = true;
                 }
-                catch (System.Net.Sockets.SocketException ex) {
+                catch (System.Net.Sockets.SocketException ex) when (ex.SocketErrorCode == System.Net.Sockets.SocketError.AccessDenied) {
                     SharedUtils.Logger.Log("SocketException when creating SocketSniffer: " + ex.Message, SharedUtils.Logger.EventLogEntryType.Error);
                     MessageBox.Show(@"To capture traffic with a raw socket, please follow these steps:
 1. Create an Inboud Rule in the Windows firewall for NetworkMiner.
@@ -1961,8 +2102,37 @@ namespace NetworkMiner {
                     this.startButton.Enabled = false;
                     this.startCapturingToolStripMenuItem.Enabled = false;
                 }
+                catch (System.Net.Sockets.SocketException ex) when (ex.SocketErrorCode == System.Net.Sockets.SocketError.AddressNotAvailable) {
+                    string ipString = (this.networkAdaptersComboBox.SelectedValue as NetworkWrapper.SocketAdapter)?.IP?.ToString();
+                    if (string.IsNullOrEmpty(ipString)) {
+                        SharedUtils.Logger.Log("SocketException AddressNotAvailable error code " + ex.NativeErrorCode + " when creating SocketSniffer: " + ex.Message, SharedUtils.Logger.EventLogEntryType.Error);
+                        MessageBox.Show("The selected IP address is not available for capturing. Please select a connected local interface instead.", "NetworkMiner Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                    else {
+                        SharedUtils.Logger.Log("SocketException AddressNotAvailable error code " + ex.NativeErrorCode + " when creating SocketSniffer for " + ipString + " : " + ex.Message, SharedUtils.Logger.EventLogEntryType.Error);
+                        MessageBox.Show("The IP address " + ipString + " is not available for capturing. Please select a connected local interface instead.", "NetworkMiner Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                    this.networkAdaptersComboBox.SelectedIndex = 0;
+                    this.startButton.Enabled = false;
+                    this.startCapturingToolStripMenuItem.Enabled = false;
+                }
+                catch (System.Net.Sockets.SocketException ex) {
+                    string ipString = (this.networkAdaptersComboBox.SelectedValue as NetworkWrapper.SocketAdapter)?.IP?.ToString();
+                    if (string.IsNullOrEmpty(ipString)) {
+                        SharedUtils.Logger.Log("SocketException error code " + ex.NativeErrorCode + " when creating SocketSniffer: " + ex.Message, SharedUtils.Logger.EventLogEntryType.Error);
+                        MessageBox.Show(ex.Message, "NetworkMiner Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                    else {
+                        SharedUtils.Logger.Log("SocketException error code " + ex.NativeErrorCode + " when creating SocketSniffer for " + ipString + " : " + ex.Message, SharedUtils.Logger.EventLogEntryType.Error);
+                        MessageBox.Show(ex.Message, "NetworkMiner Error for " + ipString, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                    this.networkAdaptersComboBox.SelectedIndex = 0;
+                    this.startButton.Enabled = false;
+                    this.startCapturingToolStripMenuItem.Enabled = false;
+                }
                 catch (System.Exception ex) {
-                    MessageBox.Show(ex.Message, "NetworkMiner", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    SharedUtils.Logger.Log("Exception when creating SocketSniffer: " + ex.Message, SharedUtils.Logger.EventLogEntryType.Error);
+                    MessageBox.Show(ex.Message, "NetworkMiner Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     this.networkAdaptersComboBox.SelectedIndex = 0;
                     this.startButton.Enabled = false;
                     this.startCapturingToolStripMenuItem.Enabled = false;
@@ -1985,8 +2155,7 @@ namespace NetworkMiner {
         }
 
         private void exitToolStripMenuItem_Click(object sender, EventArgs e) {
-            if (sniffer != null)
-                sniffer.StopSniffing();
+            this.sniffer?.StopSniffing();
             this.Close();
         }
 
@@ -2044,7 +2213,7 @@ namespace NetworkMiner {
             this.GuiUpdateTimer_Tick(sender, e);
             //perform all queued control updates
 
-            this.detectedHostsTreeRebuildButton_Click(this, new EventArgs());
+            this.RebuildHostsTree(this, new EventArgs());
             if (this._guiProperties.AutomaticallyResizeColumnsWhenParsingComplete) {
                 this.resizeListViewColumns(this.filesListView);
                 this.resizeListViewColumns(this.messagesListView);
@@ -2076,7 +2245,7 @@ namespace NetworkMiner {
             SharedUtils.Logger.Log("..done updating GUI.", SharedUtils.Logger.EventLogEntryType.Information);
         }
 
-        private void detectedHostsTreeRebuildButton_Click(object sender, EventArgs e) {
+        private void RebuildHostsTree(object sender, EventArgs e) {
             this.networkHostTreeView.Nodes.Clear();
             if (this.packetHandlerWrapper == null)
                 return;//avoid using null
@@ -2189,7 +2358,7 @@ namespace NetworkMiner {
         /// Loads a pcap file into NetworkMiner
         /// </summary>
         /// <param name="filename">The full path and filename of the pcap file to open</param>
-        public BackgroundWorker LoadPcapFile(string filePathAndName, bool refreshGuiAfterLoading, System.IO.FileShare fileShare = System.IO.FileShare.Read) {
+        public BackgroundWorker LoadPcapFile(string filePathAndName, bool refreshGuiAndFlushSessionsAfterLoading, System.IO.FileShare fileShare = System.IO.FileShare.Read) {
             SharedUtils.Logger.Log("Loading " + filePathAndName, SharedUtils.Logger.EventLogEntryType.Information);
             /*
             if (filePathAndName.EndsWith(".pcap", StringComparison.InvariantCultureIgnoreCase) ||
@@ -2221,9 +2390,10 @@ namespace NetworkMiner {
                         lp.Update();
                         BackgroundWorker fileWorker = new BackgroundWorker();
                         fileWorker.DoWork += new DoWorkEventHandler(this.fileWorker_DoWork);
-                        //fileWorker.RunWorkerCompleted += new RunWorkerCompletedEventHandler(detectedHostsTreeRebuildButton_Click);
-                        if (refreshGuiAfterLoading)
+                        if (refreshGuiAndFlushSessionsAfterLoading) {
                             fileWorker.RunWorkerCompleted += new RunWorkerCompletedEventHandler(this.UpdateGuiControlsAfterParsingCompleteEventHandler);
+                            fileWorker.RunWorkerCompleted += (s, e) => { this.packetHandlerWrapper.PacketHandler.SetUndecidedProtocolsToUnknown(); };
+                        }
                         fileWorker.WorkerSupportsCancellation = true;
                         lp.Worker = fileWorker;
                         fileWorker.RunWorkerAsync(lp);
@@ -2236,7 +2406,7 @@ namespace NetworkMiner {
                     SharedUtils.Logger.Log("LoadPcapFile1: " + ex.Message, SharedUtils.Logger.EventLogEntryType.Warning);
 
                     if (ex.Message.Contains("Magic number is A0D0D0A"))
-                        MessageBox.Show("This is a PcapNg file. NetworkMiner Professional is required to parse PcapNg files.\n\nNetworkMiner Professional can be purchased from Netresec's website:\nhttp://www.netresec.com/", "PcapNg Files Not Supported");
+                        MessageBox.Show("This is a PcapNg file. NetworkMiner Professional is required to parse PcapNg files.\n\nNetworkMiner Professional can be purchased from Netresec's website:\nhttps://www.netresec.com/", "PcapNg Files Not Supported");
                     else
                         MessageBox.Show("Error opening PCAP file: " + ex.Message, "Invalid PCAP file");
                     if (pcapReader != null)
@@ -2265,6 +2435,10 @@ namespace NetworkMiner {
             return null;
         }
 
+        private void FileWorker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e) {
+            throw new NotImplementedException();
+        }
+
         void fileWorker_DoWork(object sender, DoWorkEventArgs e) {
 
             //extract the argument (LoadingProcess)
@@ -2283,7 +2457,7 @@ namespace NetworkMiner {
                 foreach (PcapFrame pcapPacket in pcapReader.PacketEnumerator()) {
 
                     try {
-                        PacketParser.Frame frame = packetHandlerWrapper.PacketHandler.GetFrame(pcapPacket.Timestamp, pcapPacket.Data, pcapPacket.DataLinkType);
+                        PacketParser.Frame frame = packetHandlerWrapper.PacketHandler.GetFrame(pcapPacket.Timestamp, pcapPacket.Data, pcapPacket.DataLinkType, pcapPacket.Tag);
                         packetHandlerWrapper.PacketHandler.AddFrameToFrameParsingQueue(frame);
                         enqueuedFramesSinceLastWait++;
                         int newPercentRead = pcapReader.GetPercentRead(packetHandlerWrapper.PacketHandler.FramesToParseQueuedByteCount);
@@ -2351,15 +2525,16 @@ namespace NetworkMiner {
         }
 
         private void resetCapturedDataToolStripMenuItem_Click(object sender, EventArgs e) {
-            this.ResetCapturedData(true, true);
+            this.ResetCapturedData(true, true, true);
         }
 
-        private void ResetCapturedData(bool removeCapturedFiles, bool clearIpColorHandler) {
+        private void ResetCapturedData(bool removeCapturedFiles, bool removeExtractedFiles, bool clearIpColorHandler) {
             this.networkHostTreeView.Nodes.Clear();
             this.macToTreeNodeDictionary.Clear();
             this.framesTreeView.Nodes.Clear();
-            this.imagesListView.Items.Clear();
-            this.imageList.Images.Clear();
+            //this.imagesListView.Items.Clear();
+            //this.imageList.Images.Clear();
+            this.imageHandler.Clear();
             this.messagesListView.Items.Clear();
             this.messageAttributeListView.Items.Clear();
             this.messagesKeywordFilterControl.Clear();
@@ -2387,7 +2562,8 @@ namespace NetworkMiner {
             this.controlTextDictionary[this.tabPageDetectedHosts] = "Hosts";
             this.controlTextDictionary[this.tabPageReceivedFrames] = "Frames";
             this.controlTextDictionary[this.tabPageFiles] = "Files";
-            this.controlTextDictionary[this.tabPageImages] = "Images";
+            //this.controlTextDictionary[this.tabPageImages] = "Images";
+            this.controlTextDictionary[this.tabPageImagesFiltered] = "Images";
             this.controlTextDictionary[this.tabPageMessages] = "Messages";
             this.controlTextDictionary[this.tabPageCredentials] = "Credentials";
             this.controlTextDictionary[this.tabPageVoIP] = "VoIP";
@@ -2397,7 +2573,7 @@ namespace NetworkMiner {
             this.controlTextDictionary[this.tabPageBrowsers] = "Browsers";
 
 
-            this.packetHandlerWrapper.ResetCapturedData();
+            this.packetHandlerWrapper.ResetCapturedData(removeExtractedFiles);
             //this.nFilesReceived=0;
 
             if (removeCapturedFiles) {
@@ -2409,7 +2585,7 @@ namespace NetworkMiner {
                             System.IO.File.Delete(pcapFile);
                         }
                         catch {
-                            this.anomalyQueue.Enqueue(new PacketParser.Events.AnomalyEventArgs("Error deleting file \"" + pcapFile + "\"", DateTime.Now));
+                            this.AnomalyQueue.Enqueue(new PacketParser.Events.AnomalyEventArgs("Error deleting file \"" + pcapFile + "\"", DateTime.Now));
                             //this.ShowAnomaly("Error deleting file \"" + pcapFile + "\"", DateTime.Now);
                         }
                 }
@@ -2420,7 +2596,7 @@ namespace NetworkMiner {
                             System.IO.File.Delete(pcapFile);
                         }
                         catch {
-                            this.anomalyQueue.Enqueue(new PacketParser.Events.AnomalyEventArgs("Error deleting file \"" + pcapFile + "\"", DateTime.Now));
+                            this.AnomalyQueue.Enqueue(new PacketParser.Events.AnomalyEventArgs("Error deleting file \"" + pcapFile + "\"", DateTime.Now));
                             //this.ShowAnomaly("Error deleting file \"" + pcapFile + "\"", DateTime.Now);
                         }
                 }
@@ -2590,7 +2766,7 @@ namespace NetworkMiner {
         private void hostSortOrderComboBox_SelectedIndexChanged(object sender, EventArgs e) {
             //HÄR SKA detailsHeader LIGGA Enabled MASSA OLIKA SORTERINGSORDNINGAR:
             //IP, HOTSNAME, SENT PACKETS, RECEIVED PACKETS, MAC ADDRESS
-            this.detectedHostsTreeRebuildButton_Click(sender, e);
+            this.RebuildHostsTree(sender, e);
         }
 
         private void NetworkMinerForm_FormClosed(object sender, FormClosedEventArgs e) {
@@ -2665,7 +2841,7 @@ namespace NetworkMiner {
             foreach (ListViewItem fileItem in this.casePanelFileListView.Items)
                 files.Add(fileItem.Name);
 
-            this.ResetCapturedData(false, false);
+            this.ResetCapturedData(false, true, false);
 
             this.LoadPcapFilesSequentially(files);
 
@@ -2773,6 +2949,9 @@ namespace NetworkMiner {
             }
         }*/
 
+
+
+
         private void networkHostTreeView_NodeMouseClick(object sender, TreeNodeMouseClickEventArgs e) {
             //http://www.knightoftheroad.com/post/2008/02/Treeview-tight-click-select.aspx
             if (e.Button != MouseButtons.None) {
@@ -2784,19 +2963,29 @@ namespace NetworkMiner {
                     }
                     if (n != null) {
                         lock (this.hostMenuStrip) {
+                            HashSet<string> addedItemTexts = new HashSet<string>();
+                            
+                            //declare a local function to simplify adding items
+                            void AddContextMenuItem(ToolStripMenuItem item) {
+                                if (!addedItemTexts.Contains(item.Text)) {
+                                    this.hostMenuStripExtraItems.Add(item);
+                                    addedItemTexts.Add(item.Text);
+                                }
+                            }
+
                             foreach (ToolStripMenuItem item in this.hostMenuStripExtraItems)
                                 this.hostMenuStrip.Items.Remove(item);
-                            //List<ToolStripMenuItem> newHostMenuStripExtraItems = new List<ToolStripMenuItem>();
                             this.hostMenuStripExtraItems.Clear();
+
                             NetworkHostTreeNode node = (NetworkHostTreeNode)n;
-                            this.hostMenuStripExtraItems.Add(this.GetIpLookupToolStripMenuItem(node.NetworkHost.IPAddress, node.NetworkHost.SentPackets.FirsPacketTimestamp));
+                            AddContextMenuItem(this.GetIpLookupToolStripMenuItem(node.NetworkHost.IPAddress, node.NetworkHost.SentPackets.FirsPacketTimestamp));
                             foreach (string domain in node.NetworkHost.HostNames)
-                                this.hostMenuStripExtraItems.Add(this.GetDomainLookupToolStripMenuItem(domain));
+                                AddContextMenuItem(this.GetDomainLookupToolStripMenuItem(domain));
                             //GetJa3HashLookupToolStripMenuItem
                             foreach(string ja3 in node.NetworkHost.Ja3Hashes)
-                                this.hostMenuStripExtraItems.Add(this.GetJa3HashLookupToolStripMenuItem(ja3));
+                                AddContextMenuItem(this.GetJa3HashLookupToolStripMenuItem(ja3));
+                                
                             this.hostMenuStrip.Items.AddRange(this.hostMenuStripExtraItems.ToArray());
-                            //this.hostMenuStripExtraItems = newHostMenuStripExtraItems;
                         }
                     }
                 }
@@ -2821,7 +3010,8 @@ namespace NetworkMiner {
         private void copyParameterNameToolStripMenuItem_Click(object sender, EventArgs e) {
             if (this.parametersListView.SelectedItems.Count > 0) {
                 System.Collections.Generic.KeyValuePair<string, string> nameValueTag = (System.Collections.Generic.KeyValuePair<string, string>)this.parametersListView.SelectedItems[0].Tag;
-                Clipboard.SetDataObject(nameValueTag.Key, true);
+                //Clipboard.SetDataObject(nameValueTag.Key, true);
+                Clipboard.SetText(nameValueTag.Key);
             }
 
         }
@@ -2829,14 +3019,16 @@ namespace NetworkMiner {
         private void copyParameterValueToolStripMenuItem_Click(object sender, EventArgs e) {
             if (this.parametersListView.SelectedItems.Count > 0) {
                 System.Collections.Generic.KeyValuePair<string, string> nameValueTag = (System.Collections.Generic.KeyValuePair<string, string>)this.parametersListView.SelectedItems[0].Tag;
-                Clipboard.SetDataObject(nameValueTag.Value, true);
+                //Clipboard.SetDataObject(nameValueTag.Value, true);
+                Clipboard.SetText(nameValueTag.Value);
             }
         }
 
         private void copyTextToolStripMenuItem_Click(object sender, EventArgs e) {
             TreeNode n = this.networkHostTreeView.SelectedNode;
             if (n != null) {
-                Clipboard.SetDataObject(n.Text, true);
+                //Clipboard.SetDataObject(n.Text, true);
+                Clipboard.SetText(n.Text);
             }
         }
 
@@ -3147,12 +3339,14 @@ namespace NetworkMiner {
         }
 
         private void clearGUIToolStripMenuItem_Click(object sender, EventArgs e) {
-            this.ResetCapturedData(false, true);
+            this.ResetCapturedData(false, false, true);
         }
 
         private void keywordTextBox_KeyDown(object sender, KeyEventArgs e) {
             if (e.KeyCode == Keys.Enter || e.KeyCode == Keys.Return) {
                 this.addKeyword(sender, e);
+                e.Handled = true;
+                e.SuppressKeyPress = true;
             }
         }
 
@@ -3197,10 +3391,11 @@ namespace NetworkMiner {
         
         private void ListView_DragDropOnItemDrag(object sender, ItemDragEventArgs e) {
             if(e.Item is ListViewItem listViewItem) {
-                
                 if (listViewItem?.Tag != null) {
                     string filePath;
-                    if (listViewItem.Tag is PacketParser.FileTransfer.ReconstructedFile reconstructedFile)
+                    if (listViewItem.Tag is ReconstructedImage imageFile)
+                        filePath = imageFile.ImageFile.FilePath;
+                    else if (listViewItem.Tag is PacketParser.FileTransfer.ReconstructedFile reconstructedFile)
                         filePath = reconstructedFile.FilePath;
                     else if (listViewItem.Tag is CaseFile caseFile)
                         filePath = caseFile.FilePathAndName;
@@ -3303,7 +3498,7 @@ finally {
             backgroundPacketCacheReader.RunWorkerAsync();
         }
 
-
+        [Obsolete("Use NamedPipeForm instead")]
         private void runProcessAndMonitorFileSize(DoWorkEventArgs e, System.Diagnostics.ProcessStartInfo startInfo, string packetCachePcapFile) {
             try {
                 using (System.Diagnostics.Process process = new System.Diagnostics.Process()) {
@@ -3437,10 +3632,6 @@ finally {
             }
         }
 
-        private void ImagesListView_MouseWheel(object sender, System.Windows.Forms.MouseEventArgs e) {
-            if (System.Windows.Forms.Control.ModifierKeys == Keys.Control)
-                this.imageZoom(Math.Pow(1.2, 120.0 / e.Delta));
-        }
 
         private void findHttpTransactionButton_Click(object sender, EventArgs e) {
             this.httpTransactionTreeNodeHandler.ShowTransactionProperties(null, this.httpTransactionPropertyGrid);
@@ -3496,6 +3687,8 @@ finally {
             if (e.KeyCode == Keys.Enter) {
                 this.findHttpTransactionButton_Click(sender, e);
                 this.findHttpTransactionTextBox.Focus();
+                e.Handled = true;
+                e.SuppressKeyPress = true;
             }
         }
 
@@ -3512,7 +3705,7 @@ finally {
 
         private void setInternetTrackerColorToolStripMenuItem_Click(object sender, EventArgs e) {
             if (this.httpTransactionTreeNodeHandler == null) {
-                MessageBox.Show("Internet tracker detection is only available in NetworkMiner Professional", "NetworkMiner Pro Required");
+                MessageBox.Show("Internet tracker detection is only available in NetworkMiner Professional", "NetworkMiner Professional Required");
             }
             else {
                 if (this.colorDialog1.ShowDialog() == DialogResult.OK) {
@@ -3680,16 +3873,203 @@ finally {
                 System.Collections.Generic.KeyValuePair<string, string> nameValueTag = (System.Collections.Generic.KeyValuePair<string, string>)this.parametersListView.SelectedItems[0].Tag;
                 string b64 = System.Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(nameValueTag.Value));
                 string query = System.Web.HttpUtility.UrlEncode(b64.TrimEnd('='));
-                SharedUtils.SystemHelper.ProcessStart("https://gchq.github.io/CyberChef/#input=" + query);
+                //SharedUtils.SystemHelper.ProcessStart("https://gchq.github.io/CyberChef/#input=" + query);
+                SharedUtils.SystemHelper.TryOpenWebsite("https://gchq.github.io/CyberChef/#input=" + query);
             }
             
         }
 
-        /*
-        private void filesListView_DoubleClick(object sender, EventArgs e) {
-            this.ShowFileDetails(sender, e);
+        private void ListView_KeyDown_Handler(object sender, KeyEventArgs e) {
+            if (sender is ListView lv) {
+                if (e.Control && e.KeyCode == Keys.C) {
+                    this.CopySelectedRowsToClipboard(lv);
+                }
+                if (e.Control && e.KeyCode == Keys.A && lv.MultiSelect) {
+                    this.SelectAllRows(lv);
+                }
+            }
+        
         }
-        */
+
+        private void CopySelectedRowsToClipboard(object sender) {
+            if (sender is ToolStripMenuItem item)
+                if (item.Owner is ContextMenuStrip strip) {
+                    if (strip.SourceControl is ListView lv)
+                        this.CopySelectedRowsToClipboard(lv);
+                }
+        }
+
+        private void CopySelectedRowsToClipboard(ListView lv) {
+            //Copy items in first row
+            const int MAX_ROWS_IN_FREE_VERSION = 10;
+            List<string> rows = new List<string>();
+            foreach (ListViewItem item in lv.SelectedItems) {
+                List<string> columns = new List<string>();
+                if (item.Text == null)
+                    columns.Add(string.Empty);
+                else
+                    columns.Add(item.Text);
+                foreach (ListViewItem.ListViewSubItem sub in item.SubItems) {
+                    if (sub.Text == null)
+                        columns.Add(string.Empty);
+                    else
+                        columns.Add(sub.Text);
+                }
+                if (this.licenseSignatureForm == null && rows.Count >= MAX_ROWS_IN_FREE_VERSION) {
+                    MessageBox.Show("The free version of NetworkMiner only allows " + MAX_ROWS_IN_FREE_VERSION + " rows to be copied at a time.", "NetworkMiner Professional Required");
+                    break;
+                }
+
+                    rows.Add(string.Join("\t", columns));
+            }
+            if (rows.Count == 1)
+                Clipboard.SetText(rows.First());//no line breaks
+            else if(rows.Count > 1) {
+                StringBuilder sb = new StringBuilder();
+                foreach (string row in rows.Take(30)) {
+                    sb.AppendLine(row);
+                }
+                Clipboard.SetText(sb.ToString());
+            }
+        }
+        private void SelectAllRows(object sender) {
+            if (sender is ToolStripMenuItem item)
+                if (item.Owner is ContextMenuStrip strip) {
+                    if (strip.SourceControl is ListView lv)
+                        this.SelectAllRows(lv);
+                }
+        }
+
+        private void SelectAllRows(ListView lv) {
+            if(lv.MultiSelect) {
+                lv.SelectedItems.Clear();
+                for(int i=0; i < lv.Items.Count; i++)
+                    lv.SelectedIndices.Add(i);
+            }
+        }
+
+        private void networkAdaptersComboBox_DropDown(object sender, EventArgs e) {
+            if(this.networkAdaptersComboBox.DataSource is BindingSource bindingSource) {
+                //replace all SocketAdapters with new ones, because the socket state doesn't seem to get updated in the NetworkInterface objects
+                if(bindingSource.DataSource is List<NetworkWrapper.IAdapter> adapterList) {
+                    adapterList.RemoveAll(x => x is NetworkWrapper.SocketAdapter);
+                    adapterList.AddRange(NetworkWrapper.SocketAdapter.GetAdapters());
+                }
+                bindingSource.ResetBindings(true);
+            }
+        }
+
+        private void readFromNamedPipeToolStripMenuItem_Click(object sender, EventArgs e) {
+            new NamedPipeForm(this).ShowDialog(this);
+        }
+
+        private void hostsFilterButton_Click(object sender, EventArgs e) {
+            //Regex regex = new Regex(this.hostsFilterTextBox.Text);
+            if (string.IsNullOrEmpty(this.hostsFilterTextBox.Text))
+                this.hostsFilterClearButton_Click(sender, e);
+            else if(this.hostsFilterComboBox.SelectedItem is string filterTypeString) {
+                if(filterTypeString?.IndexOf("CIDR", StringComparison.InvariantCultureIgnoreCase) >= 0) {
+                    try {
+                        this.hostsFilterTextBox.Tag = this.GetCIDR(this.hostsFilterTextBox.Text);
+                        this.hostsFilterTextBox.BackColor = Color.LightGreen;
+                        this.RebuildHostsTree(sender, e);
+                    }
+                    catch (Exception ex) {
+                        this.hostsFilterTextBox.BackColor = SystemColors.Window;
+                        this.hostsFilterTextBox.Tag = null;
+                        MessageBox.Show(ex.Message, "Unable to set CIDR filter");
+                    }
+                }
+                else {
+                    try {
+                        Regex regex;
+                        if (filterTypeString?.IndexOf("regex", StringComparison.InvariantCultureIgnoreCase) >= 0)
+                            regex = new Regex(this.hostsFilterTextBox.Text);
+                        else
+                            regex = new Regex(Regex.Escape(this.hostsFilterTextBox.Text));
+                        this.hostsFilterTextBox.BackColor = Color.LightGreen;
+                        this.hostsFilterTextBox.Tag = regex;
+                        this.RebuildHostsTree(sender, e);
+                    }
+                    catch (Exception ex) {
+                        this.hostsFilterTextBox.BackColor = SystemColors.Window;
+                        this.hostsFilterTextBox.Tag = null;
+                        MessageBox.Show(ex.Message, "Unable to set filter");
+                    }
+                }
+
+            }
+        }
+
+        private void hostsFilterClearButton_Click(object sender, EventArgs e) {
+            this.hostsFilterTextBox.Clear();
+            this.hostsFilterTextBox.BackColor = SystemColors.Window;
+            this.hostsFilterTextBox.Tag = null;
+            this.RebuildHostsTree(sender, e);
+        }
+
+        private void hostsFilterTextBox_KeyDown(object sender, KeyEventArgs e) {
+            if (e.KeyCode == Keys.Enter) {
+                this.hostsFilterButton_Click(sender, e);
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+            }
+        }
+
+        private void closeToolStripMenuItem_Click(object sender, EventArgs e) {
+            DialogResult yesOrNo = MessageBox.Show("Would you like to delete all extracted files from:" + Environment.NewLine + this.OutputDirectory.FullName + PacketParser.FileTransfer.FileStreamAssembler.ASSMEBLED_FILES_DIRECTORY + System.IO.Path.DirectorySeparatorChar, "Delete extracted files?", MessageBoxButtons.YesNo);
+            this.ResetCapturedData(false, yesOrNo == DialogResult.Yes, true);
+        }
+
+        private void imagesFilteredUpdateButton_Click(object sender, EventArgs e) {
+
+            if (this.iconSizeToolStripDropDownButton.Tag is int zoom) {
+                //do nothing
+            }
+            else if (Int32.TryParse(this.iconSizeToolStripDropDownButton.Tag as string, out zoom)) {
+                //do nothing
+            }
+            else
+                zoom = 100;//default
+
+            
+            if (!Int32.TryParse(this.imageMinPixelsTextBox.Text, out int minPixels) || minPixels < 0) {
+                minPixels = 0;
+                this.imageMinPixelsTextBox.Text = "0";
+            }
+
+            this.imageHandler.UpdateImagesInListView(zoom, minPixels, this.imageFilenameFilterTextBox.Text);
+            this.iconSizeToolStripDropDownButton.Tag = this.imageHandler.ZoomLevel;//on order to not increase past max size
+        }
+
+        private void imagesFilterUpdateOnEnter(object sender, KeyEventArgs e) {
+            if(e.KeyCode == Keys.Enter) {
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+                this.imagesFilteredUpdateButton_Click(sender, e);
+            }
+        }
+
+        private void imagesFilteredListView_MouseDoubleClick(object sender, MouseEventArgs e) {
+            OpenImage_Click(sender, e);
+        }
+
+        private void iconSizeToolStripDropDownButton_Click(object sender, ToolStripItemClickedEventArgs e) {
+            
+        }
+
+        private void IconSizeToolStripDropDownButton_DropDownItemClicked(object sender, System.Windows.Forms.ToolStripItemClickedEventArgs e) {
+            if (e.ClickedItem?.Text != null) {
+                if(e.ClickedItem.Tag is Int32 zoom) {
+                    this.iconSizeToolStripDropDownButton.Tag = zoom;
+                    this.imagesFilteredUpdateButton_Click(sender, e);
+                }
+                else if (Int32.TryParse(e.ClickedItem.Tag as string, out zoom)) {
+                    this.iconSizeToolStripDropDownButton.Tag = zoom;
+                    this.imagesFilteredUpdateButton_Click(sender, e);
+                }
+            }
+        }
 
         private void filesListView_SelectedIndexChanged(object sender, EventArgs e) {
             lock (this.filesListView.ContextMenuStrip) {

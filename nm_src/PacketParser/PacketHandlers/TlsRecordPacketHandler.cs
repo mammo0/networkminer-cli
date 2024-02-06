@@ -26,10 +26,10 @@ namespace PacketParser.PacketHandlers {
         private Dictionary<string, string> abuseChX509CertificateFingerprints;
         private bool verifyX509Certificates = false;
 
-        public override Type ParsedType { get { return typeof(Packets.TlsRecordPacket); } }
+        public override Type[] ParsedTypes { get; } = { typeof(Packets.TlsRecordPacket) };
 
         public ApplicationLayerProtocol HandledProtocol {
-            get { return ApplicationLayerProtocol.Ssl; }
+            get { return ApplicationLayerProtocol.SSL; }
         }
 
         
@@ -136,9 +136,6 @@ namespace PacketParser.PacketHandlers {
                     if (accumulatedRecordLength >= parsedBytes) {
                         if (accumulatedRecordLength > parsedBytes) {
                             base.MainPacketHandler.OnAnomalyDetected(new PacketParser.Events.AnomalyEventArgs("TLS data boundary is not on a TLS record boundary in frame " + tcpPacket.ParentFrame.FrameNumber, tcpPacket.ParentFrame.Timestamp));
-#if DEBUG
-                            System.Diagnostics.Debugger.Break();
-#endif
                         }
                         recordList.RemoveRange(0, i + 1);
                         break;
@@ -212,8 +209,8 @@ namespace PacketParser.PacketHandlers {
                 base.MainPacketHandler.OnParametersDetected(new Events.ParametersEventArgs(handshake.ParentFrame.FrameNumber, fiveTuple, transferIsClientToServer, param, handshake.ParentFrame.Timestamp, "TLS Server Hello"));
             }
             else if (handshake.MessageType == Packets.TlsRecordPacket.HandshakePacket.MessageTypes.Certificate)
-                for (int i = 0; i < handshake.CertificateList.Count; i++) {
-                    byte[] certificate = handshake.CertificateList[i];
+                for (int certChainIndex = 0; certChainIndex < handshake.CertificateList.Count; certChainIndex++) {
+                    byte[] certificate = handshake.CertificateList[certChainIndex];
                     string UNKNOWN_SUBJECT_STRING = "Unknown_x509_Certificate_Subject";
                     string x509CertSubject;
                     System.Security.Cryptography.X509Certificates.X509Certificate x509Cert = null;
@@ -235,7 +232,7 @@ namespace PacketParser.PacketHandlers {
                     if (x509CertSubject.Contains(","))
                         x509CertSubject = x509CertSubject.Substring(0, x509CertSubject.IndexOf(','));
 
-                    x509CertSubject.Trim(new char[] { '.', ' ' });
+                    x509CertSubject = x509CertSubject.Trim('.', ' ', '"');
                     /*
                     while (x509CertSubject.EndsWith(".") || x509CertSubject.EndsWith(" "))
                         x509CertSubject=x509CertSubject.Substring(0, x509CertSubject.Length-1);
@@ -259,13 +256,13 @@ namespace PacketParser.PacketHandlers {
 
                     FileTransfer.FileStreamAssembler assembler = new FileTransfer.FileStreamAssembler(base.MainPacketHandler.FileStreamAssemblerList, fiveTuple, transferIsClientToServer, FileTransfer.FileStreamTypes.TlsCertificate, filename, fileLocation, certificate.Length, certificate.Length, details, null, tcpPacket.ParentFrame.FrameNumber, tcpPacket.ParentFrame.Timestamp, FileTransfer.FileStreamAssembler.FileAssmeblyRootLocation.source);
                     base.MainPacketHandler.FileStreamAssemblerList.Add(assembler);
-                    if (i == 0 && x509CertSubject.Contains(".") && !x509CertSubject.Contains("*") && !x509CertSubject.Contains(" "))
+                    if (certChainIndex == 0 && x509CertSubject.Contains(".") && !x509CertSubject.Contains("*") && !x509CertSubject.Contains(" "))
                         sourceHost.AddHostName(x509CertSubject, handshake.PacketTypeDescription);
                     System.Collections.Specialized.NameValueCollection parameters = new System.Collections.Specialized.NameValueCollection();
                     //parameters.Add("Certificate Subject", x509Cert.Subject);
                     const string CERTIFICATE_SUBJECT = "Certificate Subject";
                     this.addParameters(parameters, x509Cert.Subject, CERTIFICATE_SUBJECT);
-                    if (i == 0) {
+                    if (certChainIndex == 0) {
                         //check for CN parameter
                         if (parameters[CERTIFICATE_SUBJECT + " CN"] != null) {
                             foreach (string cn in parameters.GetValues(CERTIFICATE_SUBJECT + " CN")) {
@@ -288,9 +285,10 @@ namespace PacketParser.PacketHandlers {
                     string certHash = x509Cert.GetCertHashString().ToLower();
                     if(!string.IsNullOrEmpty(certHash) && this.abuseChX509CertificateFingerprints.ContainsKey(certHash)) {
                         string botnet = this.abuseChX509CertificateFingerprints[certHash];
-                        //TODO: Change formatting into something like: "X.509 thumbprint 1 : 6ece5ece4192683d2d84e25b0ba7e04f9cb7eb7c = AKBuilder C&C (Abuse.ch SSLBL)"
-                        sourceHost.AddNumberedExtraDetail("Abuse.ch SSLBL " + botnet + " match", certHash);
+                        sourceHost.AddNumberedExtraDetail("X.509 Certificate Hash", certHash + " = " + botnet + " (abuse.ch SSLBL)");
                     }
+                    else if (certChainIndex == 0)
+                        sourceHost.AddNumberedExtraDetail("X.509 Certificate Hash", certHash);
 
                     //parameters.Add("Certificate Issuer", x509Cert.Issuer);
                     parameters.Add("Certificate Hash", certHash);
@@ -307,7 +305,7 @@ namespace PacketParser.PacketHandlers {
                             string line = sr.ReadLine();
                             while (line != null) {
                                 parameters.Add(oid + " " + fn, line);
-                                if (i == 0 && oid == "2.5.29.17") {
+                                if (certChainIndex == 0 && oid == "2.5.29.17") {
                                     sourceHost.AddNumberedExtraDetail("X.509 Certificate " + fn, line);
                                 }
                                 line = sr.ReadLine();

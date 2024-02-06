@@ -318,24 +318,7 @@ namespace NetworkMiner {
                         if (filterContains(kvp.Value))
                             return true;
                     }
-                    /*
-                    else if (listViewItem.Tag is KeyValuePair<System.Collections.Specialized.NameValueCollection, byte[]> kvp) {
-                        foreach (string key in kvp.Key.Keys) {
-                            if (filterContains(key))//email header name
-                                return true;
-                            if (filterContains(kvp.Key[key]))//email header value
-                                return true;
-                        }
-                        try {
-                            if (filterContains(System.Text.Encoding.UTF8.GetString(kvp.Value)))//email body
-                                return true;
-                        }
-                        catch {
-                            //Pokemon exception handling, "Gotta catch 'em all"
-                            SharedUtils.Logger.Log("Unable to UTF8 decode email body for keyword filter search.", SharedUtils.Logger.EventLogEntryType.Error);
-                        }
-                    }
-                    */
+
                     else if (listViewItem.Tag is Tuple<System.Collections.Specialized.NameValueCollection, byte[], Encoding> tuple) {
                         foreach (string key in tuple.Item1.Keys) {
                             if (filterContains(key))//email header name

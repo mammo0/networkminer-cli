@@ -33,7 +33,10 @@ namespace PacketParser.Packets {
                     else
                         return false;
                 }
-                catch { return false; }
+                catch (Exception e) {
+                    SharedUtils.Logger.Log("Exception when parsing frame " + parentFrame.FrameNumber + " as SOCKS packet: " + e.Message, SharedUtils.Logger.EventLogEntryType.Warning);
+                    return false;
+                }
             }
 
             if (parentFrame.Data[packetStartIndex] < 4 || parentFrame.Data[packetStartIndex] > 5)
@@ -245,7 +248,8 @@ namespace PacketParser.Packets {
                 this.socksVersion = parentFrame.Data[index++];
                 byte nMethodsOrCmdOrUlen = parentFrame.Data[index++];
                 byte method1OrRsv = parentFrame.Data[index++];
-                if (method1OrRsv != 0 && packetEndIndex - packetStartIndex == nMethodsOrCmdOrUlen + 1) {
+                //if (method1OrRsv != 0 && packetEndIndex - packetStartIndex == nMethodsOrCmdOrUlen + 1) {
+                if (packetEndIndex - packetStartIndex == nMethodsOrCmdOrUlen + 1) {
                     //version identifier/method selection message
                     index = packetEndIndex + 1;//skip the data
                 }

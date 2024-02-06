@@ -50,7 +50,7 @@ namespace PacketParser.FileTransfer {
         }
         public string DestinationPortString { get { return this.GetTransportProtocol().ToString() + " "+this.DestinationPort; } }
         public string Filename { get; }
-        public string ExtensionFromHeader { get; }
+        public string ExtensionFromHeader { get; set; }
         public long FileSize { get; }
         public string FileSizeString {
             get {
@@ -98,6 +98,8 @@ namespace PacketParser.FileTransfer {
         }
 
         public bool IsIcon() {
+            if (this.FileSize < 1)
+                return false;
             string fileEnding = this.ExtensionFromHeader;
             if (string.IsNullOrEmpty(fileEnding))
                 fileEnding = this.GetFileEnding();
@@ -107,7 +109,7 @@ namespace PacketParser.FileTransfer {
                 return true;
             else if (this.Filename.Contains("favicon")) {
                 byte[] b = this.GetHeaderBytes(12);
-                if (b[0] == 0 && b[1] == 0 && b[2] == 1 && b[3] == 0 && b[4] == 1 && b[5] == 0 && b[9] == 0 && b[11] == 0)
+                if (b.Length > 11 && b[0] == 0 && b[1] == 0 && b[2] == 1 && b[3] == 0 && b[4] == 1 && b[5] == 0 && b[9] == 0 && b[11] == 0)
                     return true;
             }
             return false;
@@ -123,9 +125,30 @@ namespace PacketParser.FileTransfer {
                 return false;
         }
 
+        internal static bool TryGetReconstructedFile(out ReconstructedFile reconstructedFile, string path, Uri relativeUri, FiveTuple fiveTuple, bool transferIsClientToServer, FileStreamTypes fileStreamType, string details, long initialFrameNumber, DateTime timestamp, string serverHostname, string extensionFromHeader = null) {
+            System.IO.FileInfo fi = new System.IO.FileInfo(path);
+            if (fi.Exists) {
+                if (fi.Length == 0) {
+                    SharedUtils.Logger.Log("Reconstructed file is empty: " + fi.FullName, SharedUtils.Logger.EventLogEntryType.Information);
+                    //System.IO.File.Delete(fi.FullName);//remove empty file
+                    //SharedUtils.Logger.Log("Deleting empty file: " + fi.FullName, SharedUtils.Logger.EventLogEntryType.Information);
+                }
+                try {
+                    reconstructedFile = new ReconstructedFile(fi, relativeUri, fiveTuple, transferIsClientToServer, fileStreamType, details, initialFrameNumber, timestamp, serverHostname, extensionFromHeader);
+                }
+                catch (Exception e) {
+                    SharedUtils.Logger.Log("Error creating ReconstructedFile: " + e.Message, SharedUtils.Logger.EventLogEntryType.Error);
+                    reconstructedFile = null;
+                    return false;
+                }
+                return true;
+            }
+            reconstructedFile = null;
+            return false;
+        }
 
-
-        internal ReconstructedFile(string path, Uri relativeUri, FiveTuple fiveTuple, bool transferIsClientToServer, FileStreamTypes fileStreamType, string details, long initialFrameNumber, DateTime timestamp, string serverHostname, string extensionFromHeader = null) {
+        [Obsolete("Use TryGetTryGetReconstructedFile() instead")]
+        private ReconstructedFile(string path, Uri relativeUri, FiveTuple fiveTuple, bool transferIsClientToServer, FileStreamTypes fileStreamType, string details, long initialFrameNumber, DateTime timestamp, string serverHostname, string extensionFromHeader = null) {
             this.FilePath=path;
             this.RelativeUri = relativeUri;
             try {
@@ -142,13 +165,7 @@ namespace PacketParser.FileTransfer {
             }
             this.FiveTuple = fiveTuple;
             this.TransferIsClientToServer = transferIsClientToServer;
-            /*
-            this.sourceHost=sourceHost;
-            this.destinationHost=destinationHost;
-            this.sourcePort=sourcePort;
-            this.destinationPort=destinationPort;
-            this.tcpTransfer=tcpTransfer;
-            */
+
             this.FileStreamType=fileStreamType;
             this.Details=details;
 
@@ -160,6 +177,34 @@ namespace PacketParser.FileTransfer {
             this.ExtensionFromHeader = extensionFromHeader;
             //SharedUtils.Logger.Log("Reconstructed file: " + fi.Name, System.Diagnostics.EventLogEntryType.Information);
 
+        }
+
+        private ReconstructedFile(System.IO.FileInfo fi, Uri relativeUri, FiveTuple fiveTuple, bool transferIsClientToServer, FileStreamTypes fileStreamType, string details, long initialFrameNumber, DateTime timestamp, string serverHostname, string extensionFromHeader = null) {
+            this.FilePath = fi.FullName;
+            this.RelativeUri = relativeUri;
+            try {
+                if (fi.FullName.Contains("\\"))
+                    this.Filename = fi.FullName.Substring(fi.FullName.LastIndexOf('\\') + 1);
+                else if (fi.FullName.Contains("/"))
+                    this.Filename = fi.FullName.Substring(fi.FullName.LastIndexOf('/') + 1);
+                else
+                    this.Filename = fi.FullName;
+
+            }
+            catch (Exception) {
+                this.Filename = "";
+            }
+            this.FiveTuple = fiveTuple;
+            this.TransferIsClientToServer = transferIsClientToServer;
+
+            this.FileStreamType = fileStreamType;
+            this.Details = details;
+
+            this.FileSize = fi.Length;
+            this.InitialFrameNumber = initialFrameNumber;
+            this.Timestamp = timestamp;
+            this.ServerHostname = serverHostname;
+            this.ExtensionFromHeader = extensionFromHeader;
         }
 
         private FiveTuple.TransportProtocol GetTransportProtocol() {

@@ -26,7 +26,7 @@ namespace PacketParser.PacketHandlers {
         private const int MAX_AUDIO_STREAMS = 2000;//2000. was originally 100, which would limit number of calls to ~50
         private PopularityList<Tuple<System.Net.IPAddress, ushort, System.Net.IPAddress, ushort, RtpPayloadType>, AudioStream> audioStreams;
 
-        public override Type ParsedType { get { return typeof(Packets.RtpPacket); } }
+        public override Type[] ParsedTypes { get; } = { typeof(Packets.RtpPacket) };
 
         public RtpPacketHandler(PacketHandler mainPacketHandler)
             : base(mainPacketHandler) {

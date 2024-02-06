@@ -2,7 +2,7 @@
 
   <PropertyGroup>
 	  <!--<TargetFramework>netstandard2.0</TargetFramework>-->
-	  <TargetFramework>net461</TargetFramework>
+	  <TargetFramework>net48</TargetFramework>
     <Company>Netresec AB</Company>
     <Authors>Netresec AB</Authors>
   </PropertyGroup>
@@ -12,10 +12,10 @@
     <DebugSymbols>false</DebugSymbols>
   </PropertyGroup>
 
-<!--System.Web is required when targeting net461, but not in netstandard2.0-->
-
-  <ItemGroup>
-    <Reference Include="System.Web" />
-  </ItemGroup>
+<!--System.Web is required when targeting net461, but not in netstandard2.0
+-->
+<ItemGroup>
+	<Reference Include="System.Web" />
+</ItemGroup>
 
 </Project>

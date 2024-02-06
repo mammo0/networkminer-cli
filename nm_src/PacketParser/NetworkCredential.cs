@@ -61,6 +61,14 @@ namespace PacketParser {
                 else if (key.Equals("loginfmt")) {//login.live.com
                     username = parameters[key];
                 }
+                else if(key.Equals("_u") && parameters[key].Contains(":")) {//IcedID cookie https://unit42.paloaltonetworks.com/wireshark-quiz-icedid-answers/
+                    string usernameHex = parameters[key].Split(':')[1];
+                    try {
+                        byte[] usernameBytes = Utils.ByteConverter.ToByteArrayFromHexString("0x" + usernameHex);
+                        username = ASCIIEncoding.ASCII.GetString(usernameBytes);
+                    }
+                    catch { }
+                }
 
                 /** WILDCARD MATCHES **/
                 else if (key.ToLower().Contains("accountname"))//used by Moxa (Moxa EDS-508A)

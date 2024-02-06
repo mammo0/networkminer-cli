@@ -43,7 +43,7 @@ namespace NetworkMiner {
             this.linkLabelHomepage.Size = new System.Drawing.Size(407, 20);
             this.linkLabelHomepage.TabIndex = 25;
             this.linkLabelHomepage.TabStop = true;
-            this.linkLabelHomepage.Text = "http://www.netresec.com/?page=NetworkMiner";
+            this.linkLabelHomepage.Text = "https://www.netresec.com/?page=NetworkMiner";
             this.linkLabelHomepage.VisitedLinkColor = System.Drawing.Color.Blue;
             // 
             // okButton
@@ -121,7 +121,7 @@ namespace NetworkMiner {
             this.tabPage2.Location = new System.Drawing.Point(4, 22);
             this.tabPage2.Name = "tabPage2";
             this.tabPage2.Padding = new System.Windows.Forms.Padding(3);
-            this.tabPage2.Size = new System.Drawing.Size(459, 266);
+            this.tabPage2.Size = new System.Drawing.Size(396, 203);
             this.tabPage2.TabIndex = 1;
             this.tabPage2.Text = "tabPage2";
             this.tabPage2.UseVisualStyleBackColor = true;

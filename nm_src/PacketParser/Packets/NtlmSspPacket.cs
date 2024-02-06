@@ -105,7 +105,7 @@ namespace PacketParser.Packets {
                     dataIsUnicode=(parentFrame.Data[packetStartIndex+domainNameSecurityBuffer.offset+domainNameSecurityBuffer.length-1]==(byte)0x00);
 
                 packetIndex+=4;//skip flags
-                this.ntlmChallenge = Utils.ByteConverter.ReadHexString(parentFrame.Data, 8, packetIndex);
+                this.ntlmChallenge = Utils.ByteConverter.ToHexString(parentFrame.Data, 8, packetIndex);
                 if (!this.ParentFrame.QuickParse)
                     this.Attributes.Add("NTLM Challenge", this.ntlmChallenge);
 
@@ -150,13 +150,13 @@ namespace PacketParser.Packets {
                 //extract the data
                 if(lanManagerSecurityBuffer.length>0) {
                     byte[] bufferData=lanManagerSecurityBuffer.GetBufferData(parentFrame.Data, packetStartIndex);
-                    this.lanManagerResponse = Utils.ByteConverter.ReadHexString(bufferData, bufferData.Length);
+                    this.lanManagerResponse = Utils.ByteConverter.ToHexString(bufferData, bufferData.Length);
                     if (!this.ParentFrame.QuickParse)
                         this.Attributes.Add("LAN Manager Response", this.lanManagerResponse);
                 }
                 if(ntLanManagerSecurityBuffer.length>0) {
                     byte[] bufferData=ntLanManagerSecurityBuffer.GetBufferData(parentFrame.Data, PacketStartIndex);
-                    this.ntlmResponse = Utils.ByteConverter.ReadHexString(bufferData, bufferData.Length);
+                    this.ntlmResponse = Utils.ByteConverter.ToHexString(bufferData, bufferData.Length);
                     if (!this.ParentFrame.QuickParse)
                         this.Attributes.Add("NTLM Response", this.ntlmResponse);
                 }

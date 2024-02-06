@@ -19,21 +19,24 @@ namespace PacketParser.PacketHandlers {
 
         public ApplicationLayerProtocol HandledProtocol {
             get {
-                return ApplicationLayerProtocol.Lpd;
+                return ApplicationLayerProtocol.LPD;
             }
         }
 
-        public override Type ParsedType {
-            get {
-                return typeof(Packets.LpdPacket);
-            }
-        }
+        public override Type[] ParsedTypes { get; } = {
+            typeof(Packets.LpdPacket),
+            typeof(LpdPacket.LpdRequestPacket),
+            typeof(LpdPacket.LpdResponsePacket),
+            typeof(LpdPacket.LpdControlFilePacket)
+        };
+        /*
         public override bool CanParse(HashSet<Type> packetTypeSet) {
             return packetTypeSet.Contains(this.ParsedType)
                 || packetTypeSet.Contains(typeof(LpdPacket.LpdRequestPacket))
                 || packetTypeSet.Contains(typeof(LpdPacket.LpdResponsePacket))
                 || packetTypeSet.Contains(typeof(LpdPacket.LpdControlFilePacket));
         }
+        */
 
         public int ExtractData(NetworkTcpSession tcpSession, bool transferIsClientToServer, IEnumerable<AbstractPacket> packetList) {
 

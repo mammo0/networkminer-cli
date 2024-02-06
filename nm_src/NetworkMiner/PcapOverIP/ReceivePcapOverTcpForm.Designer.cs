@@ -41,6 +41,7 @@
             this.ipTextBoxOutgoing = new System.Windows.Forms.TextBox();
             this.label3 = new System.Windows.Forms.Label();
             this.label4 = new System.Windows.Forms.Label();
+            this.whatIsPcapOverIpLinkLabel = new System.Windows.Forms.LinkLabel();
             ((System.ComponentModel.ISupportInitialize)(this.portNumberSelectorIncoming)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.timoutSelector)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.portNumberSelectorOutgoing)).BeginInit();
@@ -80,16 +81,16 @@
             // useSslCheckBox
             // 
             this.useSslCheckBox.AutoSize = true;
-            this.useSslCheckBox.Location = new System.Drawing.Point(12, 137);
+            this.useSslCheckBox.Location = new System.Drawing.Point(12, 123);
             this.useSslCheckBox.Name = "useSslCheckBox";
             this.useSslCheckBox.Size = new System.Drawing.Size(68, 17);
             this.useSslCheckBox.TabIndex = 3;
-            this.useSslCheckBox.Text = "Use SSL";
+            this.useSslCheckBox.Text = "Use TLS";
             this.useSslCheckBox.UseVisualStyleBackColor = true;
             // 
             // startReceivingButton
             // 
-            this.startReceivingButton.Location = new System.Drawing.Point(12, 161);
+            this.startReceivingButton.Location = new System.Drawing.Point(12, 147);
             this.startReceivingButton.Name = "startReceivingButton";
             this.startReceivingButton.Size = new System.Drawing.Size(172, 23);
             this.startReceivingButton.TabIndex = 5;
@@ -100,7 +101,7 @@
             // stopButton
             // 
             this.stopButton.Enabled = false;
-            this.stopButton.Location = new System.Drawing.Point(190, 161);
+            this.stopButton.Location = new System.Drawing.Point(190, 147);
             this.stopButton.Name = "stopButton";
             this.stopButton.Size = new System.Drawing.Size(108, 23);
             this.stopButton.TabIndex = 6;
@@ -111,7 +112,7 @@
             // receivedFramesLabel
             // 
             this.receivedFramesLabel.AutoSize = true;
-            this.receivedFramesLabel.Location = new System.Drawing.Point(9, 208);
+            this.receivedFramesLabel.Location = new System.Drawing.Point(9, 194);
             this.receivedFramesLabel.Name = "receivedFramesLabel";
             this.receivedFramesLabel.Size = new System.Drawing.Size(93, 13);
             this.receivedFramesLabel.TabIndex = 6;
@@ -120,7 +121,7 @@
             // socketStateLabel
             // 
             this.socketStateLabel.AutoSize = true;
-            this.socketStateLabel.Location = new System.Drawing.Point(9, 187);
+            this.socketStateLabel.Location = new System.Drawing.Point(9, 173);
             this.socketStateLabel.Name = "socketStateLabel";
             this.socketStateLabel.Size = new System.Drawing.Size(72, 13);
             this.socketStateLabel.TabIndex = 7;
@@ -129,7 +130,7 @@
             // receivedFramesValueLabel
             // 
             this.receivedFramesValueLabel.AutoSize = true;
-            this.receivedFramesValueLabel.Location = new System.Drawing.Point(108, 208);
+            this.receivedFramesValueLabel.Location = new System.Drawing.Point(108, 194);
             this.receivedFramesValueLabel.Name = "receivedFramesValueLabel";
             this.receivedFramesValueLabel.Size = new System.Drawing.Size(13, 13);
             this.receivedFramesValueLabel.TabIndex = 8;
@@ -138,7 +139,7 @@
             // socketStateValueLabel
             // 
             this.socketStateValueLabel.AutoSize = true;
-            this.socketStateValueLabel.Location = new System.Drawing.Point(108, 187);
+            this.socketStateValueLabel.Location = new System.Drawing.Point(108, 173);
             this.socketStateValueLabel.Name = "socketStateValueLabel";
             this.socketStateValueLabel.Size = new System.Drawing.Size(39, 13);
             this.socketStateValueLabel.TabIndex = 9;
@@ -147,7 +148,7 @@
             // label2
             // 
             this.label2.AutoSize = true;
-            this.label2.Location = new System.Drawing.Point(84, 138);
+            this.label2.Location = new System.Drawing.Point(84, 124);
             this.label2.Name = "label2";
             this.label2.Size = new System.Drawing.Size(110, 13);
             this.label2.TabIndex = 10;
@@ -155,7 +156,7 @@
             // 
             // timoutSelector
             // 
-            this.timoutSelector.Location = new System.Drawing.Point(200, 136);
+            this.timoutSelector.Location = new System.Drawing.Point(200, 122);
             this.timoutSelector.Maximum = new decimal(new int[] {
             3600,
             0,
@@ -248,11 +249,27 @@
             this.label4.TabIndex = 16;
             this.label4.Text = "TCP port";
             // 
+            // whatIsPcapOverIpLinkLabel
+            // 
+            this.whatIsPcapOverIpLinkLabel.AutoSize = true;
+            this.whatIsPcapOverIpLinkLabel.LinkArea = new System.Windows.Forms.LinkArea(6, 21);
+            this.whatIsPcapOverIpLinkLabel.LinkBehavior = System.Windows.Forms.LinkBehavior.AlwaysUnderline;
+            this.whatIsPcapOverIpLinkLabel.Location = new System.Drawing.Point(161, 216);
+            this.whatIsPcapOverIpLinkLabel.Name = "whatIsPcapOverIpLinkLabel";
+            this.whatIsPcapOverIpLinkLabel.Size = new System.Drawing.Size(152, 17);
+            this.whatIsPcapOverIpLinkLabel.TabIndex = 17;
+            this.whatIsPcapOverIpLinkLabel.TabStop = true;
+            this.whatIsPcapOverIpLinkLabel.Text = "Help: What is PCAP-over-IP?";
+            this.whatIsPcapOverIpLinkLabel.UseCompatibleTextRendering = true;
+            this.whatIsPcapOverIpLinkLabel.VisitedLinkColor = System.Drawing.Color.Blue;
+            this.whatIsPcapOverIpLinkLabel.LinkClicked += new System.Windows.Forms.LinkLabelLinkClickedEventHandler(this.whatIsPcapOverIpLinkLabel_LinkClicked);
+            // 
             // ReceivePcapOverTcpForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(312, 233);
+            this.ClientSize = new System.Drawing.Size(312, 242);
+            this.Controls.Add(this.whatIsPcapOverIpLinkLabel);
             this.Controls.Add(this.label4);
             this.Controls.Add(this.label3);
             this.Controls.Add(this.ipTextBoxOutgoing);
@@ -278,7 +295,7 @@
             this.Opacity = 0.9D;
             this.ShowIcon = false;
             this.ShowInTaskbar = false;
-            this.Text = "Pcap-over-IP";
+            this.Text = "PCAP-over-IP";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.ReceivePcapOverTcpForm_FormClosing);
             ((System.ComponentModel.ISupportInitialize)(this.portNumberSelectorIncoming)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.timoutSelector)).EndInit();
@@ -307,5 +324,6 @@
         private System.Windows.Forms.TextBox ipTextBoxOutgoing;
         private System.Windows.Forms.Label label3;
         private System.Windows.Forms.Label label4;
+        private System.Windows.Forms.LinkLabel whatIsPcapOverIpLinkLabel;
     }
 }

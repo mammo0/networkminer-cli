@@ -15,9 +15,20 @@ namespace PacketParser.Packets {
     //http://tools.ietf.org/html/rfc2616
     //http://tools.ietf.org/html/rfc2617 (HTTP Authentication)
     public class HttpPacket : AbstractPacket, ISessionPacket{
+        public static readonly byte[] CHUNK_TRAILER = { 0x30, 0x0d, 0x0a, 0x0d, 0x0a };//see: RFC 2616 3.6.1 Chunked Transfer Coding
+
         //200818: Added WebDAV methods COPY, LOCK, MKCOL, MOVE, PROPFIND, PROPPATCH and UNLOCK
         public enum RequestMethods { GET, HEAD, POST, PUT, DELETE, TRACE, OPTIONS, CONNECT, COPY, LOCK, MKCOL, MOVE, PROPFIND, PROPPATCH, UNLOCK, none }
-        internal enum ContentEncodings { Gzip, Compress, Deflate, Identity, Brotli }//Identity is default
+        internal enum ContentEncodings {
+            Gzip,
+            Compress,
+            Deflate,
+            Identity,//Identity is default
+            Brotli,
+            Base64//not part of RFC but added for flexibility
+        }
+
+        
 
         private readonly List<AbstractPacket> subPackets;
 
@@ -47,11 +58,7 @@ namespace PacketParser.Packets {
         internal string ContentDispositionFilename { get; private set; }
         internal FileTransfer.ContentRange ContentRange { get; private set; }
         internal byte[] MessageBody { get; }
-        /*
-        public override 
-            LÄGG TILL EN PACKET FACTORY TILL VARJE PAKET_KLASS OCH LÅT DEN GÖRA EN ENKEL KOLL ATT PAKETET KAN PARSAS!
-        GÖR SJÄLVA KONSTRUKTORN PRIVAT!
-        */
+
         new public static bool TryParse(Frame parentFrame, int packetStartIndex, int packetEndIndex, out AbstractPacket result) {
             result = null;
 
@@ -63,14 +70,9 @@ namespace PacketParser.Packets {
                 return false;
             else if (startLine.Length > 2048)
                 return false;
-            //else if (!Enum.IsDefined(typeof(RequestMethods), startLine.Split(' ').First()?.ToUpper()) &&
             else if (!Enum.IsDefined(typeof(RequestMethods), Utils.StringManglerUtil.GetFirstPart(startLine, ' ')?.ToUpper()) &&
                 !(startLine.StartsWith("GET") || startLine.StartsWith("HEAD") || startLine.StartsWith("POST") || startLine.StartsWith("PUT") || startLine.StartsWith("DELETE") || startLine.StartsWith("TRACE") || startLine.StartsWith("OPTIONS") || startLine.StartsWith("CONNECT") || startLine.StartsWith("HTTP")))
                 return false;
-            /*
-            else if (!(startLine.StartsWith("GET") || startLine.StartsWith("HEAD") || startLine.StartsWith("POST") || startLine.StartsWith("PUT") || startLine.StartsWith("DELETE") || startLine.StartsWith("TRACE") || startLine.StartsWith("OPTIONS") || startLine.StartsWith("CONNECT") || startLine.StartsWith("HTTP"))) {
-                return false;
-                */
 
             try {
                 result=new HttpPacket(parentFrame, packetStartIndex, packetEndIndex);
@@ -204,11 +206,6 @@ namespace PacketParser.Packets {
                     this.MessageBody = new byte[packetEndIndex - dataIndex + 1];
                 }
                 Array.Copy(parentFrame.Data, dataIndex, this.MessageBody, 0, this.MessageBody.Length);
-                /*
-                for(int i=0; i<this.messageBody.Length; i++)
-                    this.messageBody[i]=parentFrame.Data[dataIndex+i];
-                    * */
-                
             }
             else {
                 this.MessageBody=null;
@@ -217,8 +214,6 @@ namespace PacketParser.Packets {
 
             //now extract some interresting information from the packet
             if(this.MessageTypeIsRequest) {//REQUEST
-                //if clause commented out 200818
-                //if (this.requestMethod == RequestMethods.GET || this.requestMethod == RequestMethods.POST || this.requestMethod == RequestMethods.HEAD || this.requestMethod == RequestMethods.OPTIONS) {
                 int requestUriOffset = this.requestMethod.ToString().Length + 1;
                 string fileURI = startLine.Substring(requestUriOffset, startLine.Length - requestUriOffset);
                 if(fileURI?.Contains(" HTTP") == true) {
@@ -229,17 +224,6 @@ namespace PacketParser.Packets {
                 }
                 else
                     this.RequestedFileName=null;
-                //}
-                /*
-                else if(this.requestMethod==RequestMethods.POST) {
-                    string fileURI=startLine.Substring(5, startLine.Length-5);
-                    if(fileURI.Contains(" HTTP")) {
-                        fileURI=fileURI.Substring(0, fileURI.IndexOf(" HTTP"));
-                    }
-                    if(fileURI.Length>0) {//If it is the index-file the URI will be just "/"
-                        this.requestedFileName=fileURI;
-                    }
-                }*/
             }
             else {//REPLY
                 if(startLine.StartsWith("HTTP/1.")) {
@@ -325,7 +309,6 @@ namespace PacketParser.Packets {
                     StringBuilder sb = new StringBuilder(bArray.Length);
                     foreach (byte b in bArray)
                         sb.Append((char)b);
-                    //string s=System.Text.Encoding.Unicode.GetString(bArray);
                     string s = sb.ToString();
                     if (s.Contains(":")) {
                         this.AuthorizationCredentialsUsername = s.Substring(0, s.IndexOf(':'));
@@ -345,14 +328,8 @@ namespace PacketParser.Packets {
                 try {
                     string authorizationString = headerField.Substring(22).Trim();
                     foreach (string keyValueString in authorizationString.Split(new char[] { ',' })) {
-                        //username="fmeyer"
                         string[] parts = keyValueString.Split(new char[] { '=' });
                         if (parts.Length == 2) {
-                            /**
-                             *         private string wwwAuthenticateRealm;//Used to be wwwAuthenticateBasicRealm
-                             *         private string authorizationCredentialsUsername;
-                             *         private string authorizationCredentailsPassword;
-                             **/
                             string name = parts[0].Trim();
                             string value = parts[1].Trim(new char[] { ' ', '\"', '\'' });
                             if (name.Equals("username", StringComparison.InvariantCultureIgnoreCase)) {
@@ -444,7 +421,6 @@ namespace PacketParser.Packets {
         internal static IEnumerable<(string name, string value)> GetUrlEncodedParts(string urlEncodedData, bool isFormPostData) {
             char[] separator1 = { '&' };
             char[] separator2 = { '=' };
-            //string messageBody=ByteConverter.ReadString(this.messageBody);
             string data = System.Web.HttpUtility.UrlDecode(urlEncodedData);
             ICollection<string> formNameValues = data.Split(separator1);
             if (isFormPostData) {
@@ -483,41 +459,6 @@ namespace PacketParser.Packets {
             foreach((string controlName, string formValue) in GetUrlEncodedParts(urlEncodedData, isFormPostData)) {
                 returnCollection.Add(controlName, formValue);
             }
-            /*
-            char[] separator1={ '&' };
-            char[] separator2={ '=' };
-            //string messageBody=ByteConverter.ReadString(this.messageBody);
-            string data = System.Web.HttpUtility.UrlDecode(urlEncodedData);
-            ICollection<string> formNameValues = data.Split(separator1);
-            if (isFormPostData) {
-                List<string> mergedNameValues = new List<string>();
-                bool lastValueCompleted = true;
-                foreach (string formNameValue in formNameValues) {
-                    if (lastValueCompleted) {
-                        mergedNameValues.Add(formNameValue);
-                        if (formNameValue.Contains("=[{") && !formNameValue.EndsWith("}]"))
-                            lastValueCompleted = false;//we need to read until the end bracket before splitting again
-                    }
-                    else {
-                        //rebuild the split data
-                        mergedNameValues[mergedNameValues.Count - 1] = mergedNameValues[mergedNameValues.Count - 1] + separator1 + formNameValue;
-                        if (formNameValue.EndsWith("}]"))
-                            lastValueCompleted = true;
-                    }
-                }
-                formNameValues = mergedNameValues;
-            }
-            foreach (string formNameValue in formNameValues) {
-                if(formNameValue.Length>0) {
-                    int eqIndex=formNameValue.IndexOf('=');
-                    if(eqIndex>0 && eqIndex<formNameValue.Length-1) {
-                        string controlName=System.Web.HttpUtility.UrlDecode(formNameValue.Substring(0, eqIndex));
-                        string formValue=System.Web.HttpUtility.UrlDecode(formNameValue.Substring(eqIndex+1));
-
-                        returnCollection.Add(controlName, formValue);
-                    }
-                }
-            }*/
             return returnCollection;
         }
 

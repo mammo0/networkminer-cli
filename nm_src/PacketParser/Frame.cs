@@ -24,11 +24,9 @@ namespace PacketParser {
      * */
         private const int MAX_FRAME_SIZE = 66000; //jumbo frames can carry up to 9000 bytes of payload, IP can carry 65535 bytes, so we need to cover Max-IP + ecap-protocol + ethernet
 
-        private long frameNumber;//eller long?
+        private long frameNumber;
         private DateTime timestamp;
-        //private int length;
         private byte[] data;
-
         private bool quickParse;
         
         private SortedList<int, Packets.AbstractPacket> packetList;
@@ -38,9 +36,9 @@ namespace PacketParser {
 
         public long FrameNumber { get { return frameNumber; } }
         public DateTime Timestamp { get { return timestamp.ToLocalTime(); } }
-        //public int Length { get { return length; } }
         public byte[] Data { get { return data; } }
         public bool QuickParse { get { return this.quickParse; } }
+        public object Tag { get; internal set; }
 
         public System.Collections.Generic.IEnumerable<Packets.AbstractPacket> PacketList {
             get {
@@ -143,7 +141,7 @@ namespace PacketParser {
 
         public override string ToString() {
             //return "Frame "+frameNumber+" ["+Timestamp.ToString("yyyy-MM-dd hh:mm:ss.fff tt")+"]";
-            return "Frame " + frameNumber + " [" + Timestamp.ToUniversalTime().ToString("u") + "]";
+            return "Frame " + frameNumber + " [" + this.Timestamp.ToUniversalTime().ToString("o") +"]";
         }
 
         /// <summary>

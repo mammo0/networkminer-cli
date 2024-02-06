@@ -32,8 +32,11 @@ namespace NetworkMiner {
             this.menuStrip1 = new System.Windows.Forms.MenuStrip();
             this.fileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.openToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.readFromPacketCacheToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.receivePcapOverIPToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.readFromNamedPipeToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.readFromPacketCacheToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.closeToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripSeparator6 = new System.Windows.Forms.ToolStripSeparator();
             this.exportToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.credentialsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.dnsRecordsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -102,6 +105,12 @@ namespace NetworkMiner {
             this.hostSortingLabel = new System.Windows.Forms.Label();
             this.hostSortOrderComboBox = new System.Windows.Forms.ComboBox();
             this.detectedHostsTreeRebuildButton = new System.Windows.Forms.Button();
+            this.hostsFilterPanel = new System.Windows.Forms.Panel();
+            this.hostsFilterClearButton = new System.Windows.Forms.Button();
+            this.hostsFilterLabel = new System.Windows.Forms.Label();
+            this.hostsFilterComboBox = new System.Windows.Forms.ComboBox();
+            this.hostsFilterTextBox = new System.Windows.Forms.TextBox();
+            this.hostsFilterButton = new System.Windows.Forms.Button();
             this.tabPageBrowsers = new System.Windows.Forms.TabPage();
             this.browsersSplitContainer = new System.Windows.Forms.SplitContainer();
             this.httpTransactionTreeView = new System.Windows.Forms.TreeView();
@@ -125,8 +134,21 @@ namespace NetworkMiner {
             this.reconstructedFileTimestampColumnHeader = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.reconstructedFilePathHeader = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.detailsHeader = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
-            this.tabPageImages = new System.Windows.Forms.TabPage();
-            this.imagesListView = new System.Windows.Forms.ListView();
+            this.filesKeywordFilterControl = new NetworkMiner.KeywordFilterControlForListViewItems();
+            this.tabPageImagesFiltered = new System.Windows.Forms.TabPage();
+            this.imagesToolStripContainer = new System.Windows.Forms.ToolStripContainer();
+            this.imagesFilteredListView = new System.Windows.Forms.ListView();
+            this.imagesFilteredToolStrip = new System.Windows.Forms.ToolStrip();
+            this.toolStripLabel1 = new System.Windows.Forms.ToolStripLabel();
+            this.imageMinPixelsTextBox = new System.Windows.Forms.ToolStripTextBox();
+            this.toolStripLabel2 = new System.Windows.Forms.ToolStripLabel();
+            this.imageFilenameFilterTextBox = new System.Windows.Forms.ToolStripTextBox();
+            this.iconSizeToolStripDropDownButton = new System.Windows.Forms.ToolStripDropDownButton();
+            this.smallToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.mediumToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.largeToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.extraLargeToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.imagesFilteredUpdateButton = new System.Windows.Forms.ToolStripButton();
             this.tabPageMessages = new System.Windows.Forms.TabPage();
             this.messagesSplitContainer = new System.Windows.Forms.SplitContainer();
             this.messagesListView = new System.Windows.Forms.ListView();
@@ -139,6 +161,7 @@ namespace NetworkMiner {
             this.messageProtocolColumnHeader = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.messageTimestampColumnHeader = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.messageSizeColumnHeader = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
+            this.messagesKeywordFilterControl = new NetworkMiner.KeywordFilterControlForListViewItems();
             this.splitContainer3 = new System.Windows.Forms.SplitContainer();
             this.messageAttributeListView = new System.Windows.Forms.ListView();
             this.attributeNameColumnHeader = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
@@ -184,6 +207,7 @@ namespace NetworkMiner {
             this.sessionServerPortColumnHeader = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.sessionProtocolColumnHeader = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.sessionStartTimeColumnHeader = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
+            this.sessionsKeywordFilterControl = new NetworkMiner.KeywordFilterControlForListViewItems();
             this.tabPageDns = new System.Windows.Forms.TabPage();
             this.dnsListView = new System.Windows.Forms.ListView();
             this.columnHeaderDnsFrameNumber = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
@@ -199,6 +223,7 @@ namespace NetworkMiner {
             this.columnHeaderDnsQuery = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.columnHeaderDnsAnswer = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.columnHeaderAlexaTop1M = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
+            this.dnsKeywordFilterControl = new NetworkMiner.KeywordFilterControlForListViewItems();
             this.tabPageParameters = new System.Windows.Forms.TabPage();
             this.parametersListView = new System.Windows.Forms.ListView();
             this.parameterName = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
@@ -210,6 +235,7 @@ namespace NetworkMiner {
             this.parameterDestinationPort = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.parameterTimestamp = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.parameterDetails = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
+            this.parametersKeywordFilterControl = new NetworkMiner.KeywordFilterControlForListViewItems();
             this.tabPageKeywords = new System.Windows.Forms.TabPage();
             this.splitContainer2 = new System.Windows.Forms.SplitContainer();
             this.keywordListBox = new System.Windows.Forms.ListBox();
@@ -248,11 +274,6 @@ namespace NetworkMiner {
             this.caseFilenameColumn = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.caseMd5Column = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.reloadCaseFilesButton = new System.Windows.Forms.Button();
-            this.filesKeywordFilterControl = new NetworkMiner.KeywordFilterControlForListViewItems();
-            this.messagesKeywordFilterControl = new NetworkMiner.KeywordFilterControlForListViewItems();
-            this.sessionsKeywordFilterControl = new NetworkMiner.KeywordFilterControlForListViewItems();
-            this.dnsKeywordFilterControl = new NetworkMiner.KeywordFilterControlForListViewItems();
-            this.parametersKeywordFilterControl = new NetworkMiner.KeywordFilterControlForListViewItems();
             this.statusStrip1.SuspendLayout();
             this.menuStrip1.SuspendLayout();
             this.hostMenuStrip.SuspendLayout();
@@ -267,6 +288,7 @@ namespace NetworkMiner {
             this.tabControl.SuspendLayout();
             this.tabPageDetectedHosts.SuspendLayout();
             this.panel2.SuspendLayout();
+            this.hostsFilterPanel.SuspendLayout();
             this.tabPageBrowsers.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.browsersSplitContainer)).BeginInit();
             this.browsersSplitContainer.Panel1.SuspendLayout();
@@ -274,7 +296,11 @@ namespace NetworkMiner {
             this.browsersSplitContainer.SuspendLayout();
             this.panel4.SuspendLayout();
             this.tabPageFiles.SuspendLayout();
-            this.tabPageImages.SuspendLayout();
+            this.tabPageImagesFiltered.SuspendLayout();
+            this.imagesToolStripContainer.ContentPanel.SuspendLayout();
+            this.imagesToolStripContainer.TopToolStripPanel.SuspendLayout();
+            this.imagesToolStripContainer.SuspendLayout();
+            this.imagesFilteredToolStrip.SuspendLayout();
             this.tabPageMessages.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.messagesSplitContainer)).BeginInit();
             this.messagesSplitContainer.Panel1.SuspendLayout();
@@ -350,8 +376,11 @@ namespace NetworkMiner {
             // 
             this.fileToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.openToolStripMenuItem,
-            this.readFromPacketCacheToolStripMenuItem,
             this.receivePcapOverIPToolStripMenuItem,
+            this.readFromNamedPipeToolStripMenuItem,
+            this.readFromPacketCacheToolStripMenuItem,
+            this.closeToolStripMenuItem,
+            this.toolStripSeparator6,
             this.exportToolStripMenuItem,
             this.printReportToolStripMenuItem,
             this.exitToolStripMenuItem});
@@ -364,25 +393,46 @@ namespace NetworkMiner {
             this.openToolStripMenuItem.Image = global::NetworkMiner.Properties.Resources.openHS;
             this.openToolStripMenuItem.Name = "openToolStripMenuItem";
             this.openToolStripMenuItem.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.O)));
-            this.openToolStripMenuItem.Size = new System.Drawing.Size(223, 22);
+            this.openToolStripMenuItem.Size = new System.Drawing.Size(227, 22);
             this.openToolStripMenuItem.Text = "&Open";
             this.openToolStripMenuItem.Click += new System.EventHandler(this.openToolStripMenuItem_Click);
-            // 
-            // readFromPacketCacheToolStripMenuItem
-            // 
-            this.readFromPacketCacheToolStripMenuItem.Image = global::NetworkMiner.Properties.Resources.PacketCache_16x16;
-            this.readFromPacketCacheToolStripMenuItem.Name = "readFromPacketCacheToolStripMenuItem";
-            this.readFromPacketCacheToolStripMenuItem.Size = new System.Drawing.Size(223, 22);
-            this.readFromPacketCacheToolStripMenuItem.Text = "Read from Packet&Cache";
-            this.readFromPacketCacheToolStripMenuItem.Click += new System.EventHandler(this.readFromPacketCacheToolStripMenuItem_Click);
             // 
             // receivePcapOverIPToolStripMenuItem
             // 
             this.receivePcapOverIPToolStripMenuItem.Name = "receivePcapOverIPToolStripMenuItem";
             this.receivePcapOverIPToolStripMenuItem.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.R)));
-            this.receivePcapOverIPToolStripMenuItem.Size = new System.Drawing.Size(223, 22);
-            this.receivePcapOverIPToolStripMenuItem.Text = "&Receive Pcap over IP";
+            this.receivePcapOverIPToolStripMenuItem.Size = new System.Drawing.Size(227, 22);
+            this.receivePcapOverIPToolStripMenuItem.Text = "&Receive PCAP over IP";
             this.receivePcapOverIPToolStripMenuItem.Click += new System.EventHandler(this.receivePcapOverIPToolStripMenuItem_Click);
+            // 
+            // readFromNamedPipeToolStripMenuItem
+            // 
+            this.readFromNamedPipeToolStripMenuItem.Name = "readFromNamedPipeToolStripMenuItem";
+            this.readFromNamedPipeToolStripMenuItem.Size = new System.Drawing.Size(227, 22);
+            this.readFromNamedPipeToolStripMenuItem.Text = "Read from &Named Pipe";
+            this.readFromNamedPipeToolStripMenuItem.Click += new System.EventHandler(this.readFromNamedPipeToolStripMenuItem_Click);
+            // 
+            // readFromPacketCacheToolStripMenuItem
+            // 
+            this.readFromPacketCacheToolStripMenuItem.Enabled = false;
+            this.readFromPacketCacheToolStripMenuItem.Image = global::NetworkMiner.Properties.Resources.PacketCache_16x16;
+            this.readFromPacketCacheToolStripMenuItem.Name = "readFromPacketCacheToolStripMenuItem";
+            this.readFromPacketCacheToolStripMenuItem.Size = new System.Drawing.Size(227, 22);
+            this.readFromPacketCacheToolStripMenuItem.Text = "Read from Packet&Cache";
+            this.readFromPacketCacheToolStripMenuItem.Visible = false;
+            this.readFromPacketCacheToolStripMenuItem.Click += new System.EventHandler(this.readFromPacketCacheToolStripMenuItem_Click);
+            // 
+            // closeToolStripMenuItem
+            // 
+            this.closeToolStripMenuItem.Name = "closeToolStripMenuItem";
+            this.closeToolStripMenuItem.Size = new System.Drawing.Size(227, 22);
+            this.closeToolStripMenuItem.Text = "&Close";
+            this.closeToolStripMenuItem.Click += new System.EventHandler(this.closeToolStripMenuItem_Click);
+            // 
+            // toolStripSeparator6
+            // 
+            this.toolStripSeparator6.Name = "toolStripSeparator6";
+            this.toolStripSeparator6.Size = new System.Drawing.Size(224, 6);
             // 
             // exportToolStripMenuItem
             // 
@@ -397,7 +447,7 @@ namespace NetworkMiner {
             this.voIPToolStripMenuItem});
             this.exportToolStripMenuItem.Enabled = false;
             this.exportToolStripMenuItem.Name = "exportToolStripMenuItem";
-            this.exportToolStripMenuItem.Size = new System.Drawing.Size(223, 22);
+            this.exportToolStripMenuItem.Size = new System.Drawing.Size(227, 22);
             this.exportToolStripMenuItem.Text = "&Export to File";
             this.exportToolStripMenuItem.Visible = false;
             // 
@@ -460,7 +510,7 @@ namespace NetworkMiner {
             // printReportToolStripMenuItem
             // 
             this.printReportToolStripMenuItem.Name = "printReportToolStripMenuItem";
-            this.printReportToolStripMenuItem.Size = new System.Drawing.Size(223, 22);
+            this.printReportToolStripMenuItem.Size = new System.Drawing.Size(227, 22);
             this.printReportToolStripMenuItem.Text = "&Print Report";
             this.printReportToolStripMenuItem.Visible = false;
             this.printReportToolStripMenuItem.Click += new System.EventHandler(this.printReportToolStripMenuItem_Click);
@@ -469,7 +519,7 @@ namespace NetworkMiner {
             // 
             this.exitToolStripMenuItem.Name = "exitToolStripMenuItem";
             this.exitToolStripMenuItem.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Alt | System.Windows.Forms.Keys.F4)));
-            this.exitToolStripMenuItem.Size = new System.Drawing.Size(223, 22);
+            this.exitToolStripMenuItem.Size = new System.Drawing.Size(227, 22);
             this.exitToolStripMenuItem.Text = "E&xit";
             this.exitToolStripMenuItem.Click += new System.EventHandler(this.exitToolStripMenuItem_Click);
             // 
@@ -698,6 +748,7 @@ namespace NetworkMiner {
             this.networkAdaptersComboBox.Name = "networkAdaptersComboBox";
             this.networkAdaptersComboBox.Size = new System.Drawing.Size(574, 21);
             this.networkAdaptersComboBox.TabIndex = 7;
+            this.networkAdaptersComboBox.DropDown += new System.EventHandler(this.networkAdaptersComboBox_DropDown);
             this.networkAdaptersComboBox.SelectedIndexChanged += new System.EventHandler(this.networkAdaptersComboBox_SelectedIndexChanged);
             // 
             // dataSet1
@@ -834,7 +885,6 @@ namespace NetworkMiner {
             // 
             this.button2.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.button2.Enabled = false;
-            this.button2.Image = global::NetworkMiner.Properties.Resources.Filter2HS;
             this.button2.ImageAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.button2.Location = new System.Drawing.Point(522, 27);
             this.button2.Name = "button2";
@@ -848,14 +898,12 @@ namespace NetworkMiner {
             // stopButton
             // 
             this.stopButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.stopButton.Image = global::NetworkMiner.Properties.Resources.StopHS;
             this.stopButton.ImageAlign = System.Drawing.ContentAlignment.BottomLeft;
             this.stopButton.Location = new System.Drawing.Point(638, 27);
             this.stopButton.Name = "stopButton";
             this.stopButton.Size = new System.Drawing.Size(52, 21);
             this.stopButton.TabIndex = 4;
             this.stopButton.Text = "Stop";
-            this.stopButton.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             this.stopButton.UseVisualStyleBackColor = true;
             this.stopButton.Click += new System.EventHandler(this.stopButton_Click);
             // 
@@ -863,14 +911,12 @@ namespace NetworkMiner {
             // 
             this.startButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.startButton.Enabled = false;
-            this.startButton.Image = global::NetworkMiner.Properties.Resources.PlayHS;
             this.startButton.ImageAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.startButton.Location = new System.Drawing.Point(580, 27);
             this.startButton.Name = "startButton";
             this.startButton.Size = new System.Drawing.Size(52, 21);
             this.startButton.TabIndex = 2;
             this.startButton.Text = "Start";
-            this.startButton.TextAlign = System.Drawing.ContentAlignment.BottomRight;
             this.startButton.UseVisualStyleBackColor = true;
             this.startButton.Click += new System.EventHandler(this.startButton_Click);
             // 
@@ -901,7 +947,7 @@ namespace NetworkMiner {
             this.tabControl.Controls.Add(this.tabPageDetectedHosts);
             this.tabControl.Controls.Add(this.tabPageBrowsers);
             this.tabControl.Controls.Add(this.tabPageFiles);
-            this.tabControl.Controls.Add(this.tabPageImages);
+            this.tabControl.Controls.Add(this.tabPageImagesFiltered);
             this.tabControl.Controls.Add(this.tabPageMessages);
             this.tabControl.Controls.Add(this.tabPageCredentials);
             this.tabControl.Controls.Add(this.tabPageVoIP);
@@ -926,9 +972,9 @@ namespace NetworkMiner {
             // 
             this.tabPageDetectedHosts.Controls.Add(this.networkHostTreeView);
             this.tabPageDetectedHosts.Controls.Add(this.panel2);
+            this.tabPageDetectedHosts.Controls.Add(this.hostsFilterPanel);
             this.tabPageDetectedHosts.Location = new System.Drawing.Point(4, 40);
             this.tabPageDetectedHosts.Name = "tabPageDetectedHosts";
-            this.tabPageDetectedHosts.Padding = new System.Windows.Forms.Padding(3);
             this.tabPageDetectedHosts.Size = new System.Drawing.Size(540, 324);
             this.tabPageDetectedHosts.TabIndex = 2;
             this.tabPageDetectedHosts.Text = "Hosts";
@@ -938,9 +984,9 @@ namespace NetworkMiner {
             // 
             this.networkHostTreeView.ContextMenuStrip = this.hostMenuStrip;
             this.networkHostTreeView.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.networkHostTreeView.Location = new System.Drawing.Point(3, 30);
+            this.networkHostTreeView.Location = new System.Drawing.Point(0, 53);
             this.networkHostTreeView.Name = "networkHostTreeView";
-            this.networkHostTreeView.Size = new System.Drawing.Size(534, 291);
+            this.networkHostTreeView.Size = new System.Drawing.Size(540, 271);
             this.networkHostTreeView.TabIndex = 0;
             this.networkHostTreeView.AfterSelect += new System.Windows.Forms.TreeViewEventHandler(this.TreeView_AfterSelect);
             this.networkHostTreeView.NodeMouseClick += new System.Windows.Forms.TreeNodeMouseClickEventHandler(this.networkHostTreeView_NodeMouseClick);
@@ -951,9 +997,9 @@ namespace NetworkMiner {
             this.panel2.Controls.Add(this.hostSortOrderComboBox);
             this.panel2.Controls.Add(this.detectedHostsTreeRebuildButton);
             this.panel2.Dock = System.Windows.Forms.DockStyle.Top;
-            this.panel2.Location = new System.Drawing.Point(3, 3);
+            this.panel2.Location = new System.Drawing.Point(0, 26);
             this.panel2.Name = "panel2";
-            this.panel2.Size = new System.Drawing.Size(534, 27);
+            this.panel2.Size = new System.Drawing.Size(540, 27);
             this.panel2.TabIndex = 3;
             // 
             // hostSortingLabel
@@ -984,20 +1030,89 @@ namespace NetworkMiner {
             "Router Hops Distance (ascending)"});
             this.hostSortOrderComboBox.Location = new System.Drawing.Point(88, 3);
             this.hostSortOrderComboBox.Name = "hostSortOrderComboBox";
-            this.hostSortOrderComboBox.Size = new System.Drawing.Size(282, 21);
+            this.hostSortOrderComboBox.Size = new System.Drawing.Size(288, 21);
             this.hostSortOrderComboBox.TabIndex = 2;
             this.hostSortOrderComboBox.SelectedIndexChanged += new System.EventHandler(this.hostSortOrderComboBox_SelectedIndexChanged);
             // 
             // detectedHostsTreeRebuildButton
             // 
             this.detectedHostsTreeRebuildButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.detectedHostsTreeRebuildButton.Location = new System.Drawing.Point(376, 3);
+            this.detectedHostsTreeRebuildButton.Location = new System.Drawing.Point(382, 3);
             this.detectedHostsTreeRebuildButton.Name = "detectedHostsTreeRebuildButton";
             this.detectedHostsTreeRebuildButton.Size = new System.Drawing.Size(155, 21);
             this.detectedHostsTreeRebuildButton.TabIndex = 1;
             this.detectedHostsTreeRebuildButton.Text = "Sort and Refresh";
             this.detectedHostsTreeRebuildButton.UseVisualStyleBackColor = true;
-            this.detectedHostsTreeRebuildButton.Click += new System.EventHandler(this.detectedHostsTreeRebuildButton_Click);
+            this.detectedHostsTreeRebuildButton.Click += new System.EventHandler(this.RebuildHostsTree);
+            // 
+            // hostsFilterPanel
+            // 
+            this.hostsFilterPanel.Controls.Add(this.hostsFilterClearButton);
+            this.hostsFilterPanel.Controls.Add(this.hostsFilterLabel);
+            this.hostsFilterPanel.Controls.Add(this.hostsFilterComboBox);
+            this.hostsFilterPanel.Controls.Add(this.hostsFilterTextBox);
+            this.hostsFilterPanel.Controls.Add(this.hostsFilterButton);
+            this.hostsFilterPanel.Dock = System.Windows.Forms.DockStyle.Top;
+            this.hostsFilterPanel.Location = new System.Drawing.Point(0, 0);
+            this.hostsFilterPanel.Name = "hostsFilterPanel";
+            this.hostsFilterPanel.Size = new System.Drawing.Size(540, 26);
+            this.hostsFilterPanel.TabIndex = 4;
+            // 
+            // hostsFilterClearButton
+            // 
+            this.hostsFilterClearButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.hostsFilterClearButton.Location = new System.Drawing.Point(432, 2);
+            this.hostsFilterClearButton.Name = "hostsFilterClearButton";
+            this.hostsFilterClearButton.Size = new System.Drawing.Size(49, 23);
+            this.hostsFilterClearButton.TabIndex = 4;
+            this.hostsFilterClearButton.Text = "Clear";
+            this.hostsFilterClearButton.UseVisualStyleBackColor = true;
+            this.hostsFilterClearButton.Click += new System.EventHandler(this.hostsFilterClearButton_Click);
+            // 
+            // hostsFilterLabel
+            // 
+            this.hostsFilterLabel.AutoSize = true;
+            this.hostsFilterLabel.Location = new System.Drawing.Point(3, 7);
+            this.hostsFilterLabel.Name = "hostsFilterLabel";
+            this.hostsFilterLabel.Size = new System.Drawing.Size(32, 13);
+            this.hostsFilterLabel.TabIndex = 3;
+            this.hostsFilterLabel.Text = "Filter:";
+            // 
+            // hostsFilterComboBox
+            // 
+            this.hostsFilterComboBox.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.hostsFilterComboBox.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.hostsFilterComboBox.FormattingEnabled = true;
+            this.hostsFilterComboBox.Items.AddRange(new object[] {
+            "String",
+            "RegEx",
+            "CIDR"});
+            this.hostsFilterComboBox.Location = new System.Drawing.Point(350, 3);
+            this.hostsFilterComboBox.Name = "hostsFilterComboBox";
+            this.hostsFilterComboBox.Size = new System.Drawing.Size(76, 21);
+            this.hostsFilterComboBox.TabIndex = 2;
+            // 
+            // hostsFilterTextBox
+            // 
+            this.hostsFilterTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.hostsFilterTextBox.Location = new System.Drawing.Point(41, 3);
+            this.hostsFilterTextBox.Name = "hostsFilterTextBox";
+            this.hostsFilterTextBox.Size = new System.Drawing.Size(303, 20);
+            this.hostsFilterTextBox.TabIndex = 0;
+            this.hostsFilterTextBox.KeyDown += new System.Windows.Forms.KeyEventHandler(this.hostsFilterTextBox_KeyDown);
+            // 
+            // hostsFilterButton
+            // 
+            this.hostsFilterButton.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.hostsFilterButton.Location = new System.Drawing.Point(487, 3);
+            this.hostsFilterButton.Name = "hostsFilterButton";
+            this.hostsFilterButton.Size = new System.Drawing.Size(50, 22);
+            this.hostsFilterButton.TabIndex = 1;
+            this.hostsFilterButton.Text = "Apply";
+            this.hostsFilterButton.UseVisualStyleBackColor = true;
+            this.hostsFilterButton.Click += new System.EventHandler(this.hostsFilterButton_Click);
             // 
             // tabPageBrowsers
             // 
@@ -1005,7 +1120,6 @@ namespace NetworkMiner {
             this.tabPageBrowsers.Controls.Add(this.panel4);
             this.tabPageBrowsers.Location = new System.Drawing.Point(4, 40);
             this.tabPageBrowsers.Name = "tabPageBrowsers";
-            this.tabPageBrowsers.Padding = new System.Windows.Forms.Padding(3);
             this.tabPageBrowsers.Size = new System.Drawing.Size(540, 324);
             this.tabPageBrowsers.TabIndex = 13;
             this.tabPageBrowsers.Text = "Browsers";
@@ -1014,7 +1128,7 @@ namespace NetworkMiner {
             // browsersSplitContainer
             // 
             this.browsersSplitContainer.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.browsersSplitContainer.Location = new System.Drawing.Point(3, 25);
+            this.browsersSplitContainer.Location = new System.Drawing.Point(0, 22);
             this.browsersSplitContainer.Name = "browsersSplitContainer";
             // 
             // browsersSplitContainer.Panel1
@@ -1024,8 +1138,8 @@ namespace NetworkMiner {
             // browsersSplitContainer.Panel2
             // 
             this.browsersSplitContainer.Panel2.Controls.Add(this.httpTransactionPropertyGrid);
-            this.browsersSplitContainer.Size = new System.Drawing.Size(534, 314);
-            this.browsersSplitContainer.SplitterDistance = 383;
+            this.browsersSplitContainer.Size = new System.Drawing.Size(540, 302);
+            this.browsersSplitContainer.SplitterDistance = 387;
             this.browsersSplitContainer.TabIndex = 4;
             // 
             // httpTransactionTreeView
@@ -1039,7 +1153,7 @@ namespace NetworkMiner {
             treeNode1.Text = "Web browsing tree view is only available in NetworkMiner Professional";
             this.httpTransactionTreeView.Nodes.AddRange(new System.Windows.Forms.TreeNode[] {
             treeNode1});
-            this.httpTransactionTreeView.Size = new System.Drawing.Size(383, 314);
+            this.httpTransactionTreeView.Size = new System.Drawing.Size(387, 302);
             this.httpTransactionTreeView.TabIndex = 0;
             this.httpTransactionTreeView.AfterSelect += new System.Windows.Forms.TreeViewEventHandler(this.httpTransactionTreeView_AfterSelect);
             this.httpTransactionTreeView.NodeMouseClick += new System.Windows.Forms.TreeNodeMouseClickEventHandler(this.httpTransactionTreeView_NodeMouseClick);
@@ -1051,7 +1165,7 @@ namespace NetworkMiner {
             this.httpTransactionPropertyGrid.LineColor = System.Drawing.SystemColors.ControlDark;
             this.httpTransactionPropertyGrid.Location = new System.Drawing.Point(0, 0);
             this.httpTransactionPropertyGrid.Name = "httpTransactionPropertyGrid";
-            this.httpTransactionPropertyGrid.Size = new System.Drawing.Size(147, 314);
+            this.httpTransactionPropertyGrid.Size = new System.Drawing.Size(149, 302);
             this.httpTransactionPropertyGrid.TabIndex = 3;
             this.httpTransactionPropertyGrid.ToolbarVisible = false;
             // 
@@ -1062,9 +1176,9 @@ namespace NetworkMiner {
             this.panel4.Controls.Add(this.findHttpTransactionButton);
             this.panel4.Controls.Add(this.findHttpTransactionLabel);
             this.panel4.Dock = System.Windows.Forms.DockStyle.Top;
-            this.panel4.Location = new System.Drawing.Point(3, 3);
+            this.panel4.Location = new System.Drawing.Point(0, 0);
             this.panel4.Name = "panel4";
-            this.panel4.Size = new System.Drawing.Size(534, 22);
+            this.panel4.Size = new System.Drawing.Size(540, 22);
             this.panel4.TabIndex = 1;
             // 
             // findHttpTransactionTextBox
@@ -1073,7 +1187,7 @@ namespace NetworkMiner {
             this.findHttpTransactionTextBox.Dock = System.Windows.Forms.DockStyle.Fill;
             this.findHttpTransactionTextBox.Location = new System.Drawing.Point(30, 0);
             this.findHttpTransactionTextBox.Name = "findHttpTransactionTextBox";
-            this.findHttpTransactionTextBox.Size = new System.Drawing.Size(330, 20);
+            this.findHttpTransactionTextBox.Size = new System.Drawing.Size(336, 20);
             this.findHttpTransactionTextBox.TabIndex = 3;
             this.findHttpTransactionTextBox.KeyDown += new System.Windows.Forms.KeyEventHandler(this.findHttpTransactionTextBox_KeyDown);
             // 
@@ -1081,7 +1195,7 @@ namespace NetworkMiner {
             // 
             this.findHttpTransactionCaseSensitiveCheckBox.AutoSize = true;
             this.findHttpTransactionCaseSensitiveCheckBox.Dock = System.Windows.Forms.DockStyle.Right;
-            this.findHttpTransactionCaseSensitiveCheckBox.Location = new System.Drawing.Point(360, 0);
+            this.findHttpTransactionCaseSensitiveCheckBox.Location = new System.Drawing.Point(366, 0);
             this.findHttpTransactionCaseSensitiveCheckBox.Name = "findHttpTransactionCaseSensitiveCheckBox";
             this.findHttpTransactionCaseSensitiveCheckBox.Padding = new System.Windows.Forms.Padding(3, 0, 0, 0);
             this.findHttpTransactionCaseSensitiveCheckBox.Size = new System.Drawing.Size(99, 22);
@@ -1092,7 +1206,7 @@ namespace NetworkMiner {
             // findHttpTransactionButton
             // 
             this.findHttpTransactionButton.Dock = System.Windows.Forms.DockStyle.Right;
-            this.findHttpTransactionButton.Location = new System.Drawing.Point(459, 0);
+            this.findHttpTransactionButton.Location = new System.Drawing.Point(465, 0);
             this.findHttpTransactionButton.Name = "findHttpTransactionButton";
             this.findHttpTransactionButton.Size = new System.Drawing.Size(75, 22);
             this.findHttpTransactionButton.TabIndex = 2;
@@ -1116,7 +1230,6 @@ namespace NetworkMiner {
             this.tabPageFiles.Controls.Add(this.filesKeywordFilterControl);
             this.tabPageFiles.Location = new System.Drawing.Point(4, 40);
             this.tabPageFiles.Name = "tabPageFiles";
-            this.tabPageFiles.Padding = new System.Windows.Forms.Padding(0, 3, 0, 0);
             this.tabPageFiles.Size = new System.Drawing.Size(540, 324);
             this.tabPageFiles.TabIndex = 5;
             this.tabPageFiles.Text = "Files";
@@ -1141,11 +1254,11 @@ namespace NetworkMiner {
             this.filesListView.Dock = System.Windows.Forms.DockStyle.Fill;
             this.filesListView.FullRowSelect = true;
             this.filesListView.HideSelection = false;
-            this.filesListView.Location = new System.Drawing.Point(0, 25);
+            this.filesListView.Location = new System.Drawing.Point(0, 22);
             this.filesListView.MultiSelect = false;
             this.filesListView.Name = "filesListView";
             this.filesListView.ShowItemToolTips = true;
-            this.filesListView.Size = new System.Drawing.Size(540, 317);
+            this.filesListView.Size = new System.Drawing.Size(540, 302);
             this.filesListView.TabIndex = 1;
             this.filesListView.UseCompatibleStateImageBehavior = false;
             this.filesListView.View = System.Windows.Forms.View.Details;
@@ -1153,6 +1266,7 @@ namespace NetworkMiner {
             this.filesListView.ItemDrag += new System.Windows.Forms.ItemDragEventHandler(this.ListView_DragDropOnItemDrag);
             this.filesListView.SelectedIndexChanged += new System.EventHandler(this.filesListView_SelectedIndexChanged);
             this.filesListView.DoubleClick += new System.EventHandler(this.ShowFileDetails);
+            this.filesListView.KeyDown += new System.Windows.Forms.KeyEventHandler(this.ListView_KeyDown_Handler);
             // 
             // reconstructedFileInitialFrameNumber
             // 
@@ -1203,35 +1317,158 @@ namespace NetworkMiner {
             // 
             this.detailsHeader.Text = "Details";
             // 
-            // tabPageImages
+            // filesKeywordFilterControl
             // 
-            this.tabPageImages.Controls.Add(this.imagesListView);
-            this.tabPageImages.Location = new System.Drawing.Point(4, 40);
-            this.tabPageImages.Name = "tabPageImages";
-            this.tabPageImages.Size = new System.Drawing.Size(540, 324);
-            this.tabPageImages.TabIndex = 6;
-            this.tabPageImages.Text = "Images";
-            this.tabPageImages.UseVisualStyleBackColor = true;
+            this.filesKeywordFilterControl.Dock = System.Windows.Forms.DockStyle.Top;
+            this.filesKeywordFilterControl.Location = new System.Drawing.Point(0, 0);
+            this.filesKeywordFilterControl.Name = "filesKeywordFilterControl";
+            this.filesKeywordFilterControl.Size = new System.Drawing.Size(540, 22);
+            this.filesKeywordFilterControl.TabIndex = 0;
             // 
-            // imagesListView
+            // tabPageImagesFiltered
             // 
-            this.imagesListView.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.imagesListView.HideSelection = false;
-            this.imagesListView.Location = new System.Drawing.Point(0, 0);
-            this.imagesListView.Name = "imagesListView";
-            this.imagesListView.ShowItemToolTips = true;
-            this.imagesListView.Size = new System.Drawing.Size(540, 342);
-            this.imagesListView.TabIndex = 0;
-            this.imagesListView.UseCompatibleStateImageBehavior = false;
-            this.imagesListView.ItemDrag += new System.Windows.Forms.ItemDragEventHandler(this.ListView_DragDropOnItemDrag);
-            this.imagesListView.MouseDoubleClick += new System.Windows.Forms.MouseEventHandler(this.imagesListView_MouseDoubleClick);
+            this.tabPageImagesFiltered.Controls.Add(this.imagesToolStripContainer);
+            this.tabPageImagesFiltered.Location = new System.Drawing.Point(4, 40);
+            this.tabPageImagesFiltered.Name = "tabPageImagesFiltered";
+            this.tabPageImagesFiltered.Size = new System.Drawing.Size(540, 324);
+            this.tabPageImagesFiltered.TabIndex = 15;
+            this.tabPageImagesFiltered.Text = "Images";
+            this.tabPageImagesFiltered.UseVisualStyleBackColor = true;
+            // 
+            // imagesToolStripContainer
+            // 
+            // 
+            // imagesToolStripContainer.ContentPanel
+            // 
+            this.imagesToolStripContainer.ContentPanel.Controls.Add(this.imagesFilteredListView);
+            this.imagesToolStripContainer.ContentPanel.Size = new System.Drawing.Size(540, 299);
+            this.imagesToolStripContainer.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.imagesToolStripContainer.Location = new System.Drawing.Point(0, 0);
+            this.imagesToolStripContainer.Name = "imagesToolStripContainer";
+            this.imagesToolStripContainer.Size = new System.Drawing.Size(540, 324);
+            this.imagesToolStripContainer.TabIndex = 8;
+            this.imagesToolStripContainer.Text = "toolStripContainer1";
+            // 
+            // imagesToolStripContainer.TopToolStripPanel
+            // 
+            this.imagesToolStripContainer.TopToolStripPanel.Controls.Add(this.imagesFilteredToolStrip);
+            // 
+            // imagesFilteredListView
+            // 
+            this.imagesFilteredListView.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.imagesFilteredListView.HideSelection = false;
+            this.imagesFilteredListView.Location = new System.Drawing.Point(0, 0);
+            this.imagesFilteredListView.Name = "imagesFilteredListView";
+            this.imagesFilteredListView.Size = new System.Drawing.Size(540, 299);
+            this.imagesFilteredListView.TabIndex = 7;
+            this.imagesFilteredListView.UseCompatibleStateImageBehavior = false;
+            this.imagesFilteredListView.ItemDrag += new System.Windows.Forms.ItemDragEventHandler(this.ListView_DragDropOnItemDrag);
+            this.imagesFilteredListView.MouseDoubleClick += new System.Windows.Forms.MouseEventHandler(this.imagesFilteredListView_MouseDoubleClick);
+            // 
+            // imagesFilteredToolStrip
+            // 
+            this.imagesFilteredToolStrip.Dock = System.Windows.Forms.DockStyle.None;
+            this.imagesFilteredToolStrip.GripStyle = System.Windows.Forms.ToolStripGripStyle.Hidden;
+            this.imagesFilteredToolStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.toolStripLabel1,
+            this.imageMinPixelsTextBox,
+            this.toolStripLabel2,
+            this.imageFilenameFilterTextBox,
+            this.iconSizeToolStripDropDownButton,
+            this.imagesFilteredUpdateButton});
+            this.imagesFilteredToolStrip.Location = new System.Drawing.Point(3, 0);
+            this.imagesFilteredToolStrip.Name = "imagesFilteredToolStrip";
+            this.imagesFilteredToolStrip.Size = new System.Drawing.Size(513, 25);
+            this.imagesFilteredToolStrip.TabIndex = 0;
+            // 
+            // toolStripLabel1
+            // 
+            this.toolStripLabel1.Name = "toolStripLabel1";
+            this.toolStripLabel1.Size = new System.Drawing.Size(64, 22);
+            this.toolStripLabel1.Text = "Min Pixels:";
+            // 
+            // imageMinPixelsTextBox
+            // 
+            this.imageMinPixelsTextBox.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.imageMinPixelsTextBox.Name = "imageMinPixelsTextBox";
+            this.imageMinPixelsTextBox.Size = new System.Drawing.Size(80, 25);
+            this.imageMinPixelsTextBox.Text = "0";
+            this.imageMinPixelsTextBox.KeyDown += new System.Windows.Forms.KeyEventHandler(this.imagesFilterUpdateOnEnter);
+            // 
+            // toolStripLabel2
+            // 
+            this.toolStripLabel2.Margin = new System.Windows.Forms.Padding(10, 1, 0, 2);
+            this.toolStripLabel2.Name = "toolStripLabel2";
+            this.toolStripLabel2.Size = new System.Drawing.Size(87, 22);
+            this.toolStripLabel2.Text = "Filename Filter:";
+            // 
+            // imageFilenameFilterTextBox
+            // 
+            this.imageFilenameFilterTextBox.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.imageFilenameFilterTextBox.Name = "imageFilenameFilterTextBox";
+            this.imageFilenameFilterTextBox.Size = new System.Drawing.Size(140, 25);
+            this.imageFilenameFilterTextBox.KeyDown += new System.Windows.Forms.KeyEventHandler(this.imagesFilterUpdateOnEnter);
+            // 
+            // iconSizeToolStripDropDownButton
+            // 
+            this.iconSizeToolStripDropDownButton.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
+            this.iconSizeToolStripDropDownButton.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.smallToolStripMenuItem,
+            this.mediumToolStripMenuItem,
+            this.largeToolStripMenuItem,
+            this.extraLargeToolStripMenuItem});
+            this.iconSizeToolStripDropDownButton.Image = ((System.Drawing.Image)(resources.GetObject("iconSizeToolStripDropDownButton.Image")));
+            this.iconSizeToolStripDropDownButton.ImageTransparentColor = System.Drawing.Color.Magenta;
+            this.iconSizeToolStripDropDownButton.Name = "iconSizeToolStripDropDownButton";
+            this.iconSizeToolStripDropDownButton.Size = new System.Drawing.Size(66, 22);
+            this.iconSizeToolStripDropDownButton.Tag = "100";
+            this.iconSizeToolStripDropDownButton.Text = "Icon Size";
+            this.iconSizeToolStripDropDownButton.DropDownItemClicked += new System.Windows.Forms.ToolStripItemClickedEventHandler(this.IconSizeToolStripDropDownButton_DropDownItemClicked);
+            // 
+            // smallToolStripMenuItem
+            // 
+            this.smallToolStripMenuItem.Name = "smallToolStripMenuItem";
+            this.smallToolStripMenuItem.Size = new System.Drawing.Size(132, 22);
+            this.smallToolStripMenuItem.Tag = 50;
+            this.smallToolStripMenuItem.Text = "Small";
+            // 
+            // mediumToolStripMenuItem
+            // 
+            this.mediumToolStripMenuItem.Name = "mediumToolStripMenuItem";
+            this.mediumToolStripMenuItem.Size = new System.Drawing.Size(132, 22);
+            this.mediumToolStripMenuItem.Tag = 100;
+            this.mediumToolStripMenuItem.Text = "Medium";
+            // 
+            // largeToolStripMenuItem
+            // 
+            this.largeToolStripMenuItem.Name = "largeToolStripMenuItem";
+            this.largeToolStripMenuItem.Size = new System.Drawing.Size(132, 22);
+            this.largeToolStripMenuItem.Tag = 200;
+            this.largeToolStripMenuItem.Text = "Large";
+            // 
+            // extraLargeToolStripMenuItem
+            // 
+            this.extraLargeToolStripMenuItem.Name = "extraLargeToolStripMenuItem";
+            this.extraLargeToolStripMenuItem.Size = new System.Drawing.Size(132, 22);
+            this.extraLargeToolStripMenuItem.Tag = 400;
+            this.extraLargeToolStripMenuItem.Text = "Extra Large";
+            // 
+            // imagesFilteredUpdateButton
+            // 
+            this.imagesFilteredUpdateButton.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
+            this.imagesFilteredUpdateButton.Image = ((System.Drawing.Image)(resources.GetObject("imagesFilteredUpdateButton.Image")));
+            this.imagesFilteredUpdateButton.ImageTransparentColor = System.Drawing.Color.Magenta;
+            this.imagesFilteredUpdateButton.Margin = new System.Windows.Forms.Padding(10, 1, 0, 2);
+            this.imagesFilteredUpdateButton.Name = "imagesFilteredUpdateButton";
+            this.imagesFilteredUpdateButton.Size = new System.Drawing.Size(49, 22);
+            this.imagesFilteredUpdateButton.Text = "Update";
+            this.imagesFilteredUpdateButton.Click += new System.EventHandler(this.imagesFilteredUpdateButton_Click);
             // 
             // tabPageMessages
             // 
             this.tabPageMessages.Controls.Add(this.messagesSplitContainer);
             this.tabPageMessages.Location = new System.Drawing.Point(4, 40);
             this.tabPageMessages.Name = "tabPageMessages";
-            this.tabPageMessages.Padding = new System.Windows.Forms.Padding(3);
             this.tabPageMessages.Size = new System.Drawing.Size(540, 324);
             this.tabPageMessages.TabIndex = 12;
             this.tabPageMessages.Text = "Messages";
@@ -1240,7 +1477,7 @@ namespace NetworkMiner {
             // messagesSplitContainer
             // 
             this.messagesSplitContainer.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.messagesSplitContainer.Location = new System.Drawing.Point(3, 3);
+            this.messagesSplitContainer.Location = new System.Drawing.Point(0, 0);
             this.messagesSplitContainer.Name = "messagesSplitContainer";
             // 
             // messagesSplitContainer.Panel1
@@ -1251,8 +1488,8 @@ namespace NetworkMiner {
             // messagesSplitContainer.Panel2
             // 
             this.messagesSplitContainer.Panel2.Controls.Add(this.splitContainer3);
-            this.messagesSplitContainer.Size = new System.Drawing.Size(534, 336);
-            this.messagesSplitContainer.SplitterDistance = 408;
+            this.messagesSplitContainer.Size = new System.Drawing.Size(540, 324);
+            this.messagesSplitContainer.SplitterDistance = 412;
             this.messagesSplitContainer.TabIndex = 2;
             // 
             // messagesListView
@@ -1274,12 +1511,13 @@ namespace NetworkMiner {
             this.messagesListView.MultiSelect = false;
             this.messagesListView.Name = "messagesListView";
             this.messagesListView.ShowItemToolTips = true;
-            this.messagesListView.Size = new System.Drawing.Size(408, 314);
+            this.messagesListView.Size = new System.Drawing.Size(412, 302);
             this.messagesListView.TabIndex = 0;
             this.messagesListView.UseCompatibleStateImageBehavior = false;
             this.messagesListView.View = System.Windows.Forms.View.Details;
             this.messagesListView.ColumnClick += new System.Windows.Forms.ColumnClickEventHandler(this.ListViewColumnClick);
             this.messagesListView.ItemSelectionChanged += new System.Windows.Forms.ListViewItemSelectionChangedEventHandler(this.messagesListView_ItemSelectionChanged);
+            this.messagesListView.KeyDown += new System.Windows.Forms.KeyEventHandler(this.ListView_KeyDown_Handler);
             // 
             // messageFrameColumnHeader
             // 
@@ -1318,6 +1556,14 @@ namespace NetworkMiner {
             // 
             this.messageSizeColumnHeader.Text = "Size";
             // 
+            // messagesKeywordFilterControl
+            // 
+            this.messagesKeywordFilterControl.Dock = System.Windows.Forms.DockStyle.Top;
+            this.messagesKeywordFilterControl.Location = new System.Drawing.Point(0, 0);
+            this.messagesKeywordFilterControl.Name = "messagesKeywordFilterControl";
+            this.messagesKeywordFilterControl.Size = new System.Drawing.Size(412, 22);
+            this.messagesKeywordFilterControl.TabIndex = 1;
+            // 
             // splitContainer3
             // 
             this.splitContainer3.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1333,8 +1579,8 @@ namespace NetworkMiner {
             // 
             this.splitContainer3.Panel2.Controls.Add(this.splitContainer4);
             this.splitContainer3.Panel2.Controls.Add(this.messageEncodingComboBox);
-            this.splitContainer3.Size = new System.Drawing.Size(122, 336);
-            this.splitContainer3.SplitterDistance = 68;
+            this.splitContainer3.Size = new System.Drawing.Size(124, 324);
+            this.splitContainer3.SplitterDistance = 55;
             this.splitContainer3.SplitterWidth = 2;
             this.splitContainer3.TabIndex = 2;
             // 
@@ -1351,10 +1597,11 @@ namespace NetworkMiner {
             this.messageAttributeListView.Location = new System.Drawing.Point(0, 0);
             this.messageAttributeListView.Name = "messageAttributeListView";
             this.messageAttributeListView.ShowItemToolTips = true;
-            this.messageAttributeListView.Size = new System.Drawing.Size(122, 68);
+            this.messageAttributeListView.Size = new System.Drawing.Size(124, 55);
             this.messageAttributeListView.TabIndex = 0;
             this.messageAttributeListView.UseCompatibleStateImageBehavior = false;
             this.messageAttributeListView.View = System.Windows.Forms.View.Details;
+            this.messageAttributeListView.KeyDown += new System.Windows.Forms.KeyEventHandler(this.ListView_KeyDown_Handler);
             // 
             // attributeNameColumnHeader
             // 
@@ -1380,8 +1627,8 @@ namespace NetworkMiner {
             // splitContainer4.Panel2
             // 
             this.splitContainer4.Panel2.Controls.Add(this.messageAttachmentListView);
-            this.splitContainer4.Size = new System.Drawing.Size(122, 245);
-            this.splitContainer4.SplitterDistance = 156;
+            this.splitContainer4.Size = new System.Drawing.Size(124, 246);
+            this.splitContainer4.SplitterDistance = 150;
             this.splitContainer4.SplitterWidth = 2;
             this.splitContainer4.TabIndex = 3;
             // 
@@ -1393,7 +1640,7 @@ namespace NetworkMiner {
             this.messageTextBox.Name = "messageTextBox";
             this.messageTextBox.ReadOnly = true;
             this.messageTextBox.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
-            this.messageTextBox.Size = new System.Drawing.Size(122, 156);
+            this.messageTextBox.Size = new System.Drawing.Size(124, 150);
             this.messageTextBox.TabIndex = 0;
             // 
             // messageAttachmentListView
@@ -1408,7 +1655,7 @@ namespace NetworkMiner {
             this.messageAttachmentListView.MultiSelect = false;
             this.messageAttachmentListView.Name = "messageAttachmentListView";
             this.messageAttachmentListView.ShowItemToolTips = true;
-            this.messageAttachmentListView.Size = new System.Drawing.Size(122, 87);
+            this.messageAttachmentListView.Size = new System.Drawing.Size(124, 94);
             this.messageAttachmentListView.TabIndex = 2;
             this.messageAttachmentListView.UseCompatibleStateImageBehavior = false;
             this.messageAttachmentListView.View = System.Windows.Forms.View.Details;
@@ -1432,7 +1679,7 @@ namespace NetworkMiner {
             this.messageEncodingComboBox.FormattingEnabled = true;
             this.messageEncodingComboBox.Location = new System.Drawing.Point(0, 0);
             this.messageEncodingComboBox.Name = "messageEncodingComboBox";
-            this.messageEncodingComboBox.Size = new System.Drawing.Size(122, 21);
+            this.messageEncodingComboBox.Size = new System.Drawing.Size(124, 21);
             this.messageEncodingComboBox.TabIndex = 1;
             this.messageEncodingComboBox.SelectedIndexChanged += new System.EventHandler(this.messageEncodingComboBox_SelectedIndexChanged);
             // 
@@ -1463,11 +1710,12 @@ namespace NetworkMiner {
             this.credentialsListView.Location = new System.Drawing.Point(0, 23);
             this.credentialsListView.Name = "credentialsListView";
             this.credentialsListView.ShowItemToolTips = true;
-            this.credentialsListView.Size = new System.Drawing.Size(540, 319);
+            this.credentialsListView.Size = new System.Drawing.Size(540, 301);
             this.credentialsListView.TabIndex = 0;
             this.credentialsListView.UseCompatibleStateImageBehavior = false;
             this.credentialsListView.View = System.Windows.Forms.View.Details;
             this.credentialsListView.ColumnClick += new System.Windows.Forms.ColumnClickEventHandler(this.ListViewColumnClick);
+            this.credentialsListView.KeyDown += new System.Windows.Forms.KeyEventHandler(this.ListView_KeyDown_Handler);
             // 
             // loggedInClientHeader
             // 
@@ -1581,7 +1829,7 @@ namespace NetworkMiner {
             this.voipDataGridView.RowHeadersVisible = false;
             this.voipDataGridView.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
             this.voipDataGridView.ShowEditingIcon = false;
-            this.voipDataGridView.Size = new System.Drawing.Size(540, 342);
+            this.voipDataGridView.Size = new System.Drawing.Size(540, 324);
             this.voipDataGridView.TabIndex = 0;
             this.voipDataGridView.CellClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.voipDataGridView_CellContentClick);
             this.voipDataGridView.KeyDown += new System.Windows.Forms.KeyEventHandler(this.voipDataGridView_KeyDown);
@@ -1704,13 +1952,13 @@ namespace NetworkMiner {
             this.sessionsListView.FullRowSelect = true;
             this.sessionsListView.HideSelection = false;
             this.sessionsListView.Location = new System.Drawing.Point(0, 22);
-            this.sessionsListView.MultiSelect = false;
             this.sessionsListView.Name = "sessionsListView";
-            this.sessionsListView.Size = new System.Drawing.Size(540, 320);
+            this.sessionsListView.Size = new System.Drawing.Size(540, 302);
             this.sessionsListView.TabIndex = 0;
             this.sessionsListView.UseCompatibleStateImageBehavior = false;
             this.sessionsListView.View = System.Windows.Forms.View.Details;
             this.sessionsListView.ColumnClick += new System.Windows.Forms.ColumnClickEventHandler(this.ListViewColumnClick);
+            this.sessionsListView.KeyDown += new System.Windows.Forms.KeyEventHandler(this.ListView_KeyDown_Handler);
             // 
             // sessionFrameNrColumnHeader
             // 
@@ -1740,13 +1988,20 @@ namespace NetworkMiner {
             // 
             this.sessionStartTimeColumnHeader.Text = "Start time";
             // 
+            // sessionsKeywordFilterControl
+            // 
+            this.sessionsKeywordFilterControl.Dock = System.Windows.Forms.DockStyle.Top;
+            this.sessionsKeywordFilterControl.Location = new System.Drawing.Point(0, 0);
+            this.sessionsKeywordFilterControl.Name = "sessionsKeywordFilterControl";
+            this.sessionsKeywordFilterControl.Size = new System.Drawing.Size(540, 22);
+            this.sessionsKeywordFilterControl.TabIndex = 1;
+            // 
             // tabPageDns
             // 
             this.tabPageDns.Controls.Add(this.dnsListView);
             this.tabPageDns.Controls.Add(this.dnsKeywordFilterControl);
             this.tabPageDns.Location = new System.Drawing.Point(4, 40);
             this.tabPageDns.Name = "tabPageDns";
-            this.tabPageDns.Padding = new System.Windows.Forms.Padding(0, 3, 0, 0);
             this.tabPageDns.Size = new System.Drawing.Size(540, 324);
             this.tabPageDns.TabIndex = 10;
             this.tabPageDns.Text = "DNS";
@@ -1771,14 +2026,15 @@ namespace NetworkMiner {
             this.dnsListView.Dock = System.Windows.Forms.DockStyle.Fill;
             this.dnsListView.FullRowSelect = true;
             this.dnsListView.HideSelection = false;
-            this.dnsListView.Location = new System.Drawing.Point(0, 25);
+            this.dnsListView.Location = new System.Drawing.Point(0, 22);
             this.dnsListView.Name = "dnsListView";
             this.dnsListView.ShowItemToolTips = true;
-            this.dnsListView.Size = new System.Drawing.Size(540, 317);
+            this.dnsListView.Size = new System.Drawing.Size(540, 302);
             this.dnsListView.TabIndex = 0;
             this.dnsListView.UseCompatibleStateImageBehavior = false;
             this.dnsListView.View = System.Windows.Forms.View.Details;
             this.dnsListView.ColumnClick += new System.Windows.Forms.ColumnClickEventHandler(this.ListViewColumnClick);
+            this.dnsListView.KeyDown += new System.Windows.Forms.KeyEventHandler(this.ListView_KeyDown_Handler);
             // 
             // columnHeaderDnsFrameNumber
             // 
@@ -1844,13 +2100,20 @@ namespace NetworkMiner {
             // 
             this.columnHeaderAlexaTop1M.Text = "Alexa Top 1M";
             // 
+            // dnsKeywordFilterControl
+            // 
+            this.dnsKeywordFilterControl.Dock = System.Windows.Forms.DockStyle.Top;
+            this.dnsKeywordFilterControl.Location = new System.Drawing.Point(0, 0);
+            this.dnsKeywordFilterControl.Name = "dnsKeywordFilterControl";
+            this.dnsKeywordFilterControl.Size = new System.Drawing.Size(540, 22);
+            this.dnsKeywordFilterControl.TabIndex = 1;
+            // 
             // tabPageParameters
             // 
             this.tabPageParameters.Controls.Add(this.parametersListView);
             this.tabPageParameters.Controls.Add(this.parametersKeywordFilterControl);
             this.tabPageParameters.Location = new System.Drawing.Point(4, 40);
             this.tabPageParameters.Name = "tabPageParameters";
-            this.tabPageParameters.Padding = new System.Windows.Forms.Padding(0, 3, 0, 0);
             this.tabPageParameters.Size = new System.Drawing.Size(540, 324);
             this.tabPageParameters.TabIndex = 9;
             this.tabPageParameters.Text = "Parameters";
@@ -1872,13 +2135,14 @@ namespace NetworkMiner {
             this.parametersListView.Dock = System.Windows.Forms.DockStyle.Fill;
             this.parametersListView.FullRowSelect = true;
             this.parametersListView.HideSelection = false;
-            this.parametersListView.Location = new System.Drawing.Point(0, 25);
+            this.parametersListView.Location = new System.Drawing.Point(0, 22);
             this.parametersListView.Name = "parametersListView";
-            this.parametersListView.Size = new System.Drawing.Size(540, 317);
+            this.parametersListView.Size = new System.Drawing.Size(540, 302);
             this.parametersListView.TabIndex = 0;
             this.parametersListView.UseCompatibleStateImageBehavior = false;
             this.parametersListView.View = System.Windows.Forms.View.Details;
             this.parametersListView.ColumnClick += new System.Windows.Forms.ColumnClickEventHandler(this.ListViewColumnClick);
+            this.parametersListView.KeyDown += new System.Windows.Forms.KeyEventHandler(this.ListView_KeyDown_Handler);
             // 
             // parameterName
             // 
@@ -1916,12 +2180,20 @@ namespace NetworkMiner {
             // 
             this.parameterDetails.Text = "Details";
             // 
+            // parametersKeywordFilterControl
+            // 
+            this.parametersKeywordFilterControl.Dock = System.Windows.Forms.DockStyle.Top;
+            this.parametersKeywordFilterControl.ForeColor = System.Drawing.SystemColors.ControlText;
+            this.parametersKeywordFilterControl.Location = new System.Drawing.Point(0, 0);
+            this.parametersKeywordFilterControl.Name = "parametersKeywordFilterControl";
+            this.parametersKeywordFilterControl.Size = new System.Drawing.Size(540, 22);
+            this.parametersKeywordFilterControl.TabIndex = 1;
+            // 
             // tabPageKeywords
             // 
             this.tabPageKeywords.Controls.Add(this.splitContainer2);
             this.tabPageKeywords.Location = new System.Drawing.Point(4, 40);
             this.tabPageKeywords.Name = "tabPageKeywords";
-            this.tabPageKeywords.Padding = new System.Windows.Forms.Padding(3);
             this.tabPageKeywords.Size = new System.Drawing.Size(540, 324);
             this.tabPageKeywords.TabIndex = 8;
             this.tabPageKeywords.Text = "Keywords";
@@ -1930,7 +2202,7 @@ namespace NetworkMiner {
             // splitContainer2
             // 
             this.splitContainer2.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.splitContainer2.Location = new System.Drawing.Point(3, 3);
+            this.splitContainer2.Location = new System.Drawing.Point(0, 0);
             this.splitContainer2.Name = "splitContainer2";
             // 
             // splitContainer2.Panel1
@@ -1942,8 +2214,8 @@ namespace NetworkMiner {
             // splitContainer2.Panel2
             // 
             this.splitContainer2.Panel2.Controls.Add(this.detectedKeywordsListView);
-            this.splitContainer2.Size = new System.Drawing.Size(534, 318);
-            this.splitContainer2.SplitterDistance = 172;
+            this.splitContainer2.Size = new System.Drawing.Size(540, 324);
+            this.splitContainer2.SplitterDistance = 173;
             this.splitContainer2.TabIndex = 9;
             // 
             // keywordListBox
@@ -1953,7 +2225,7 @@ namespace NetworkMiner {
             this.keywordListBox.Location = new System.Drawing.Point(0, 80);
             this.keywordListBox.Name = "keywordListBox";
             this.keywordListBox.SelectionMode = System.Windows.Forms.SelectionMode.MultiExtended;
-            this.keywordListBox.Size = new System.Drawing.Size(172, 215);
+            this.keywordListBox.Size = new System.Drawing.Size(173, 221);
             this.keywordListBox.TabIndex = 6;
             this.keywordListBox.ControlAdded += new System.Windows.Forms.ControlEventHandler(this.keywordListBox_ControlAdded);
             this.keywordListBox.ControlRemoved += new System.Windows.Forms.ControlEventHandler(this.keywordListBox_ControlRemoved);
@@ -1968,7 +2240,7 @@ namespace NetworkMiner {
             this.panel5.Dock = System.Windows.Forms.DockStyle.Top;
             this.panel5.Location = new System.Drawing.Point(0, 0);
             this.panel5.Name = "panel5";
-            this.panel5.Size = new System.Drawing.Size(172, 80);
+            this.panel5.Size = new System.Drawing.Size(173, 80);
             this.panel5.TabIndex = 9;
             // 
             // addKeywordsFromFileButton
@@ -1978,7 +2250,7 @@ namespace NetworkMiner {
             this.addKeywordsFromFileButton.ImageAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.addKeywordsFromFileButton.Location = new System.Drawing.Point(0, 54);
             this.addKeywordsFromFileButton.Name = "addKeywordsFromFileButton";
-            this.addKeywordsFromFileButton.Size = new System.Drawing.Size(172, 26);
+            this.addKeywordsFromFileButton.Size = new System.Drawing.Size(173, 26);
             this.addKeywordsFromFileButton.TabIndex = 8;
             this.addKeywordsFromFileButton.Text = "Add keywords from text file  ";
             this.addKeywordsFromFileButton.TextImageRelation = System.Windows.Forms.TextImageRelation.ImageBeforeText;
@@ -1988,7 +2260,7 @@ namespace NetworkMiner {
             // addKeywordButton
             // 
             this.addKeywordButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.addKeywordButton.Location = new System.Drawing.Point(135, 31);
+            this.addKeywordButton.Location = new System.Drawing.Point(136, 31);
             this.addKeywordButton.Name = "addKeywordButton";
             this.addKeywordButton.Size = new System.Drawing.Size(34, 23);
             this.addKeywordButton.TabIndex = 5;
@@ -2003,7 +2275,7 @@ namespace NetworkMiner {
             | System.Windows.Forms.AnchorStyles.Right)));
             this.keywordTextBox.Location = new System.Drawing.Point(4, 33);
             this.keywordTextBox.Name = "keywordTextBox";
-            this.keywordTextBox.Size = new System.Drawing.Size(127, 20);
+            this.keywordTextBox.Size = new System.Drawing.Size(128, 20);
             this.keywordTextBox.TabIndex = 1;
             this.keywordTextBox.KeyDown += new System.Windows.Forms.KeyEventHandler(this.keywordTextBox_KeyDown);
             // 
@@ -2018,9 +2290,9 @@ namespace NetworkMiner {
             // removeKeywordButton
             // 
             this.removeKeywordButton.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.removeKeywordButton.Location = new System.Drawing.Point(0, 295);
+            this.removeKeywordButton.Location = new System.Drawing.Point(0, 301);
             this.removeKeywordButton.Name = "removeKeywordButton";
-            this.removeKeywordButton.Size = new System.Drawing.Size(172, 23);
+            this.removeKeywordButton.Size = new System.Drawing.Size(173, 23);
             this.removeKeywordButton.TabIndex = 4;
             this.removeKeywordButton.Text = "Remove";
             this.removeKeywordButton.UseVisualStyleBackColor = true;
@@ -2042,11 +2314,12 @@ namespace NetworkMiner {
             this.detectedKeywordsListView.HideSelection = false;
             this.detectedKeywordsListView.Location = new System.Drawing.Point(0, 0);
             this.detectedKeywordsListView.Name = "detectedKeywordsListView";
-            this.detectedKeywordsListView.Size = new System.Drawing.Size(358, 318);
+            this.detectedKeywordsListView.Size = new System.Drawing.Size(363, 324);
             this.detectedKeywordsListView.TabIndex = 2;
             this.detectedKeywordsListView.UseCompatibleStateImageBehavior = false;
             this.detectedKeywordsListView.View = System.Windows.Forms.View.Details;
             this.detectedKeywordsListView.ColumnClick += new System.Windows.Forms.ColumnClickEventHandler(this.ListViewColumnClick);
+            this.detectedKeywordsListView.KeyDown += new System.Windows.Forms.KeyEventHandler(this.ListView_KeyDown_Handler);
             // 
             // columnHeaderFrameNr
             // 
@@ -2095,7 +2368,6 @@ namespace NetworkMiner {
             this.tabPageCleartext.Controls.Add(this.button1);
             this.tabPageCleartext.Location = new System.Drawing.Point(4, 40);
             this.tabPageCleartext.Name = "tabPageCleartext";
-            this.tabPageCleartext.Padding = new System.Windows.Forms.Padding(3);
             this.tabPageCleartext.Size = new System.Drawing.Size(540, 324);
             this.tabPageCleartext.TabIndex = 3;
             this.tabPageCleartext.Text = "Cleartext";
@@ -2105,12 +2377,12 @@ namespace NetworkMiner {
             // 
             this.cleartextTextBox.Dock = System.Windows.Forms.DockStyle.Fill;
             this.cleartextTextBox.ForeColor = System.Drawing.SystemColors.WindowText;
-            this.cleartextTextBox.Location = new System.Drawing.Point(3, 58);
+            this.cleartextTextBox.Location = new System.Drawing.Point(0, 55);
             this.cleartextTextBox.Multiline = true;
             this.cleartextTextBox.Name = "cleartextTextBox";
             this.cleartextTextBox.ReadOnly = true;
             this.cleartextTextBox.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
-            this.cleartextTextBox.Size = new System.Drawing.Size(534, 240);
+            this.cleartextTextBox.Size = new System.Drawing.Size(540, 246);
             this.cleartextTextBox.TabIndex = 0;
             // 
             // panel1
@@ -2121,9 +2393,9 @@ namespace NetworkMiner {
             this.panel1.Controls.Add(this.dictionaryNameLabel);
             this.panel1.Controls.Add(this.label5);
             this.panel1.Dock = System.Windows.Forms.DockStyle.Top;
-            this.panel1.Location = new System.Drawing.Point(3, 3);
+            this.panel1.Location = new System.Drawing.Point(0, 0);
             this.panel1.Name = "panel1";
-            this.panel1.Size = new System.Drawing.Size(534, 55);
+            this.panel1.Size = new System.Drawing.Size(540, 55);
             this.panel1.TabIndex = 3;
             // 
             // changeCleartextDictionaryButton
@@ -2161,7 +2433,7 @@ namespace NetworkMiner {
             "Disabled - Disable cleartext search"});
             this.cleartextSearchModeComboBox.Location = new System.Drawing.Point(95, 27);
             this.cleartextSearchModeComboBox.Name = "cleartextSearchModeComboBox";
-            this.cleartextSearchModeComboBox.Size = new System.Drawing.Size(434, 21);
+            this.cleartextSearchModeComboBox.Size = new System.Drawing.Size(440, 21);
             this.cleartextSearchModeComboBox.TabIndex = 5;
             this.cleartextSearchModeComboBox.SelectedIndexChanged += new System.EventHandler(this.cleartextSearchModeComboBox_SelectedIndexChanged);
             // 
@@ -2186,9 +2458,9 @@ namespace NetworkMiner {
             // button1
             // 
             this.button1.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.button1.Location = new System.Drawing.Point(3, 298);
+            this.button1.Location = new System.Drawing.Point(0, 301);
             this.button1.Name = "button1";
-            this.button1.Size = new System.Drawing.Size(534, 23);
+            this.button1.Size = new System.Drawing.Size(540, 23);
             this.button1.TabIndex = 2;
             this.button1.Text = "Clear";
             this.button1.UseVisualStyleBackColor = true;
@@ -2200,7 +2472,6 @@ namespace NetworkMiner {
             this.tabPageReceivedFrames.Controls.Add(this.ReceivedFramesClearButton);
             this.tabPageReceivedFrames.Location = new System.Drawing.Point(4, 40);
             this.tabPageReceivedFrames.Name = "tabPageReceivedFrames";
-            this.tabPageReceivedFrames.Padding = new System.Windows.Forms.Padding(3);
             this.tabPageReceivedFrames.Size = new System.Drawing.Size(540, 324);
             this.tabPageReceivedFrames.TabIndex = 1;
             this.tabPageReceivedFrames.Text = "Frames";
@@ -2209,17 +2480,17 @@ namespace NetworkMiner {
             // framesTreeView
             // 
             this.framesTreeView.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.framesTreeView.Location = new System.Drawing.Point(3, 3);
+            this.framesTreeView.Location = new System.Drawing.Point(0, 0);
             this.framesTreeView.Name = "framesTreeView";
-            this.framesTreeView.Size = new System.Drawing.Size(534, 295);
+            this.framesTreeView.Size = new System.Drawing.Size(540, 301);
             this.framesTreeView.TabIndex = 0;
             // 
             // ReceivedFramesClearButton
             // 
             this.ReceivedFramesClearButton.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.ReceivedFramesClearButton.Location = new System.Drawing.Point(3, 298);
+            this.ReceivedFramesClearButton.Location = new System.Drawing.Point(0, 301);
             this.ReceivedFramesClearButton.Name = "ReceivedFramesClearButton";
-            this.ReceivedFramesClearButton.Size = new System.Drawing.Size(534, 23);
+            this.ReceivedFramesClearButton.Size = new System.Drawing.Size(540, 23);
             this.ReceivedFramesClearButton.TabIndex = 1;
             this.ReceivedFramesClearButton.Text = "Clear";
             this.ReceivedFramesClearButton.UseVisualStyleBackColor = true;
@@ -2231,7 +2502,6 @@ namespace NetworkMiner {
             this.tabPageAnomalyLog.Controls.Add(this.clearAnomaliesButton);
             this.tabPageAnomalyLog.Location = new System.Drawing.Point(4, 40);
             this.tabPageAnomalyLog.Name = "tabPageAnomalyLog";
-            this.tabPageAnomalyLog.Padding = new System.Windows.Forms.Padding(3);
             this.tabPageAnomalyLog.Size = new System.Drawing.Size(540, 324);
             this.tabPageAnomalyLog.TabIndex = 0;
             this.tabPageAnomalyLog.Text = "Anomalies";
@@ -2243,20 +2513,21 @@ namespace NetworkMiner {
             this.anomalyLog.AcceptsTab = true;
             this.anomalyLog.Dock = System.Windows.Forms.DockStyle.Fill;
             this.anomalyLog.Font = new System.Drawing.Font("Courier New", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.anomalyLog.Location = new System.Drawing.Point(3, 3);
+            this.anomalyLog.Location = new System.Drawing.Point(0, 0);
             this.anomalyLog.Multiline = true;
             this.anomalyLog.Name = "anomalyLog";
             this.anomalyLog.ReadOnly = true;
-            this.anomalyLog.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
-            this.anomalyLog.Size = new System.Drawing.Size(534, 295);
+            this.anomalyLog.ScrollBars = System.Windows.Forms.ScrollBars.Both;
+            this.anomalyLog.Size = new System.Drawing.Size(540, 301);
             this.anomalyLog.TabIndex = 7;
+            this.anomalyLog.WordWrap = false;
             // 
             // clearAnomaliesButton
             // 
             this.clearAnomaliesButton.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.clearAnomaliesButton.Location = new System.Drawing.Point(3, 298);
+            this.clearAnomaliesButton.Location = new System.Drawing.Point(0, 301);
             this.clearAnomaliesButton.Name = "clearAnomaliesButton";
-            this.clearAnomaliesButton.Size = new System.Drawing.Size(534, 23);
+            this.clearAnomaliesButton.Size = new System.Drawing.Size(540, 23);
             this.clearAnomaliesButton.TabIndex = 8;
             this.clearAnomaliesButton.Text = "Clear";
             this.clearAnomaliesButton.UseVisualStyleBackColor = true;
@@ -2311,47 +2582,6 @@ namespace NetworkMiner {
             this.reloadCaseFilesButton.UseVisualStyleBackColor = true;
             this.reloadCaseFilesButton.Click += new System.EventHandler(this.reloadCaseFilesButton_Click);
             // 
-            // filesKeywordFilterControl
-            // 
-            this.filesKeywordFilterControl.Dock = System.Windows.Forms.DockStyle.Top;
-            this.filesKeywordFilterControl.Location = new System.Drawing.Point(0, 3);
-            this.filesKeywordFilterControl.Name = "filesKeywordFilterControl";
-            this.filesKeywordFilterControl.Size = new System.Drawing.Size(540, 22);
-            this.filesKeywordFilterControl.TabIndex = 0;
-            // 
-            // messagesKeywordFilterControl
-            // 
-            this.messagesKeywordFilterControl.Dock = System.Windows.Forms.DockStyle.Top;
-            this.messagesKeywordFilterControl.Location = new System.Drawing.Point(0, 0);
-            this.messagesKeywordFilterControl.Name = "messagesKeywordFilterControl";
-            this.messagesKeywordFilterControl.Size = new System.Drawing.Size(408, 22);
-            this.messagesKeywordFilterControl.TabIndex = 1;
-            // 
-            // sessionsKeywordFilterControl
-            // 
-            this.sessionsKeywordFilterControl.Dock = System.Windows.Forms.DockStyle.Top;
-            this.sessionsKeywordFilterControl.Location = new System.Drawing.Point(0, 0);
-            this.sessionsKeywordFilterControl.Name = "sessionsKeywordFilterControl";
-            this.sessionsKeywordFilterControl.Size = new System.Drawing.Size(540, 22);
-            this.sessionsKeywordFilterControl.TabIndex = 1;
-            // 
-            // dnsKeywordFilterControl
-            // 
-            this.dnsKeywordFilterControl.Dock = System.Windows.Forms.DockStyle.Top;
-            this.dnsKeywordFilterControl.Location = new System.Drawing.Point(0, 3);
-            this.dnsKeywordFilterControl.Name = "dnsKeywordFilterControl";
-            this.dnsKeywordFilterControl.Size = new System.Drawing.Size(540, 22);
-            this.dnsKeywordFilterControl.TabIndex = 1;
-            // 
-            // parametersKeywordFilterControl
-            // 
-            this.parametersKeywordFilterControl.Dock = System.Windows.Forms.DockStyle.Top;
-            this.parametersKeywordFilterControl.ForeColor = System.Drawing.SystemColors.ControlText;
-            this.parametersKeywordFilterControl.Location = new System.Drawing.Point(0, 3);
-            this.parametersKeywordFilterControl.Name = "parametersKeywordFilterControl";
-            this.parametersKeywordFilterControl.Size = new System.Drawing.Size(540, 22);
-            this.parametersKeywordFilterControl.TabIndex = 1;
-            // 
             // NetworkMinerForm
             // 
             this.AllowDrop = true;
@@ -2368,7 +2598,7 @@ namespace NetworkMiner {
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.MainMenuStrip = this.menuStrip1;
             this.Name = "NetworkMinerForm";
-            this.Text = "NetworkMiner 2.7.3";
+            this.Text = "NetworkMiner 2.8.1";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.NetworkMinerForm_FormClosing);
             this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.NetworkMinerForm_FormClosed);
             this.DragDrop += new System.Windows.Forms.DragEventHandler(this.NetworkMinerForm_DragDrop);
@@ -2390,6 +2620,8 @@ namespace NetworkMiner {
             this.tabPageDetectedHosts.ResumeLayout(false);
             this.panel2.ResumeLayout(false);
             this.panel2.PerformLayout();
+            this.hostsFilterPanel.ResumeLayout(false);
+            this.hostsFilterPanel.PerformLayout();
             this.tabPageBrowsers.ResumeLayout(false);
             this.browsersSplitContainer.Panel1.ResumeLayout(false);
             this.browsersSplitContainer.Panel2.ResumeLayout(false);
@@ -2398,7 +2630,14 @@ namespace NetworkMiner {
             this.panel4.ResumeLayout(false);
             this.panel4.PerformLayout();
             this.tabPageFiles.ResumeLayout(false);
-            this.tabPageImages.ResumeLayout(false);
+            this.tabPageImagesFiltered.ResumeLayout(false);
+            this.imagesToolStripContainer.ContentPanel.ResumeLayout(false);
+            this.imagesToolStripContainer.TopToolStripPanel.ResumeLayout(false);
+            this.imagesToolStripContainer.TopToolStripPanel.PerformLayout();
+            this.imagesToolStripContainer.ResumeLayout(false);
+            this.imagesToolStripContainer.PerformLayout();
+            this.imagesFilteredToolStrip.ResumeLayout(false);
+            this.imagesFilteredToolStrip.PerformLayout();
             this.tabPageMessages.ResumeLayout(false);
             this.messagesSplitContainer.Panel1.ResumeLayout(false);
             this.messagesSplitContainer.Panel2.ResumeLayout(false);
@@ -2440,6 +2679,8 @@ namespace NetworkMiner {
             this.PerformLayout();
 
         }
+
+        
         #endregion
 
         private System.Windows.Forms.StatusStrip statusStrip1;
@@ -2474,7 +2715,6 @@ namespace NetworkMiner {
         private System.Windows.Forms.OpenFileDialog openPcapFileDialog;
         private System.Windows.Forms.ToolStripMenuItem resetCapturedDataToolStripMenuItem;
         private System.Windows.Forms.TabPage tabPageFiles;
-        private System.Windows.Forms.TabPage tabPageImages;
         private System.Windows.Forms.ListView filesListView;
         private System.Windows.Forms.ColumnHeader filenameHeader;
         private System.Windows.Forms.ColumnHeader detailsHeader;
@@ -2484,7 +2724,6 @@ namespace NetworkMiner {
         private System.Windows.Forms.ColumnHeader destinationPortHeader;
         private System.Windows.Forms.ColumnHeader fileSizeHeader;
         private System.Windows.Forms.ColumnHeader reconstructedFilePathHeader;
-        private System.Windows.Forms.ListView imagesListView;
         private System.Windows.Forms.ColumnHeader protocolHeader;
         private System.Windows.Forms.TabPage tabPageCredentials;
         private System.Windows.Forms.ListView credentialsListView;
@@ -2671,6 +2910,29 @@ namespace NetworkMiner {
         private System.Windows.Forms.ToolStripMenuItem voIPToolStripMenuItem;
         private System.Windows.Forms.ColumnHeader messageSizeColumnHeader;
         private System.Windows.Forms.ToolStripMenuItem submitParameterToCyberChefToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem readFromNamedPipeToolStripMenuItem;
+        private System.Windows.Forms.Panel hostsFilterPanel;
+        private System.Windows.Forms.TextBox hostsFilterTextBox;
+        private System.Windows.Forms.Button hostsFilterButton;
+        private System.Windows.Forms.ComboBox hostsFilterComboBox;
+        private System.Windows.Forms.Label hostsFilterLabel;
+        private System.Windows.Forms.Button hostsFilterClearButton;
+        private System.Windows.Forms.ToolStripMenuItem closeToolStripMenuItem;
+        private System.Windows.Forms.ToolStripSeparator toolStripSeparator6;
+        private System.Windows.Forms.TabPage tabPageImagesFiltered;
+        private System.Windows.Forms.ToolStripContainer imagesToolStripContainer;
+        private System.Windows.Forms.ListView imagesFilteredListView;
+        private System.Windows.Forms.ToolStrip imagesFilteredToolStrip;
+        private System.Windows.Forms.ToolStripLabel toolStripLabel1;
+        private System.Windows.Forms.ToolStripTextBox imageMinPixelsTextBox;
+        private System.Windows.Forms.ToolStripLabel toolStripLabel2;
+        private System.Windows.Forms.ToolStripTextBox imageFilenameFilterTextBox;
+        private System.Windows.Forms.ToolStripButton imagesFilteredUpdateButton;
+        private System.Windows.Forms.ToolStripDropDownButton iconSizeToolStripDropDownButton;
+        private System.Windows.Forms.ToolStripMenuItem smallToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem mediumToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem largeToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem extraLargeToolStripMenuItem;
     }
 }
 

@@ -14,7 +14,7 @@ namespace PacketParser.PacketHandlers {
     public class DnsPacketHandler : AbstractPacketHandler, IPacketHandler, ITcpSessionPacketHandler {
 
 
-        public override Type ParsedType { get { return typeof(Packets.DnsPacket); } }
+        public override Type[] ParsedTypes { get; } = { typeof(Packets.DnsPacket) };
 
         public DnsPacketHandler(PacketHandler mainPacketHandler)
             : base(mainPacketHandler) {
@@ -23,7 +23,7 @@ namespace PacketParser.PacketHandlers {
 
         public ApplicationLayerProtocol HandledProtocol {
             get {
-                return ApplicationLayerProtocol.Dns;
+                return ApplicationLayerProtocol.DNS;
             }
         }
 

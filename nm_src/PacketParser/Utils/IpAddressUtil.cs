@@ -21,5 +21,17 @@ namespace PacketParser.Utils {
             else
                 return false;//unknown (no IPv6 db yet...
         }
+
+        public static int CompareTo(this System.Net.IPAddress ipAddress, System.Net.IPAddress otherIpAddress) {
+            if (ipAddress.AddressFamily != otherIpAddress.AddressFamily)
+                return ipAddress.AddressFamily - otherIpAddress.AddressFamily;
+            byte[] localBytes = ipAddress.GetAddressBytes();
+            byte[] remoteBytes = otherIpAddress.GetAddressBytes();
+            for (int i = 0; i < localBytes.Length; i++) {
+                if (localBytes[i] != remoteBytes[i])
+                    return localBytes[i] - remoteBytes[i];
+            }
+            return 0;
+        }
     }
 }

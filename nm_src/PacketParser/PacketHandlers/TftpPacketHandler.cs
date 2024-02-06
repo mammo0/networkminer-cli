@@ -14,7 +14,7 @@ namespace PacketParser.PacketHandlers {
 
         private PopularityList<string, ushort> tftpSessionBlksizeList;
 
-        public override Type ParsedType { get { return typeof(Packets.TftpPacket); } }
+        public override Type[] ParsedTypes { get; } = { typeof(Packets.TftpPacket) };
         public override bool CanParse(HashSet<Type> packetTypeSet) {
             return base.CanParse(packetTypeSet) || packetTypeSet.Contains(typeof(Packets.UdpPacket));
         }
@@ -120,8 +120,6 @@ namespace PacketParser.PacketHandlers {
                 }
                 catch(Exception e) {
                     SharedUtils.Logger.Log("Error creating assembler for TFTP file transfer in " + tftpPacket.ParentFrame.ToString() + ". " + e.ToString(), SharedUtils.Logger.EventLogEntryType.Information);
-                    //throw new Exception("Error creating assembler for TFTP file transfer", e);
-                    //this.parentForm.ShowError("Error creating assembler for TFTP file transfer: "+e.Message);
                     if (assembler!=null) {
                         assembler.Clear();
                         assembler=null;
@@ -138,8 +136,6 @@ namespace PacketParser.PacketHandlers {
                 }
                 catch(Exception e) {
                     SharedUtils.Logger.Log("Error creating assembler for TFTP file transfer in " + tftpPacket.ParentFrame.ToString() + ". " + e.ToString(), SharedUtils.Logger.EventLogEntryType.Information);
-                    //throw new Exception("Error creating assembler for TFTP file transfer", e);
-                    //this.parentForm.ShowError("Error creating assembler for TFTP file transfer: "+e.Message);
                     if (assembler!=null) {
                         assembler.Clear();
                         assembler=null;

@@ -155,11 +155,10 @@ namespace NetworkWrapper {
             WTAP_ENCAP_LINUX_ATM_CLIP_4=19
         }
 
-        //private dotnetWinpCap wpcap;
         private WinPCapWrapper wpcap;
         private int nPacketsReceived;
-        //private WinPCapAdapter adapter;
         private PacketReceivedEventArgs.PacketTypes basePacketType;
+        private bool disposedValue;
 
         public PacketReceivedEventArgs.PacketTypes BasePacketType { get { return this.basePacketType; } }
 
@@ -179,15 +178,10 @@ namespace NetworkWrapper {
 
         //constructor
         public WinPCapSniffer(WinPCapAdapter adapter) {
-            
-
-            //this.adapter=adapter;
-            nPacketsReceived=0;
-            //wpcap=new dotnetWinpCap();
-            
-            wpcap=new WinPCapWrapper();
-            if(wpcap.IsOpen)
-                wpcap.Close();
+            this.nPacketsReceived=0;
+            this.wpcap=new WinPCapWrapper();
+            if(this.wpcap.IsOpen)
+                this.wpcap.Close();
 
             //Opens an Ethernet interface with
             //source as the name of the interface obtained from a Device object,
@@ -230,11 +224,6 @@ namespace NetworkWrapper {
 
         }
         
-        //destructor
-        ~WinPCapSniffer() {
-            wpcap.Close();
-        }
-
         public void StartSniffing() {
             wpcap.StartListen();
         }
@@ -242,7 +231,32 @@ namespace NetworkWrapper {
             wpcap.StopListen();
             //wpcap.Close();
         }
-        
 
+        protected virtual void Dispose(bool disposing) {
+            if (!this.disposedValue) {
+                if (disposing) {
+                    // TODO: dispose managed state (managed objects)
+                    this.wpcap?.Close();
+                    this.wpcap?.Dispose();
+                }
+
+                // TODO: free unmanaged resources (unmanaged objects) and override finalizer
+                // TODO: set large fields to null
+                this.disposedValue = true;
+            }
+        }
+
+        // // TODO: override finalizer only if 'Dispose(bool disposing)' has code to free unmanaged resources
+        // ~WinPCapSniffer()
+        // {
+        //     // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+        //     Dispose(disposing: false);
+        // }
+
+        public void Dispose() {
+            // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+            this.Dispose(disposing: true);
+            GC.SuppressFinalize(this);
+        }
     }
 }

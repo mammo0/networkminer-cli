@@ -43,7 +43,8 @@ namespace PacketParser.Packets {
 
                 result = new OscarFileTransferPacket(parentFrame, packetStartIndex, packetEndIndex);
             }
-            catch {
+            catch (Exception e) {
+                SharedUtils.Logger.Log("Exception when parsing frame " + parentFrame.FrameNumber + " as Oscar file transfer packet: " + e.Message, SharedUtils.Logger.EventLogEntryType.Warning);
                 return false;
             }
             return true;

@@ -53,7 +53,7 @@ namespace PacketParser.Packets {
                 yield return this;
             //List<Packet> subPackets=new List<Packet>();
             if(PacketStartIndex+8<PacketEndIndex) {
-                AbstractPacket packet;
+                AbstractPacket packet = null;
                 
                 ApplicationLayerProtocol l7Protocol = UdpPortProtocolFinder.Instance.GetApplicationLayerProtocol(FiveTuple.TransportProtocol.UDP, sourcePort, destinationPort);
                 if(l7Protocol == ApplicationLayerProtocol.Unknown && UdpPortProtocolFinder.PipiInstance != null) {
@@ -61,18 +61,18 @@ namespace PacketParser.Packets {
                 }
 
 
-                    if (l7Protocol == ApplicationLayerProtocol.Dns) {//DNS or Multicast DNS http://www.multicastdns.org/
+                    if (l7Protocol == ApplicationLayerProtocol.DNS) {//DNS or Multicast DNS http://www.multicastdns.org/
                     try {
                         packet = new DnsPacket(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex);
                     }
                     catch (Exception e) {
                         //SharedUtils.Logger.Log("Error parsing DNS packet in UDP payload in " + this.ParentFrame.ToString() + ". " + e.ToString(), SharedUtils.Logger.EventLogEntryType.Information);
                         if (!this.ParentFrame.QuickParse)
-                            this.ParentFrame.Errors.Add(new Frame.Error(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex, "Cannot parse DNS packet (" + e.Message + ")"));
+                            this.ParentFrame.Errors.Add(new Frame.Error(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex, "Cannot parse DNS packet in frame " + this.ParentFrame.FrameNumber + " (" + e.Message + ")"));
                         packet = new RawPacket(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex);
                     }
                 }
-                else if (l7Protocol == ApplicationLayerProtocol.Dhcp) {
+                else if (l7Protocol == ApplicationLayerProtocol.DHCP) {
                     try {
                         packet = new DhcpPacket(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex);
                     }
@@ -83,7 +83,7 @@ namespace PacketParser.Packets {
                     }
 
                 }
-                else if (l7Protocol == ApplicationLayerProtocol.Tftp) {
+                else if (l7Protocol == ApplicationLayerProtocol.TFTP) {
                     try {
                         packet = new TftpPacket(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex);
                     }
@@ -95,7 +95,9 @@ namespace PacketParser.Packets {
                 }
                 else if (l7Protocol == ApplicationLayerProtocol.NetBiosNameService) {
                     try {
-                        packet = new NetBiosNameServicePacket(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex);
+                        //packet = new NetBiosNameServicePacket(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex);
+                        if(!NetBiosNameServicePacket.TryParse(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex, out packet))
+                            packet = new RawPacket(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex);
                     }
                     catch (Exception e) {
                         if (!this.ParentFrame.QuickParse)
@@ -123,7 +125,7 @@ namespace PacketParser.Packets {
                         packet = new RawPacket(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex);
                     }
                 }
-                else if (l7Protocol == ApplicationLayerProtocol.Snmp) {
+                else if (l7Protocol == ApplicationLayerProtocol.SNMP) {
                     try {
                         packet = new SnmpPacket(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex);
                     }
@@ -143,7 +145,7 @@ namespace PacketParser.Packets {
                         packet = new RawPacket(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex);
                     }
                 }
-                else if (l7Protocol == ApplicationLayerProtocol.Upnp) {
+                else if (l7Protocol == ApplicationLayerProtocol.UPnP) {
                     try {
                         packet = new UpnpPacket(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex);
                     }
@@ -153,9 +155,11 @@ namespace PacketParser.Packets {
                         packet = new RawPacket(ParentFrame, PacketStartIndex + 8, PacketEndIndex);
                     }
                 }
-                else if (l7Protocol == ApplicationLayerProtocol.Sip) {
+                else if (l7Protocol == ApplicationLayerProtocol.SIP) {
                     try {
-                        packet = new SipPacket(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex);
+                        if (SipPacket.TryParse(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex, out SipPacket sipPacket))
+                            packet = sipPacket;
+                        //packet = new SipPacket(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex);
                     }
                     catch (Exception e) {
                         if (!this.ParentFrame.QuickParse)
@@ -163,7 +167,7 @@ namespace PacketParser.Packets {
                         packet = new RawPacket(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex);
                     }
                 }
-                else if(l7Protocol == ApplicationLayerProtocol.Rtp) {
+                else if(l7Protocol == ApplicationLayerProtocol.RTP) {
                     try {
                         packet = new RtpPacket(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex);
                     }
@@ -183,12 +187,26 @@ namespace PacketParser.Packets {
                         packet = new RawPacket(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex);
                     }
                 }
-                else {
+                else if (l7Protocol == ApplicationLayerProtocol.CAPWAP) {
+                    try {
+                        packet = new Capwap(ParentFrame, PacketStartIndex + 8, PacketEndIndex);
+                    }
+                    catch (Exception e) {
+                        if (!this.ParentFrame.QuickParse)
+                            this.ParentFrame.Errors.Add(new Frame.Error(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex, "Cannot parse VXLAN packet (" + e.Message + ")"));
+                        packet = new RawPacket(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex);
+                    }
+                }
+
+                if(packet == null) {
                     packet = new RawPacket(this.ParentFrame, this.PacketStartIndex + 8, this.PacketEndIndex);
                 }
-                yield return packet;
-                foreach(AbstractPacket subPacket in packet.GetSubPackets(false))
-                    yield return subPacket;
+
+                if (packet != null) {
+                    yield return packet;
+                    foreach (AbstractPacket subPacket in packet.GetSubPackets(false))
+                        yield return subPacket;
+                }
             }
         }
 

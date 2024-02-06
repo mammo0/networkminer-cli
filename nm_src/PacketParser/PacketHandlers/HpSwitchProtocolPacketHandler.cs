@@ -11,7 +11,7 @@ using System.Text;
 namespace PacketParser.PacketHandlers {
     class HpSwitchProtocolPacketHandler  : AbstractPacketHandler, IPacketHandler {
 
-        public override Type ParsedType { get { return typeof(Packets.HpSwitchProtocolPacket); } }
+        public override Type[] ParsedTypes { get; } = { typeof(Packets.HpSwitchProtocolPacket) };
 
         public HpSwitchProtocolPacketHandler(PacketHandler mainPacketHandler)
             : base(mainPacketHandler) {

@@ -7,6 +7,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace PacketParser.Packets {
@@ -199,8 +200,8 @@ namespace PacketParser.Packets {
         internal string ResponseArgument{get{return this.responseArgument;}}
 
 
-        public static bool TryParse(Frame parentFrame, int packetStartIndex, int packetEndIndex, bool clientToServer, out AbstractPacket result) {
-            result = null;
+        public static bool TryParse(Frame parentFrame, int packetStartIndex, int packetEndIndex, bool clientToServer, ushort sourcePort, out FtpPacket ftpPacket) {
+            ftpPacket = null;
             try {
                 if(clientToServer) {
                     //first character should be letter
@@ -209,10 +210,14 @@ namespace PacketParser.Packets {
                         return false;
                     int index = packetStartIndex;//index will be changed...
                     string command = Utils.ByteConverter.ReadLine(parentFrame.Data, ref index);
-                    if(command.Contains(" "))
-                        command=command.Substring(0, command.IndexOf(' '));
-                    if (!userCommandSet.Contains(command.ToUpper()))
+                    if (string.IsNullOrEmpty(command))
                         return false;
+                    else {
+                        if (command.Contains(" "))
+                            command = command.Substring(0, command.IndexOf(' '));
+                        if (!userCommandSet.Contains(command.ToUpper()))
+                            return false;
+                    }
                 }
                 else {//server to client
                     //first 3 characters should be numbers
@@ -225,26 +230,88 @@ namespace PacketParser.Packets {
                     
                     //avoid classifying SMTP as FTP
                     int index = packetStartIndex;
-                    if (Utils.ByteConverter.ReadLine(parentFrame.Data, ref index).Contains("ESMTP"))
-                        return false;
+                    bool ftpConfirmed = false;
+                    string line = Utils.ByteConverter.ReadLine(parentFrame.Data, ref index);
+
+                    if (line != null && line.Length >= 3 && Int32.TryParse(line.Substring(0, 3), out int responseCode)) {
+                        if (line?.ToLower().Contains("ftp") == true) {
+                            ftpConfirmed = true;
+                        }
+                        else if (line?.ToLower().Contains("smtp") == true)
+                            return false;
+
+                        if (line.Length >= 4 && line[3] == '-') {//we have a multi-line reply
+                            //check that we have a full command
+                            if (TryReadToResponseCode(responseCode, parentFrame.Data, ref index, out List<string> lines)) {
+
+                                if (!ftpConfirmed && responseCode == 220) {
+                                    foreach (string line2 in lines) {
+                                        if (line2?.ToLower().Contains("ftp") == true) {
+                                            ftpConfirmed = true;
+                                            break;
+                                        }
+                                    }
+                                    if (!ftpConfirmed && (sourcePort == 25 || sourcePort == 587)) {
+                                        return false;//avoid parsing SMTP as FTP
+                                    }
+                                }
+                            }
+                            else
+                                return false;
+
+
+                            
+                        }
+                    }
                 }
-                result = new FtpPacket(parentFrame, packetStartIndex, packetEndIndex, clientToServer);
+                ftpPacket = new FtpPacket(parentFrame, packetStartIndex, packetEndIndex, clientToServer);
                 return true;
             }
-            catch {
+            catch (Exception e) {
+                SharedUtils.Logger.Log("Exception when parsing frame " + parentFrame.FrameNumber + " as FTP packet: " + e.Message, SharedUtils.Logger.EventLogEntryType.Warning);
                 return false;
             }
         }
 
+        private static bool TryReadToResponseCode(int responseCode, byte[] data, ref int index, out List<string> lines) {
+            //check if we have a multi-line command, and if is complete
+
+            /**
+             * From rfc959:
+             * 
+             * Thus the format for multi-line replies is that the first line
+             * will begin with the exact required reply code, followed
+             * immediately by a Hyphen, "-" (also known as Minus), followed by
+             * text.  The last line will begin with the same code, followed
+             * immediately by Space <SP>, optionally some text, and the Telnet
+             * end-of-line code.
+             * 
+             * For example:
+             * 123-First line
+             * Second line
+             *   234 A line beginning with numbers
+             * 123 The last line
+             * */
+            lines = new List<string>();
+            int responseCodeLastLine = 0;
+            string line;
+            do {
+                line = Utils.ByteConverter.ReadLine(data, ref index);//one line at a time
+                if (line == null)
+                    return false;
+                else if (line.Length >= 3) {
+                    string first3bytes = line.Substring(0, 3);//will throw exception if line is null (no CR LF in Data)
+                    if (!Int32.TryParse(first3bytes, out responseCodeLastLine))
+                        responseCodeLastLine = 0;
+                }
+            } while (responseCodeLastLine != responseCode || line.Length < 4 || line[3] != ' ');
+            return true;
+        }
 
         private FtpPacket(Frame parentFrame, int packetStartIndex, int packetEndIndex, bool clientToServer)
             : base(parentFrame, packetStartIndex, packetEndIndex, "FTP") {
 
             this.clientToServer=clientToServer;
-            //this.username=null;
-            //this.password=null;
-            //this.activeIpAddress=null;
-            //this.activePort=0;
 
             if(clientToServer) {
                 int index=PacketStartIndex;
@@ -262,67 +329,48 @@ namespace PacketParser.Packets {
                         this.requestCommand = line.TrimEnd();
                         this.requestArgument = "";
                     }
-                    /*
-                    if(this.requestCommand=="USER")
-                        this.username=this.requestArgument;
-                    else if(this.requestCommand=="PASS")
-                        this.password=this.requestArgument;*/
-                    //else if(this.requestCommand=="PORT") { }
-
                 }
             }
             else {
                 //find out the return code
                 int index=PacketStartIndex;
                 string line = Utils.ByteConverter.ReadLine(parentFrame.Data, ref index);//I'll only look in the first line
-                string first3bytes=line.Substring(0, 3);//will throw exception if line is null (no CR LF in Data)
-                if(!Int32.TryParse(first3bytes, out responseCode))
-                    responseCode=0;
-                else if(line.Length>4)
-                    responseArgument=line.Substring(4);
-                else
-                    responseArgument="";
+                if (!string.IsNullOrEmpty(line)) {
+                    string first3bytes = line.Substring(0, 3);//will throw exception if line is null (no CR LF in Data)
+                    if (!Int32.TryParse(first3bytes, out responseCode))
+                        responseCode = 0;
+                    else if (line.Length > 4)
+                        responseArgument = line.Substring(4);
+                    else
+                        responseArgument = "";
 
-                if (responseCode > 0 && line.Length > 3) {
-                    
-                    //check if we have a multi-line command, and if is complete
+                    if (responseCode > 0 && line.Length > 3) {
 
-                    /**
-                     * From rfc959:
-                     * 
-                     * Thus the format for multi-line replies is that the first line
-                     * will begin with the exact required reply code, followed
-                     * immediately by a Hyphen, "-" (also known as Minus), followed by
-                     * text.  The last line will begin with the same code, followed
-                     * immediately by Space <SP>, optionally some text, and the Telnet
-                     * end-of-line code.
-                     * 
-                     * For example:
-                     * 123-First line
-                     * Second line
-                     *   234 A line beginning with numbers
-                     * 123 The last line
-                     * */
-                    if (line[3] == '-') {//we have a multi-line reply
-                        int responseCodeLastLine = 0;
-                        while (responseCodeLastLine != ResponseCode || line.Length < 4 || line[3] != ' ') {
-                            line = Utils.ByteConverter.ReadLine(parentFrame.Data, ref index);//one line at a time
-                            if (line == null)
-                                throw new Exception("Incomplete FTP response");
-                            else if (line.Length >= 3) {
-                                first3bytes = line.Substring(0, 3);//will throw exception if line is null (no CR LF in Data)
-                                if (!Int32.TryParse(first3bytes, out responseCodeLastLine))
-                                    responseCodeLastLine = 0;
+                        
+                        if (line[3] == '-') {//we have a multi-line reply
+                            /*
+                            int responseCodeLastLine = 0;
+                            while (responseCodeLastLine != ResponseCode || line.Length < 4 || line[3] != ' ') {
+                                line = Utils.ByteConverter.ReadLine(parentFrame.Data, ref index);//one line at a time
+                                if (line == null)
+                                    throw new Exception("Incomplete FTP response");
+                                else if (line.Length >= 3) {
+                                    first3bytes = line.Substring(0, 3);//will throw exception if line is null (no CR LF in Data)
+                                    if (!Int32.TryParse(first3bytes, out responseCodeLastLine))
+                                        responseCodeLastLine = 0;
+                                }
                             }
+                            */
+                            if(!TryReadToResponseCode(responseCode, parentFrame.Data, ref index, out _))
+                                throw new Exception("Incomplete FTP response");
                         }
+
                     }
-
                 }
-
                 base.PacketEndIndex = index - 1;
             }
-
         }
+
 
         public override IEnumerable<AbstractPacket> GetSubPackets(bool includeSelfReference) {
             if(includeSelfReference)

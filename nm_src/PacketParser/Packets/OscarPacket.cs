@@ -50,7 +50,8 @@ namespace PacketParser.Packets {
 
                 result = new OscarPacket(parentFrame, packetStartIndex, packetEndIndex);
             }
-            catch {
+            catch (Exception e){
+                SharedUtils.Logger.Log("Exception when parsing frame " + parentFrame.FrameNumber + " as Oscar packet: " + e.Message, SharedUtils.Logger.EventLogEntryType.Warning);
                 return false;
             }
             return true;
@@ -83,7 +84,7 @@ namespace PacketParser.Packets {
                     //parse the tag data
 
                     if(Enum.IsDefined(typeof(SignonTags), tag)) {
-                        string hexString = Utils.ByteConverter.ReadHexString(parentFrame.Data, (int)length, index);
+                        string hexString = Utils.ByteConverter.ToHexString(parentFrame.Data, (int)length, index);
                         string strString = Utils.ByteConverter.ReadString(parentFrame.Data, index, (int)length);
                         if (!this.ParentFrame.QuickParse)
                             base.Attributes.Add(((SignonTags)tag).ToString(), hexString+" ("+strString+")");

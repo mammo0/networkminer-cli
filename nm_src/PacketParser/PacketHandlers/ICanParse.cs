@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace PacketParser.PacketHandlers {
     interface ICanParse {
-        Type ParsedType { get; }
+        Type[] ParsedTypes { get; }
         bool CanParse(HashSet<Type> packetTypeSet);
 
     }

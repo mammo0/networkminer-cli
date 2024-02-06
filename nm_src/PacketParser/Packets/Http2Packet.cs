@@ -103,7 +103,8 @@ namespace PacketParser.Packets {
                 result = new Http2Packet(parentFrame, packetStartIndex, packetEndIndex);
                 return true;
             }
-            catch {
+            catch (Exception e) {
+                SharedUtils.Logger.Log("Exception when parsing frame " + parentFrame.FrameNumber + " as HTTP2 packet: " + e.Message, SharedUtils.Logger.EventLogEntryType.Warning);
                 result = null;
                 return false;
             }

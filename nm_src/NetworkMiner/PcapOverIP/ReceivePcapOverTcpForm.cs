@@ -24,7 +24,8 @@ namespace NetworkMiner.PcapOverIP {
             this.addCaseFileCallback = addCaseFileCallback;
             this.caseFileLoadedCallback = caseFileLoadedCallback;
             this.completedEventHandler = completedEventHandler;
-            InitializeComponent();
+            this.InitializeComponent();
+            this.whatIsPcapOverIpLinkLabel.Links[0].LinkData = "https://netresec.com/?b=228fddf";
             this.portNumberSelectorIncoming.Value = portNumber;
             this.startReceivingButton.Select();
         }
@@ -240,6 +241,12 @@ namespace NetworkMiner.PcapOverIP {
                 this.portNumberSelectorIncoming.Enabled = false;
                 this.portNumberSelectorOutgoing.Enabled = true;
                 this.ipTextBoxOutgoing.Enabled = true;
+            }
+        }
+
+        private void whatIsPcapOverIpLinkLabel_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e) {
+            if (e.Link?.LinkData is string target) {
+                SharedUtils.SystemHelper.TryOpenWebsite(target);
             }
         }
     }

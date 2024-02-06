@@ -44,7 +44,12 @@ namespace NetworkWrapper {
 
         public override string ToString() {
             //return "Socket: "+ip.ToString();
-            return "Socket: "+nic.Description+" ("+ip.ToString()+")";
+            if(nic.OperationalStatus == OperationalStatus.Down)
+                return "Socket: " + nic.Description + " (disconnected)";
+            else if(nic.OperationalStatus == OperationalStatus.Up)
+                return "Socket: "+nic.Description+" ("+ip.ToString()+")";
+            else
+                return "Socket: " + nic.Description + " (" + ip.ToString() + ") " + nic.OperationalStatus.ToString();
         }
 
         public static List<IAdapter> GetAdapters() {

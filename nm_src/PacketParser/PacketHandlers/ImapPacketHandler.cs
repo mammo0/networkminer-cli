@@ -12,17 +12,17 @@ namespace PacketParser.PacketHandlers {
         //private PopularityList<(NetworkTcpSession session, uint messageSequenceNumber), Mime.Email> sessionMessages;
 
 
-        public override Type ParsedType { get { return typeof(Packets.ImapPacket); } }
+        public override Type[] ParsedTypes { get; } = { typeof(Packets.ImapPacket) };
         public override bool CanParse(HashSet<Type> packetTypeSet) {
             //we might need to add non-parsed segments to an email
-            return packetTypeSet.Contains(this.ParsedType) || packetTypeSet.Contains(typeof(Packets.TcpPacket));
+            return packetTypeSet.Overlaps(this.ParsedTypes) || packetTypeSet.Contains(typeof(Packets.TcpPacket));
         }
 
         public ApplicationLayerProtocol HandledProtocol
         {
             get
             {
-                return ApplicationLayerProtocol.Imap;
+                return ApplicationLayerProtocol.IMAP;
             }
         }
 
@@ -99,7 +99,7 @@ namespace PacketParser.PacketHandlers {
                     else if (lastCommand.ContainsKey(tcpSession) && lastCommand[tcpSession].command == ImapPacket.ClientCommand.AUTHENTICATE) {
                         if (imapPacket.FullRequestOrResponseLine != null && imapPacket.FullRequestOrResponseLine.Length > 0) {
                             string base64 = imapPacket.FullRequestOrResponseLine;
-                            NetworkCredential cred = SmtpPacketHandler.ExtractBase64EncodedAuthPlainCredential(base64, imapPacket.ParentFrame, tcpSession, ApplicationLayerProtocol.Imap);
+                            NetworkCredential cred = SmtpPacketHandler.ExtractBase64EncodedAuthPlainCredential(base64, imapPacket.ParentFrame, tcpSession, ApplicationLayerProtocol.IMAP);
                             if (cred != null) {
                                 //base.MainPacketHandler.OnCredentialDetected(new Events.CredentialEventArgs(cred));
                                 base.MainPacketHandler.AddCredential(cred);
@@ -186,7 +186,7 @@ namespace PacketParser.PacketHandlers {
                             //1 OK Begin TLS negotiation now
                             //do the same protocol switch trick as in SocksPacketHandler
                             //tcpSession.ProtocolFinder = new TcpPortProtocolFinder(tcpSession.ClientHost, tcpSession.ServerHost, tcpSession.ClientTcpPort, tcpSession.ServerTcpPort, tcpPacket.ParentFrame.FrameNumber, tcpPacket.ParentFrame.Timestamp, base.MainPacketHandler);
-                            tcpSession.ProtocolFinder.SetConfirmedApplicationLayerProtocol(ApplicationLayerProtocol.Ssl, false);
+                            tcpSession.ProtocolFinder.SetConfirmedApplicationLayerProtocol(ApplicationLayerProtocol.SSL, false);
                         }
                     }
                 }
@@ -244,7 +244,7 @@ namespace PacketParser.PacketHandlers {
                     this.serverToClientEmailReassemblers.Remove(tcpSession);
                 }
 
-                Mime.Email email = new Mime.Email(reassembler, base.MainPacketHandler, tcpPacket, clientToServer, tcpSession, ApplicationLayerProtocol.Imap, assemblyLocation);
+                Mime.Email email = new Mime.Email(reassembler, base.MainPacketHandler, tcpPacket, clientToServer, tcpSession, ApplicationLayerProtocol.IMAP, assemblyLocation);
                 /*
                 if(messageSequenceNumber.HasValue) {
                     string messageId = email.MessageID;

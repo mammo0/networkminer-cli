@@ -9,9 +9,6 @@ using System.Collections.Generic;
 using System.Text;
 
 namespace SharedUtils.Pcap {
-    //public delegate void PacketReceivedHandler(object sender, DateTime timestamp, byte[] data);
-
-    //based on: http://www.codeproject.com/csharp/csevents01.asp
     public class PacketReceivedEventArgs : EventArgs {
 
         public enum PacketTypes {
@@ -24,20 +21,17 @@ namespace SharedUtils.Pcap {
             CiscoHDLC,
             LinuxCookedCapture,
             LinuxCookedCapture2,
-            PrismCaptureHeader };
+            PrismCaptureHeader
+        };
 
-        private byte[] data;
-        private DateTime timestamp;
-        private PacketTypes packetType;
+        public DateTime Timestamp { get; }
+        public byte[] Data { get; }
+        public PacketTypes PacketType { get; }
 
-        public DateTime Timestamp { get { return timestamp; } }
-        public byte[] Data { get { return data; } }
-        public PacketTypes PacketType { get { return packetType; } }
-
-        public PacketReceivedEventArgs(byte[] data, DateTime timestamp/*, int length*/, PacketTypes packetType) {
-            this.data=data;
-            this.timestamp=timestamp;
-            this.packetType=packetType;
+        public PacketReceivedEventArgs(byte[] data, DateTime timestamp, PacketTypes packetType) {
+            this.Data = data;
+            this.Timestamp = timestamp.ToUniversalTime();
+            this.PacketType = packetType;
         }
 
     }

@@ -6,6 +6,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace PacketParser.PacketHandlers {
@@ -14,14 +15,16 @@ namespace PacketParser.PacketHandlers {
         private PacketHandler mainPacketHandler;
         internal PacketHandler MainPacketHandler { get { return this.mainPacketHandler; } }
 
-        public abstract Type ParsedType { get; }
+        //public abstract Type ParsedType { get; }
+        public abstract Type[] ParsedTypes { get; }
 
         internal AbstractPacketHandler(PacketHandler mainPacketHandler) {
             this.mainPacketHandler=mainPacketHandler;
         }
 
         public virtual bool CanParse(HashSet<Type> packetTypeSet) {
-            return packetTypeSet.Contains(this.ParsedType);
+            return packetTypeSet.Overlaps(this.ParsedTypes);
+            //return this.ParsedTypes.Any(t => packetTypeSet.Contains(t));
         }
     }
 }

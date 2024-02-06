@@ -26,7 +26,7 @@ namespace PacketParser.Packets {
             0xcaca, 0xdada, 0xeaea, 0xfafa
         });
 
-        internal enum ContentTypes : byte {
+        public enum ContentTypes : byte {
             ChangeCipherSpec = 0x14,
             Alert = 0x15,
             Handshake = 0x16,
@@ -182,7 +182,7 @@ namespace PacketParser.Packets {
                 }
             }
 
-            internal static bool TryGetHandshake(Frame parentFrame, int packetStartIndex, int packetEndIndex, out HandshakePacket handshakePacket) {
+            public static bool TryGetHandshake(Frame parentFrame, int packetStartIndex, int packetEndIndex, out HandshakePacket handshakePacket) {
                 handshakePacket = null;
                 byte measageTypeValue = parentFrame.Data[packetStartIndex];
                 if (!Enum.IsDefined(typeof(MessageTypes), measageTypeValue))
@@ -204,7 +204,8 @@ namespace PacketParser.Packets {
                     handshakePacket = new HandshakePacket(parentFrame, packetStartIndex, packetEndIndex);
                     return true;
                 }
-                catch {
+                catch (Exception e) {
+                    SharedUtils.Logger.Log("Cannot parse TLS handshake in frame " + parentFrame.FrameNumber + ": " + e.Message, SharedUtils.Logger.EventLogEntryType.Warning);
                     return false;
                 }
             }
@@ -264,10 +265,10 @@ namespace PacketParser.Packets {
                     //this.VersionMajor = parentFrame.Data[PacketStartIndex + 4];
                     //this.VersionMinor = parentFrame.Data[PacketStartIndex + 5];
                     this.supportedSslVersions.Add(new Tuple<byte, byte>(parentFrame.Data[this.PacketStartIndex + 4], parentFrame.Data[this.PacketStartIndex + 5]));
-
-                    this.CipherSuites.Add(Utils.ByteConverter.ToUInt16(parentFrame.Data, this.PacketStartIndex + 39));
-                    ushort extensionsLength = Utils.ByteConverter.ToUInt16(parentFrame.Data, this.PacketStartIndex + 42);
-                    int extensionIndex = this.PacketStartIndex + 44;
+                    byte sessionIdLength = parentFrame.Data[this.PacketStartIndex + 38];
+                    this.CipherSuites.Add(Utils.ByteConverter.ToUInt16(parentFrame.Data, this.PacketStartIndex + 39 + sessionIdLength));
+                    ushort extensionsLength = Utils.ByteConverter.ToUInt16(parentFrame.Data, this.PacketStartIndex + 42 + sessionIdLength);
+                    int extensionIndex = this.PacketStartIndex + 44 + sessionIdLength;
                     this.ParseExtensions(parentFrame, extensionIndex, extensionsLength);
                     
 
@@ -335,7 +336,13 @@ namespace PacketParser.Packets {
                             }
                         }
                         else if (extensionType == 43) {//Supported versions
-                            for (int offset = 5; offset < extensionLength + 4; offset += 2) {
+                            //the extensions length is typically an odd number because there's an additional length field before the version byte-tuples
+                            int versionTupleStartOffset;
+                            if ((extensionLength % 2) == 0)
+                                versionTupleStartOffset = 4;
+                            else
+                                versionTupleStartOffset = 5;
+                            for (int offset = versionTupleStartOffset; offset < extensionLength + versionTupleStartOffset - 1; offset += 2) {
                                 this.supportedSslVersions.Add(new Tuple<byte, byte>(parentFrame.Data[extensionIndex + offset], parentFrame.Data[extensionIndex + offset + 1]));
                             }
                         }

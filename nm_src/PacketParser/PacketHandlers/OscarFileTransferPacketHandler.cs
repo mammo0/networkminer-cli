@@ -16,7 +16,7 @@ namespace PacketParser.PacketHandlers {
             get { return ApplicationLayerProtocol.OscarFileTransfer; }
         }
 
-        public override Type ParsedType { get { return typeof(Packets.OscarFileTransferPacket); } }
+        public override Type[] ParsedTypes { get; } = { typeof(Packets.OscarFileTransferPacket) };
 
         public int ExtractData(NetworkTcpSession tcpSession, bool transferIsClientToServer, IEnumerable<PacketParser.Packets.AbstractPacket> packetList) {
             /*

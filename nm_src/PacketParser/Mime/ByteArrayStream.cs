@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.Text;
 
 namespace PacketParser.Mime {
-    class ByteArrayStream : System.IO.Stream{
-        private byte[] data;
+    class ByteArrayStream : System.IO.Stream {
+        private readonly byte[] data;
         private long index;
 
         public ByteArrayStream(byte[] data, long startIndex) {
@@ -42,7 +42,6 @@ namespace PacketParser.Mime {
         }
 
         public override int Read(byte[] buffer, int offset, int count) {
-            //throw new Exception("The method or operation is not implemented.");
             if(index>=data.Length)
                 return 0;//end of stream reached
             if(count<=0)

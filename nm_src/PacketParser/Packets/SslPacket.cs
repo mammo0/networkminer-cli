@@ -15,7 +15,8 @@ namespace PacketParser.Packets {
                 try {
                     result = new SslPacket(parentFrame, packetStartIndex, packetEndIndex);
                 }
-                catch {
+                catch (Exception e){
+                    SharedUtils.Logger.Log("Exception when parsing frame " + parentFrame.FrameNumber + " as SSL packet: " + e.Message, SharedUtils.Logger.EventLogEntryType.Warning);
                     result = null;
                 }
             }

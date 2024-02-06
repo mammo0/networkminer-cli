@@ -11,7 +11,7 @@ namespace PacketParser.PacketHandlers {
         public NetBiosSessionServicePacketHandler(PacketHandler mainPacketHandler)
             : base(mainPacketHandler) { }
 
-        public override Type ParsedType { get { return typeof(Packets.NetBiosSessionService); } }
+        public override Type[] ParsedTypes { get; } = { typeof(Packets.NetBiosSessionService) };
 
         //public int ExtractData(NetworkTcpSession tcpSession, NetworkHost sourceHost, NetworkHost destinationHost, IEnumerable<Packets.AbstractPacket> packetList) {
         public int ExtractData(NetworkTcpSession tcpSession, bool transferIsClientToServer, IEnumerable<PacketParser.Packets.AbstractPacket> packetList) {

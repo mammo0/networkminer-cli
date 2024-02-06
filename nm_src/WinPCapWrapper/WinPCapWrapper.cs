@@ -8,7 +8,7 @@ using System.Threading;
 
 namespace NetworkWrapper
 {
-    public class WinPCapWrapper : WinPCapNative
+    public class WinPCapWrapper : WinPCapNative, IDisposable
     {
         private Thread ListenThread = null;
         private dispatcher_handler callback = null;
@@ -390,12 +390,18 @@ namespace NetworkWrapper
 #endif
         }
 
+        public void Dispose() {
+            // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+            this.Dispose(disposing: true);
+            GC.SuppressFinalize(this);
+        }
+
         private void Dispose(bool disposing)
         {
             if (!disposed)
             {
 
-                if (disposing == false && ListenThread == null)
+                if (disposing && ListenThread == null)
                 {
 #if !MONO
                     if (pcap_t != IntPtr.Zero)

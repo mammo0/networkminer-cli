@@ -15,7 +15,7 @@ namespace PacketParser.PacketHandlers {
     class GenericShimPacketHandler<T> : AbstractPacketHandler, ITcpSessionPacketHandler where T : AbstractPacket, ISessionPacket {
 
 
-        public override Type ParsedType { get { return typeof(T); } }
+        public override Type[] ParsedTypes { get; } = { typeof(T) };
         private ApplicationLayerProtocol handledProtocol;
 
         public GenericShimPacketHandler(PacketHandler mainPacketHandler, ApplicationLayerProtocol handledProtocol) : base(mainPacketHandler) {

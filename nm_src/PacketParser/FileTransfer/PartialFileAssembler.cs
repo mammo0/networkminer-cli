@@ -1,44 +1,34 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace PacketParser.FileTransfer {
+
+    /// <summary>
+    /// PartialFileAssembler is used by FileStreamAssembler when it has assembled a file that
+    /// turns out to only be a fragment of a larger file, for example a range HTTP request.
+    /// </summary>
     class PartialFileAssembler : IDisposable {
-        //private FileStreamAssembler.FileAssmeblyRootLocation fileAssemblyRootLocation;
-        //private bool reassembleFileAtSourceHost;
-        private FileStreamAssembler.FileAssmeblyRootLocation fileAssmeblyRootLocation;
-        //private bool tcpTransfer;
-        //private System.Net.IPAddress sourceIp;
-        //private System.Net.IPAddress destinationIp;
-        //private NetworkHost sourceHost, destinationHost;
-        //private ushort sourcePort;
-        //private ushort destinationPort;
-        private FiveTuple fiveTuple;
-        private bool transferIsClientToServer;
-        private FileStreamTypes fileStreamType;
+        private readonly FileStreamAssembler.FileAssmeblyRootLocation fileAssmeblyRootLocation;
+        private readonly FiveTuple fiveTuple;
+        private readonly bool transferIsClientToServer;
+        private readonly FileStreamTypes fileStreamType;
         private string fileLocation;
         private string filename;
-        private FileStreamAssemblerList parentAssemblerList;
-        private string extendedFileId;
-        private SortedList<long, ReconstructedFile> filePartList;
-        private long totalFileSize;
-        private bool closed = false;
+        private readonly FileStreamAssemblerList parentAssemblerList;
+        private readonly string extendedFileId;
+        private readonly SortedList<long, ReconstructedFile> filePartList;
+        private readonly long totalFileSize;
         private DateTime timestamp;
-        //private string originalLocation;
-        private long initialFrameNumber;
-        private string serverHostname;//host header in HTTP
+        private readonly long initialFrameNumber;
+        private readonly string serverHostname;//host header in HTTP
 
-        internal bool IsClosed { get { return this.closed; } }
+        internal bool IsClosed { get; private set; } = false;
 
         internal PartialFileAssembler(FileStreamAssembler.FileAssmeblyRootLocation fileAssmeblyRootLocation, FiveTuple fiveTuple, bool transferIsClientToServer, FileStreamTypes fileStreamType, string fileLocation, string filename, FileStreamAssemblerList parentAssemblerList, string extendedFileId, long totalFileSize, long initialFrameNumber, string serverHostname) {
             this.fileAssmeblyRootLocation = fileAssmeblyRootLocation;
-            /*
-            this.tcpTransfer = tcpTransfer;
-            this.sourceHost = sourceHost;
-            this.destinationHost = destinationHost;
-            this.sourcePort = sourcePort;
-            this.destinationPort = destinationPort;
-            */
+
             this.fiveTuple = fiveTuple;
             this.transferIsClientToServer = transferIsClientToServer;
             this.fileStreamType = fileStreamType;
@@ -47,14 +37,13 @@ namespace PacketParser.FileTransfer {
             this.parentAssemblerList = parentAssemblerList;
             this.extendedFileId = extendedFileId;
             this.totalFileSize = totalFileSize;
-            //this.originalLocation = originalLocation;
             this.filePartList = new SortedList<long, ReconstructedFile>();
             this.initialFrameNumber = initialFrameNumber;
             this.serverHostname = serverHostname;
         }
 
         internal void AddFile(ReconstructedFile file, ContentRange range) {
-            if (this.closed) {
+            if (this.IsClosed) {
                 throw new Exception("The assembler is closed.");
             }
             else {
@@ -83,11 +72,27 @@ namespace PacketParser.FileTransfer {
                 return false;
         }
 
-        internal ReconstructedFile Reassemble() {
+        internal ReconstructedFile Reassemble(bool setExtensionFromFileHeader = false) {
+            string extensionFromHeader = null;
+            if (setExtensionFromFileHeader) {
+                byte[] fileHeaderData = new byte[1024];
+                string firstPartPath = this.filePartList.Values.FirstOrDefault()?.FilePath;
+                if (firstPartPath != null && System.IO.File.Exists(firstPartPath)) {
+                    using (System.IO.FileStream partStream = new System.IO.FileStream(firstPartPath, System.IO.FileMode.Open, System.IO.FileAccess.Read, System.IO.FileShare.Read, fileHeaderData.Length)) {
+                        int bytesRead = partStream.Read(fileHeaderData, 0, fileHeaderData.Length);
+                        if (bytesRead >= 8) {
+                            if (bytesRead < fileHeaderData.Length)
+                                fileHeaderData = fileHeaderData.Take(bytesRead).ToArray();
+                            extensionFromHeader = FileStreamAssembler.SetExtensionFromFileHeader(fileHeaderData, ref this.filename, ref this.fileLocation);
+                        }
+                    }
+                }
+            }
 
             (string destinationPath, Uri destinationRelativeUri) = FileStreamAssembler.GetFilePath(this.fileAssmeblyRootLocation, this.fiveTuple, this.transferIsClientToServer, this.fileStreamType, this.fileLocation, this.filename, this.parentAssemblerList, this.extendedFileId);
 
             ReconstructedFile reconstructedFile = null;
+            
             using (System.IO.FileStream fullFileStream = new System.IO.FileStream(destinationPath, System.IO.FileMode.Create, System.IO.FileAccess.Write, System.IO.FileShare.None, 256 * 1024)) {//256 kB buffer is probably a suitable value for good performance on large files
                 foreach (KeyValuePair<long, ReconstructedFile> part in this.filePartList) {
                     //if (fullFileStream.Position != part.Key)
@@ -108,16 +113,20 @@ namespace PacketParser.FileTransfer {
                         }
                 }
                 fullFileStream.Close();//so that I can read the full size of the file when creating the ReconstructedFile
-                reconstructedFile = new ReconstructedFile(destinationPath, destinationRelativeUri, this.fiveTuple, this.transferIsClientToServer, this.fileStreamType, this.extendedFileId, this.initialFrameNumber, this.timestamp, this.serverHostname);
+                //reconstructedFile = new ReconstructedFile(destinationPath, destinationRelativeUri, this.fiveTuple, this.transferIsClientToServer, this.fileStreamType, this.extendedFileId, this.initialFrameNumber, this.timestamp, this.serverHostname);
+                if (!ReconstructedFile.TryGetReconstructedFile(out reconstructedFile, destinationPath, destinationRelativeUri, this.fiveTuple, this.transferIsClientToServer, this.fileStreamType, this.extendedFileId, this.initialFrameNumber, this.timestamp, this.serverHostname)) {
+                    if (!string.IsNullOrEmpty(extensionFromHeader))
+                        reconstructedFile.ExtensionFromHeader = extensionFromHeader;
+                    SharedUtils.Logger.Log("Could not create a reconstructed file for " + destinationPath, SharedUtils.Logger.EventLogEntryType.Warning);
+                }
             }
-
-            this.closed = true;
+            this.IsClosed = true;
             this.filePartList.Clear();
             return reconstructedFile;
         }
 
         public void Dispose() {
-            this.closed = true;
+            this.IsClosed = true;
             this.filePartList.Clear();
         }
     }

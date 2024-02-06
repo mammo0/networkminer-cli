@@ -16,22 +16,15 @@ namespace PacketParser.Packets {
 
         internal enum MessageTypes : byte { SessionMessage=0x00, SessionRequest=0x81, PositiveSessionResponse=0x82 }
 
-        private byte messageType;
-        private int length;
-
-        private bool raw;//True if SMB should run directly over TCP, False if NetBIOS over TCP/IP is disabled
-
-        internal byte MessageType { get { return this.messageType; } }
-        internal int Length { get { return this.length; } }
+        internal byte MessageType { get; }
+        internal int Length { get; }
 
 
-        public bool PacketHeaderIsComplete {
-            get { return true; }
-        }
+        public bool PacketHeaderIsComplete { get; } = true;
 
         public int ParsedBytesCount {
             get {
-                return 4 + this.length; // header + content length
+                return 4 + this.Length; // header + content length
             }
         }
 
@@ -82,7 +75,7 @@ namespace PacketParser.Packets {
                             parentFrame.Errors.Add(new Frame.Error(parentFrame, packetStartIndex, packetEndIndex, "EternalBlue exploit attempt, nbss size = 0x" + length.ToString("x4")));
                         else {
                             //this might lead to false positives if this is an SMB packet that has been chained after another AndX SMB packet in the same frame. Thus this is the trailing packet that has been cut off due to MSS (see PCAP "SMB File transfer 3" for details)
-                            parentFrame.Errors.Add(new Frame.Error(parentFrame, packetStartIndex, packetEndIndex, "Possible EternalBlue exploit attempt, nbss size = 0x" + length.ToString("x4")));
+                            //parentFrame.Errors.Add(new Frame.Error(parentFrame, packetStartIndex, packetEndIndex, "Possible EternalBlue exploit attempt, nbss size = 0x" + length.ToString("x4")));
                         }
                     }
                     return false;
@@ -99,9 +92,9 @@ namespace PacketParser.Packets {
         private NetBiosSessionService(Frame parentFrame, int packetStartIndex, int packetEndIndex, bool raw)
         //internal NetBiosSessionService(Frame parentFrame, int packetStartIndex, int packetEndIndex)
             : base(parentFrame, packetStartIndex, packetEndIndex, "NetBIOS Session Service") {
-            this.messageType=parentFrame.Data[packetStartIndex];
+            this.MessageType=parentFrame.Data[packetStartIndex];
 
-            if (this.messageType == 0x85 && packetEndIndex-packetStartIndex == 3) {
+            if (this.MessageType == 0x85 && packetEndIndex-packetStartIndex == 3) {
                 /**
                  * From: http://msdn.microsoft.com/en-us/library/dd327704.aspx
                  * 
@@ -115,7 +108,7 @@ namespace PacketParser.Packets {
                  * 
                  * The keep-alive message may be sent if no messages have been sent for a client-configurable interval. A server receiving such a message must discard it.
                  * */
-                this.length = 0;//will force bytesParsed to return 4
+                this.Length = 0;//will force bytesParsed to return 4
                 if (!this.ParentFrame.QuickParse)
                     this.Attributes.Add("Message", "NetBios Session Service session keep-alive");
             }
@@ -123,13 +116,13 @@ namespace PacketParser.Packets {
                 //this.raw=raw;
                 uint l = Utils.ByteConverter.ToUInt32(parentFrame.Data, packetStartIndex);
                 if (raw)
-                    this.length = (int)(l & 0x00ffffff);//get the last 3 bytes (24 bits)
+                    this.Length = (int)(l & 0x00ffffff);//get the last 3 bytes (24 bits)
                 else
-                    this.length = (int)(l & 0x0001ffff);//get the last 17 bits
+                    this.Length = (int)(l & 0x0001ffff);//get the last 17 bits
                 if (!this.ParentFrame.QuickParse)
-                    this.Attributes.Add("Length", length.ToString());
-                if (this.length > 0 && this.PacketEndIndex  >  PacketStartIndex + this.length - 1)
-                    this.PacketEndIndex = PacketStartIndex + this.length - 1;
+                    this.Attributes.Add("Length", Length.ToString());
+                if (this.Length > 0 && this.PacketEndIndex  > this.PacketStartIndex + this.Length - 1)
+                    this.PacketEndIndex = this.PacketStartIndex + this.Length - 1;
             }
         }
 
@@ -137,20 +130,20 @@ namespace PacketParser.Packets {
             if(includeSelfReference)
                 yield return this;
 
-            if(this.messageType==0x00 && PacketStartIndex+4<PacketEndIndex) {
+            if(this.MessageType==0x00 && PacketStartIndex+4<PacketEndIndex) {
                 AbstractPacket packet;
 
                 try {
-                    if(ParentFrame.Data[PacketStartIndex + 4] == 0xff)
-                        packet=new SmbPacket(ParentFrame, PacketStartIndex+4, PacketEndIndex);
-                    else if(ParentFrame.Data[PacketStartIndex + 4] == 0xfe)
-                        packet = new Smb2Packet(ParentFrame, PacketStartIndex + 4, PacketEndIndex);
+                    if(this.ParentFrame.Data[this.PacketStartIndex + 4] == 0xff)
+                        packet=new SmbPacket(this.ParentFrame, this.PacketStartIndex +4, this.PacketEndIndex);
+                    else if(this.ParentFrame.Data[this.PacketStartIndex + 4] == 0xfe)
+                        packet = new Smb2Packet(this.ParentFrame, this.PacketStartIndex + 4, this.PacketEndIndex);
                     else
-                        packet = new RawPacket(ParentFrame, PacketStartIndex + 4, PacketEndIndex);
+                        packet = new RawPacket(this.ParentFrame, this.PacketStartIndex + 4, this.PacketEndIndex);
                 }
                 catch (Exception e) {
                     SharedUtils.Logger.Log("Error parsing packet in NetBIOS SS payload in " + this.ParentFrame.ToString() + ". " + e.ToString(), SharedUtils.Logger.EventLogEntryType.Warning);
-                    packet = new RawPacket(ParentFrame, PacketStartIndex+4, PacketEndIndex);
+                    packet = new RawPacket(this.ParentFrame, this.PacketStartIndex +4, this.PacketEndIndex);
                 }
 
                 yield return packet;

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace PacketParser.Packets {
@@ -7,7 +8,7 @@ namespace PacketParser.Packets {
     /**
      * Many thanks to Aivar Liimets from Martem for the help with IEC-104!
      **/
-    public class IEC_60870_5_104Packet : AbstractPacket, ISessionPacket{
+    public class IEC_60870_5_104Packet : AbstractPacket, ISessionPacket {
         /**
          *        ^ START: 68H
          *      A | Length of the APDU (max. 253) Min 4??
@@ -175,34 +176,24 @@ namespace PacketParser.Packets {
         private const int minApduLenght = 4;
         private const int maxApduLength = 253;
         private const byte APDU_START_MAGIC_VALUE = 0x68;
-
-        private byte apduLength = 0;
-        private byte? asduTypeID; //IEC-104 7.2.1 Type identification
-        private byte asduInformationObjectCount = 0; //IEC-101 7.2.2.1 INFORMATION OBJECT
         private byte causeOfTransmission = 0; //IEC-101 7.2.3 Cause of transmission
-        private bool causeOfTransmissionNegativeConfirm;
-        private bool causeOfTransmissionTest;
+        internal int AsduAddress { get; } = 0;//IEC-101 7.2.4 COMMON ADDRESS OF ASDUs
 
-        private SystemSettings systemSettings = defaultSystemSettings;
-        private int asduAddress = 0;//IEC-101 7.2.4 COMMON ADDRESS OF ASDUs
-        //private int asduAddressLength = 2;//The default length of ASDU address is 2 octets
-        
-        private byte[] asduData = null;
-
-        internal byte ApduLength { get { return this.apduLength; } }
-        internal byte? AsduTypeID { get { return this.asduTypeID; } }
-        internal byte AsduInformationObjectCount { get { return this.asduInformationObjectCount; } }
+        internal byte ApduLength { get; } = 0;
+        internal byte? AsduTypeID { get; }
+        internal byte AsduInformationObjectCount { get; } = 0;
+        internal bool AsduInformationObjectCountIsElementCount { get; } = false;
         internal CauseOfTransmissionEnum CauseOfTransmission { get { return (CauseOfTransmissionEnum)this.causeOfTransmission; } }
-        internal bool CauseOfTransmissionNegativeConfirm { get { return this.causeOfTransmissionNegativeConfirm; } }
-        internal bool CauseOfTransmissionTest { get { return this.causeOfTransmissionTest; } }
-        internal byte[] AsduData { get { return this.asduData; } }
-        internal SystemSettings Settings { get { return this.systemSettings; } }
-        
+        internal bool CauseOfTransmissionNegativeConfirm { get; }
+        internal bool CauseOfTransmissionTest { get; }
+        internal byte[] AsduData { get; } = null;
+        internal SystemSettings Settings { get; } = defaultSystemSettings;
+
 
         new public static bool TryParse(Frame parentFrame, int packetStartIndex, int packetEndIndex, out AbstractPacket result) {
             result = null;
             try {
-                if(parentFrame.Data[packetStartIndex] != APDU_START_MAGIC_VALUE)
+                if (parentFrame.Data[packetStartIndex] != APDU_START_MAGIC_VALUE)
                     return false;
                 else {
                     result = new IEC_60870_5_104Packet(parentFrame, packetStartIndex, packetEndIndex);
@@ -210,44 +201,47 @@ namespace PacketParser.Packets {
                 }
 
 
-            } catch {
+            }
+            catch (Exception e) {
+                SharedUtils.Logger.Log("Exception when parsing frame " + parentFrame.FrameNumber + " as IEC-104 packet: " + e.Message, SharedUtils.Logger.EventLogEntryType.Warning);
                 return false;
             }
         }
 
         internal IEC_60870_5_104Packet(Frame parentFrame, int packetStartIndex, int packetEndIndex)
             : base(parentFrame, packetStartIndex, packetEndIndex, "IEC 60870-5-104") {
-                if (packetEndIndex - packetStartIndex > minApduLenght) {
-                    if (parentFrame.Data[packetStartIndex] != APDU_START_MAGIC_VALUE)
-                        throw new Exception("APCI must start with 0x68 (104)");
-                    this.apduLength = parentFrame.Data[packetStartIndex + 1];
-                    if (this.apduLength >= minApduLenght && this.apduLength <= maxApduLength) {
-                        //TODO läs ut datat här!
-                        int asduLength = this.apduLength - 4;
-                        
+            if (packetEndIndex - packetStartIndex > minApduLenght) {
+                if (parentFrame.Data[packetStartIndex] != APDU_START_MAGIC_VALUE)
+                    throw new Exception("APCI must start with 0x68 (104)");
+                this.ApduLength = parentFrame.Data[packetStartIndex + 1];
+                if (this.ApduLength >= minApduLenght && this.ApduLength <= maxApduLength) {
+                    //TODO läs ut datat här!
+                    int asduLength = this.ApduLength - 4;
 
-                        if (asduLength > 0) {
-                            int asduOffset = packetStartIndex + 6;
-                            this.asduTypeID = parentFrame.Data[asduOffset];
-                            //this.Attributes.Add("ASDU ID", this.asduTypeID.ToString());
-                            this.asduInformationObjectCount = (byte)(parentFrame.Data[asduOffset + 1] & 0x7f);//7 bits
-                            this.causeOfTransmission = (byte)(parentFrame.Data[asduOffset + 2] & 0x3f);//6 bits
-                            this.causeOfTransmissionNegativeConfirm = (parentFrame.Data[asduOffset + 2] & 0x40) == 0x40;//1 bit
-                            this.causeOfTransmissionTest = (parentFrame.Data[asduOffset + 2] & 0x80) == 0x80;//1 bit
-                            int asduAddressIndex = asduOffset + 3;
-                            if (this.systemSettings.causeOfTransmissionHasOriginatorAddress)
-                                asduAddressIndex++;
-                            this.asduAddress = (int)Utils.ByteConverter.ToUInt32(parentFrame.Data, asduAddressIndex, systemSettings.asduAddressLength, true);
-                            this.asduData = new byte[asduLength];
-                            Array.Copy(parentFrame.Data, asduOffset, asduData, 0, asduLength);
-                        }
+
+                    if (asduLength > 0) {
+                        int asduOffset = packetStartIndex + 6;
+                        this.AsduTypeID = parentFrame.Data[asduOffset];
+                        //this.Attributes.Add("ASDU ID", this.asduTypeID.ToString());
+                        this.AsduInformationObjectCount = (byte)(parentFrame.Data[asduOffset + 1] & 0x7f);//7 bits
+                        this.AsduInformationObjectCountIsElementCount = (parentFrame.Data[asduOffset + 1] & 0x80) == 0x80;//1 bit
+                        this.causeOfTransmission = (byte)(parentFrame.Data[asduOffset + 2] & 0x3f);//6 bits
+                        this.CauseOfTransmissionNegativeConfirm = (parentFrame.Data[asduOffset + 2] & 0x40) == 0x40;//1 bit
+                        this.CauseOfTransmissionTest = (parentFrame.Data[asduOffset + 2] & 0x80) == 0x80;//1 bit
+                        int asduAddressIndex = asduOffset + 3;
+                        if (this.Settings.causeOfTransmissionHasOriginatorAddress)
+                            asduAddressIndex++;
+                        this.AsduAddress = (int)Utils.ByteConverter.ToUInt32(parentFrame.Data, asduAddressIndex, Settings.asduAddressLength, true);
+                        this.AsduData = new byte[asduLength];
+                        Array.Copy(parentFrame.Data, asduOffset, AsduData, 0, asduLength);
                     }
-
                 }
+
+            }
         }
 
-        
-        
+
+
 
         public bool PacketHeaderIsComplete {
             get { throw new NotImplementedException(); }
@@ -261,7 +255,7 @@ namespace PacketParser.Packets {
             if (includeSelfReference)
                 yield return this;
             else
-                 yield break;
+                yield break;
         }
 
         #region InformationElements
@@ -283,7 +277,7 @@ namespace PacketParser.Packets {
 
             private bool spi;//0=off, 1=on
             private QualityDescriptorNibble qd;
-            
+
 
 
             public string ShortName {
@@ -303,12 +297,12 @@ namespace PacketParser.Packets {
                     sb.Append("OFF");
                 sb.Append(" (" + this.qd.ToString() + ")");
                 return sb.ToString();
-                
+
             }
 
             public SIQ(byte[] asduBytes, int offset) {
-                byte b=asduBytes[offset];
-                this.spi = (b&0x01)==0x01;
+                byte b = asduBytes[offset];
+                this.spi = (b & 0x01) == 0x01;
                 this.qd = new QualityDescriptorNibble(asduBytes, offset);
             }
         }
@@ -342,12 +336,42 @@ namespace PacketParser.Packets {
 
             public DIQ(byte[] asduBytes, int offset) {
                 byte b = asduBytes[offset];
-                this.dpi = (DpiState)(b & 0x03);//2 bytes
-                //skip 2 bytes
+                this.dpi = (DpiState)(b & 0x03);//2 bits
+                //skip 2 bits
                 this.qd = new QualityDescriptorNibble(asduBytes, offset);
             }
         }
 
+        internal class BSI : IInformationElement {
+            //7.2.6.13 Binary state information (IEV 371-02-03) 32 bit
+            //readonly System.Collections.BitArray bsi;
+            readonly bool[] bsi;
+            readonly uint bsiUint;
+
+            public string ShortName { get; } = "BSI";
+
+            public int Length { get; } = 4;
+
+            public BSI(byte[] asduBytes, int offset) {
+                //this.bsi = new System.Collections.BitArray(asduBytes.Skip(offset).Take(4).ToArray());
+                this.bsi = Utils.ByteConverter.ToBoolArray(asduBytes.Skip(offset).Take(this.Length).ToArray());
+                this.bsiUint = Utils.ByteConverter.ToUInt32(asduBytes, offset, 4, true);
+            }
+
+            public override string ToString() {
+                /*
+                string[] bsiValues = new string[bsi.Length];
+                for (int i = 0; i < bsi.Length; i++) {
+                    if (bsi[i])
+                        bsiValues[i] = "1";
+                    else
+                        bsiValues[i] = "0";
+                }
+                return string.Join(" ", bsiValues);
+                */
+                return "0x" + this.bsiUint.ToString("x8");
+            }
+        }
         internal class CP56Time2a : IInformationElement {
             //7.2.6.18
             //Seven octet binary time
@@ -398,13 +422,14 @@ namespace PacketParser.Packets {
                 offset++;
                 int month = asduBytes[offset] & 0x0f;
                 offset++;
-                int year = 2000 + (asduBytes[offset] & 0x7f)%100;
+                int year = 2000 + (asduBytes[offset] & 0x7f) % 100;
                 offset++;
                 this.timestamp = new DateTime(year, month, day, hours, minutes, seconds, milliseconds);
             }
 
             public override string ToString() {
-                return this.timestamp.ToUniversalTime().ToString("yyyy'-'MM'-'dd' 'HH':'mm':'ss'.'fff");
+                //return this.timestamp.ToUniversalTime().ToString("yyyy'-'MM'-'dd' 'HH':'mm':'ss'.'fff UTC");
+                return this.timestamp.ToUniversalTime().ToString("o");
             }
 
         }
@@ -479,6 +504,78 @@ namespace PacketParser.Packets {
             }
         }
 
+        internal class RCO : IInformationElement {
+
+            private byte rcs;
+            private QOC qoc;
+            public string ShortName { get; } = "RCO";
+
+            public int Length { get; } = 1;
+
+            public RCO(byte[] asduBytes, int offset) {
+                this.rcs = (byte)(asduBytes[offset] & 0x03);
+                this.qoc = new QOC(asduBytes, offset);
+            }
+
+            public override string ToString() {
+                StringBuilder sb = new StringBuilder();
+                if (this.rcs == 0x01)
+                    sb.Append("DOWN");
+                else if (this.rcs == 0x02)
+                    sb.Append("UP");
+                else
+                    sb.Append("?");
+                sb.Append(" (" + qoc.ToString() + ")");
+                return sb.ToString();
+            }
+        }
+
+        internal class SOF : IInformationElement {
+            private byte sofValue;
+
+            //7.2.6.38 Status of file
+
+            public byte Status {
+                get {
+                    return (byte)(this.sofValue & 0x1f);//5 bits
+                }
+            }
+            public bool LastFileOrDirectory { get; }
+            public bool IsDirectory { get; }
+            public bool ActiveTransfer { get; }
+
+            public string ShortName { get; } = "SOF";
+
+            public int Length { get; } = 1;
+
+            public SOF(byte[] asduBytes, int offset) {
+                this.sofValue = asduBytes[offset];
+                //5 least significant bits is status
+                this.LastFileOrDirectory = (this.sofValue & 0x20) == 0x20;
+                this.IsDirectory = (this.sofValue & 0x40) == 0x40;
+                this.ActiveTransfer = (this.sofValue & 0x80) == 0x80;
+            }
+
+            public override string ToString() {
+                List<string> sofStrings = new List<string> {
+                    this.Status.ToString(),
+                };
+                if (this.LastFileOrDirectory)
+                    sofStrings.Add("last");
+                else
+                    sofStrings.Add("not last");
+                if (this.IsDirectory)
+                    sofStrings.Add("dir");
+                else
+                    sofStrings.Add("file");
+                if (this.ActiveTransfer)
+                    sofStrings.Add("transfer active");
+                else
+                    sofStrings.Add("awaits transfer");
+                return String.Join(", ", sofStrings);
+            }
+        }
+
         internal class QOS : IInformationElement {
             //7.2.6.39 Qualifier of set-point command
 
@@ -512,9 +609,10 @@ namespace PacketParser.Packets {
 
             public override string ToString() {
                 StringBuilder sb = new StringBuilder();
-                sb.Append("QL: ");
-                sb.Append(ql.ToString());
-                sb.Append(", ");
+                if (ql > 0) {
+                    sb.Append(ql.ToString());
+                    sb.Append(", ");
+                }
                 if (this.select)
                     sb.Append("Select");
                 else
@@ -557,19 +655,23 @@ namespace PacketParser.Packets {
 
             public override string ToString() {
                 StringBuilder sb = new StringBuilder();
-                sb.Append("Qualifier: ");
-                sb.Append(qu.ToString());
+                //sb.Append("Qualifier: ");
+                //sb.Append(qu.ToString());
+                
                 if (this.qu == 1)
-                    sb.Append(" (short pulse)");
+                    sb.Append("Short Pulse");
                 else if (this.qu == 2)
-                    sb.Append(" (long pulse)");
+                    sb.Append("Long Pulse");
                 else if (this.qu == 3)
-                    sb.Append(" (persistent output)");
-                sb.Append(", ");
+                    sb.Append("Persistent Output");
+                else if(this.qu > 3)
+                    sb.Append(qu.ToString());
+                if(sb.Length > 0)
+                    sb.Append(", ");
                 if (this.select)
-                    sb.Append(" Select");
+                    sb.Append("Select");
                 else
-                    sb.Append(" Execute");
+                    sb.Append("Execute");
                 return sb.ToString();
             }
         }
@@ -604,13 +706,47 @@ namespace PacketParser.Packets {
 
             public override string ToString() {
                 if (this.qoi == 20)
-                    return "Station interrogation (global)";
-                else if(this.qoi > 20 && this.qoi < 37) {
+                    return "Station Interrogation (global)";
+                else if (this.qoi > 20 && this.qoi < 37) {
                     int group = this.qoi - 20;
-                    return "Interrogation of group " + group.ToString();
+                    return "Interrogation of Group " + group.ToString();
                 }
                 else
                     return "QOI " + qoi.ToString();
+            }
+        }
+
+        internal class QCC : IInformationElement {
+            //7.2.6.23 Qualifier of counter interrogation command
+
+            private byte rqt, frz;
+
+            public string ShortName { get; } = "QCC";
+            public int Length { get; } = 1;
+            public QCC(byte[] asduBytes, int offset) {
+                this.rqt = (byte)(asduBytes[offset] & 0x3f);//6 bits
+                this.frz = (byte)(asduBytes[offset] >> 6);//2 bits
+             }
+            public override string ToString() {
+                StringBuilder sb = new StringBuilder();
+                if (this.rqt == 0)
+                    sb.Append("No Counter Group");
+                else if (this.rqt < 5)
+                    sb.Append("Counter Group " + this.rqt);
+                else if (this.rqt == 5)
+                    sb.Append("General Counter");
+                else
+                    sb.Append("RQT " + this.rqt);
+                sb.Append(", ");
+                if (this.frz == 0)
+                    sb.Append("Read");
+                else if (this.frz == 1)
+                    sb.Append("Freeze without Reset ");
+                else if (this.frz == 2)
+                    sb.Append("Freeze with Reset ");
+                else if (this.frz == 3)
+                    sb.Append("Reset ");
+                return sb.ToString();
             }
         }
 
@@ -712,14 +848,31 @@ namespace PacketParser.Packets {
 
         internal class QPM : IInformationElement {
             //QPM = Qualifier of parameter of measured values, defined in 7.2.6.24
-            //TODO: Implement properly!
-
+            private byte kpa;
             public string ShortName {
                 get { return "QPM"; }
             }
 
             public int Length {
                 get { return 1; }
+            }
+
+            public QPM(byte[] asduBytes, int offset) {
+                this.kpa = (byte)(asduBytes[offset] & 0x3f);
+            }
+            public override string ToString() {
+                if (this.kpa == 0)
+                    return "Not Used";
+                else if (this.kpa == 1)
+                    return "Threshold";
+                else if (this.kpa == 2)
+                    return "Smoothing";
+                else if (this.kpa == 3)
+                    return "Low Limit";
+                else if (this.kpa == 4)
+                    return "High Limit";
+                else
+                    return "KPA " + this.kpa;
             }
         }
 
@@ -748,6 +901,24 @@ namespace PacketParser.Packets {
                     sb.Append("No Overflow, ");
                 sb.Append(qd.ToString());
                 return sb.ToString();
+            }
+        }
+
+        public class VTI : IInformationElement {
+            //7.2.6.5 Value with transient state indication
+            private sbyte vtiValue;//7 bit signed integer
+            public string ShortName { get; } = "VTI";
+
+            public int Length { get; } = 1;
+
+            public VTI(byte[] asduBytes, int offset) {
+                this.vtiValue = (sbyte)(asduBytes[offset] << 1);
+                //this.vtiValue >>= 1;//or divide by 2
+                this.vtiValue /= 2;
+            }
+
+            public override string ToString() {
+                return vtiValue.ToString();
             }
         }
 
@@ -804,6 +975,110 @@ namespace PacketParser.Packets {
             }
         }
 
-        #endregion
+        internal class SCQ : IInformationElement {
+            //7.2.6.30 Select and call qualifier
+
+            enum Command : byte {
+                select_file = 1,
+                request_file = 2,
+                deactivate_file = 3,
+                delete_file = 4,
+                select_section = 5,
+                request_section = 6,
+                deactivate_section = 7
+            }
+
+            enum Error : byte {
+                requested_memory_space_not_available = 1,
+                checksum_failed = 2,
+                unexpected_communication_service = 3,
+                unexpected_name_of_file = 4,
+                unexpected_name_of_section = 5
+            }
+
+            private readonly byte command;
+            private readonly byte error;
+
+            public string ShortName { get; } = "SCQ";
+
+            public int Length { get; } = 1;
+
+            public SCQ(byte[] asduBytes, int offset) {
+                this.command = (byte)(asduBytes[offset] & 0x0f);
+                this.error = (byte)(asduBytes[offset] >> 4);
+            }
+
+            public override string ToString() {
+                List<string> returnStrings = new List<string>();
+                if (Enum.IsDefined(typeof(Command), this.command))
+                    returnStrings.Add(((Command)this.command).ToString());
+                if (Enum.IsDefined(typeof(Error), this.error))
+                    returnStrings.Add(((Error)this.error).ToString());
+                return string.Join(", ", returnStrings);
+            }
+
+        }
+
+        internal class NOF : IInformationElement {
+            //7.2.6.33 Name of file
+            public string ShortName { get; } = "NOF";
+            public int Length { get; } = 2;
+
+            public ushort FileID { get; private set; }
+
+            public NOF(byte[] asduBytes, int offset) {
+                this.FileID = Utils.ByteConverter.ToUInt16(asduBytes, offset, true);
+            }
+
+            public override string ToString() {
+                return this.FileID.ToString();
+            }
+        }
+
+        internal class LOF : IInformationElement {
+            //7.2.6.35 Length of file or section
+
+            public uint FileOrSectionLength { get; private set; }
+
+            public string ShortName { get; } = "LOF";
+            public int Length { get; } = 3;
+
+            public LOF(byte[] asduBytes, int offset) {
+                this.FileOrSectionLength = Utils.ByteConverter.ToUInt32(asduBytes, offset, 3, true);
+            }
+        }
+
+        internal class FRQ : IInformationElement {
+            //7.2.6.28 File ready qualifier
+
+            private bool positiveConfirm;
+
+            /**
+             * UI7[1..7]<0..127> (Type 1.1)
+<0> := default
+<1..63> := reserved for standard definitions of this companion standard
+(compatible range)
+<64..127> := reserved for special use (private range)
+BS1[8]<0..1> (Type 6)
+<0> := positive confirm of select, request, deactivate or delete
+<1> := negative confirm of select, request, deactivate or delete
+            */
+            public string ShortName { get; } = "FRQ";
+            public int Length { get; } = 1;
+
+            public FRQ(byte[] asduBytes, int offset) {
+                byte unknown = (byte)(asduBytes[offset] & 0x7f);
+                this.positiveConfirm = (asduBytes[offset] & 0x80) == 0;
+            }
+
+            public override string ToString() {
+                if (this.positiveConfirm)
+                    return "Ready";
+                else
+                    return "Not Ready";
+            }
+
+            #endregion
+        }
     }
 }

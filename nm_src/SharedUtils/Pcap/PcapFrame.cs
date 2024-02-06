@@ -270,11 +270,14 @@ namespace SharedUtils.Pcap {
         private byte[] data;
         private DataLinkTypeEnum dataLinkType;
 
+        public object Tag { get; set; }
+
         public DateTime Timestamp { get { return timestamp; } }
         public byte[] Data { get { return data; } }
         public DataLinkTypeEnum DataLinkType { get { return this.dataLinkType; } }
 
         public PcapFrame(DateTime timestamp, byte[] data, DataLinkTypeEnum dataLinkType) {
+            
             this.timestamp=timestamp;
             this.data=data;
             this.dataLinkType = dataLinkType;

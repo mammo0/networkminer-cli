@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 using System.IO;
+using System.Linq;
 
 namespace PacketParser.Mime {
     class MultipartPart {
@@ -139,15 +140,20 @@ namespace PacketParser.Mime {
                  *  <body bgcolor="" LINK="#6d93b8" ALINK="#9DB7D0" VLINK="#6d93b8" TEXT="#d7d7d7" style="font-family: Helvetica, Arial, sans-serif; font-size: 14px; color: #d7d7d7;">
                  *      ...
                  *  </body>
+                 *  
+                 *  ==APT28 IMAP traffic from d3bddb5de864afd7e4f5e56027f4e5ea==
+                 *  $ APPEND INBOX {72}
+                 *  From: a_P9ANBE6
+                 *  Subject:6/22/2022 6:29:09 AM_report
                  *
                  */
 
-            for (int i=0; i<headerDataCollection.Length; i++) {
+                for (int i=0; i<headerDataCollection.Length; i++) {
                     try {
 
                         if (headerDataCollection[i].Contains("=\"") && headerDataCollection[i].Length > headerDataCollection[i].IndexOf('\"') + 1) {
                             string parameterName = headerDataCollection[i].Substring(0, headerDataCollection[i].IndexOf('=')).Trim();
-                            if (parameterName.Contains(": ")) 
+                            if (parameterName.Contains(": "))
                                 parameterName = parameterName.Substring(0, parameterName.IndexOf(':')).Trim();
 
 #if DEBUG
@@ -155,7 +161,7 @@ namespace PacketParser.Mime {
 #endif
                             int quotedLength = headerDataCollection[i].LastIndexOf('\"') - headerDataCollection[i].IndexOf('\"') - 1;
 
-                            if(quotedLength < 0 && line != null && line.Length > 0 && stream.Position < stream.Length) {
+                            if (quotedLength < 0 && line != null && line.Length > 0 && stream.Position < stream.Length) {
                                 //we have a start quote but no end quote
                                 if (i == headerDataCollection.Length - 1) {
                                     //try reading the next line.
@@ -180,7 +186,7 @@ namespace PacketParser.Mime {
                                     else {
                                         skipNextLine = true;
                                         break;
-                                    } 
+                                    }
                                 }
                                 else
                                     continue;//go to next parameter
@@ -210,7 +216,8 @@ namespace PacketParser.Mime {
                             else
                                 attributes.Add(parameterName, parameterValue);
                         }
-                        else if (headerDataCollection[i].Contains(": ")) {
+                        //the second part of this elseif statement is to support headers like this one "Subject:6/22/2022 6:29:09 AM_report"
+                        else if (headerDataCollection[i].Contains(": ") || (headerDataCollection[i].Contains(":") && Email.COMMON_HEADERS.Contains(headerDataCollection[i].Substring(0, headerDataCollection[i].IndexOf(':')).Trim()))) {
                             string parameterName = headerDataCollection[i].Substring(0, headerDataCollection[i].IndexOf(':')).Trim();
 #if DEBUG
                             SharedUtils.Logger.Log("Reading MIME header attribute \"" + parameterName + "\" (3)", SharedUtils.Logger.EventLogEntryType.Information);

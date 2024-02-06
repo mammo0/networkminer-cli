@@ -6,7 +6,7 @@ namespace PacketParser.PacketHandlers {
     class OscarPacketHandler : AbstractPacketHandler, ITcpSessionPacketHandler{
 
 
-        public override Type ParsedType { get { return typeof(Packets.OscarPacket); } }
+        public override Type[] ParsedTypes { get; } = { typeof(Packets.OscarPacket) };
 
         public OscarPacketHandler(PacketHandler mainPacketHandler)
             : base(mainPacketHandler) {

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Xml;
 using System.Xml.Schema;
+using System.Text.RegularExpressions;
 
 namespace PacketParser.Events {
     public class MessageEventArgs : EventArgs, System.Xml.Serialization.IXmlSerializable {
@@ -22,6 +23,8 @@ namespace PacketParser.Events {
         public System.Collections.Specialized.NameValueCollection Attributes;
         public long Size;
 
+        private readonly Regex htmlRegex = new Regex(@"(?<=>)([^<]+)(?=<)");
+
         private MessageEventArgs() { }//fore serialization purposes
 
         public MessageEventArgs(PacketParser.ApplicationLayerProtocol protocol, NetworkHost sourceHost, NetworkHost destinationHost, long startFrameNumber, DateTime startTimestamp, string from, string to, string subject, string message, System.Collections.Specialized.NameValueCollection attributes, long size) : this(protocol, sourceHost, destinationHost, startFrameNumber, startTimestamp, from, to, subject, message, Encoding.Default, attributes, size) { }
@@ -35,6 +38,9 @@ namespace PacketParser.Events {
             this.From = from;
             this.To = to;
             this.Subject = subject;
+            if(this.Subject?.StartsWith("<") == true && this.Subject.Contains(">")) {
+                this.Subject = this.ExtractHtmlContents(this.Subject);
+            }
             if (this.Subject != null && this.Subject.Length > MAX_SUBJECT_LENGTH)
                 this.Subject = this.Subject.Substring(0, MAX_SUBJECT_LENGTH) + "...";
             this.Message = message;
@@ -45,6 +51,18 @@ namespace PacketParser.Events {
             this.Attributes = attributes;
             this.Size = size;
         }
+
+    private string ExtractHtmlContents(string htmlString) {
+        //try to parse the text as XML
+        if (this.htmlRegex.IsMatch(this.Subject)) {
+            StringBuilder sb = new StringBuilder();
+            foreach (Match m in this.htmlRegex.Matches(htmlString))
+                sb.Append(m.Value);
+            if (sb.Length > 0)
+                return sb.ToString().Trim('\n', '\r', ' ', '\t');
+        }
+        return htmlString;
+    }
 
         public XmlSchema GetSchema() {
             return null;

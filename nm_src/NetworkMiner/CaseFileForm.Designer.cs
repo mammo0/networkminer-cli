@@ -36,6 +36,7 @@
             this.metadataGridView.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             this.metadataGridView.Dock = System.Windows.Forms.DockStyle.Fill;
             this.metadataGridView.Location = new System.Drawing.Point(0, 0);
+            this.metadataGridView.MinimumSize = new System.Drawing.Size(284, 242);
             this.metadataGridView.Name = "metadataGridView";
             this.metadataGridView.ReadOnly = true;
             this.metadataGridView.RowHeadersVisible = false;

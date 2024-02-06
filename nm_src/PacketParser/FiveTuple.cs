@@ -103,5 +103,22 @@ namespace PacketParser {
             //finally
             return false;
         }
+
+        public bool HasIPEndpoint(System.Net.IPEndPoint endPoint, TransportProtocol? transportProtocol = null) {
+            if (endPoint.AddressFamily != this.ClientHost.IPAddress.AddressFamily)
+                return false;
+            else
+                return this.HasIPEndpoint(endPoint.Address, (ushort)endPoint.Port, transportProtocol);
+        }
+        public bool HasIPEndpoint(System.Net.IPAddress endPointIP, ushort endPointPort, TransportProtocol? transportProtocol = null) {
+            if (transportProtocol != null && transportProtocol != this.Transport)
+                return false;
+            else if (this.ClientHost.IPAddress.Equals(endPointIP) && this.ClientPort == endPointPort)
+                return true;
+            else if (this.ServerHost.IPAddress.Equals(endPointIP) && this.ServerPort == endPointPort)
+                return true;
+            else
+                return false;
+        }
     }
 }

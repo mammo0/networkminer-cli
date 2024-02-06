@@ -18,5 +18,7 @@ namespace PacketParser {
                 throw new Exception("There is only a protocol finder for TCP");
         }
 
+        public void Reset() { }
+
     }
 }

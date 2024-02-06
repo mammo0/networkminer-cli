@@ -29,18 +29,22 @@ namespace PacketParser.Fingerprints
             return dict;
         }
 
-        public static Dictionary<string, string> CreateDictionaryFromCsv(string csvFile, int keyColumn, int valueColumn) {
+        public static Dictionary<string, string> CreateDictionaryFromCsv(string csvFile, int keyColumn, int valueColumn, bool skipFirstLine = false) {
             Dictionary<string, string> dict = new Dictionary<string, string>();
             int maxColIndex = Math.Max(keyColumn, valueColumn);
+            int lineCount = 0;
             foreach (string line in System.IO.File.ReadLines(csvFile)) {
-                if (!string.IsNullOrWhiteSpace(line) && !line.StartsWith("#")) {
-                    string[] cols = line.Split(',');
-                    if (cols.Length > maxColIndex) {
-                        string key = cols[keyColumn].Trim();
-                        if (!dict.ContainsKey(key))
-                            dict.Add(key, cols[valueColumn].Trim());
+                if (lineCount > 0 || !skipFirstLine) {
+                    if (!string.IsNullOrWhiteSpace(line) && !line.StartsWith("#")) {
+                        string[] cols = line.Split(',');
+                        if (cols.Length > maxColIndex) {
+                            string key = cols[keyColumn].Trim();
+                            if (!dict.ContainsKey(key))
+                                dict.Add(key, cols[valueColumn].Trim());
+                        }
                     }
                 }
+                lineCount++;
             }
             return dict;
         }

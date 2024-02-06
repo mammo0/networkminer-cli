@@ -6,7 +6,7 @@ using System.Text;
 namespace SharedUtils.Pcap {
     public class PcapParser : IPcapParser {
 
-        enum TimestampResolition { microsecond, nanosecond }
+        public enum TimestampResolition { microsecond, nanosecond }
 
         public const uint LIBPCAP_MAGIC_NUMBER = 0xa1b2c3d4;
         public const uint PCAP_MODIFIED_MAGIC = 0xa1b2cd34;
@@ -22,21 +22,14 @@ namespace SharedUtils.Pcap {
         };
 
 
-        //private System.IO.Stream pcapStream;
-        //private PcapStreamReader.AbortReadingDelegate abortReading;
-        private PcapFrame.DataLinkTypeEnum dataLinkType;
-        private int packetHeaderTrailerBytes = 0;//some capture formats (Like Fritzbox Modified PCAP have additional metadata after each packet header)
-        private IPcapStreamReader pcapStreamReader;
-        private TimestampResolition timestampRespolution = TimestampResolition.microsecond;
+        private readonly PcapFrame.DataLinkTypeEnum dataLinkType;
+        private readonly int packetHeaderTrailerBytes = 0;//some capture formats (Like Fritzbox Modified PCAP have additional metadata after each packet header)
+        private readonly IPcapStreamReader pcapStreamReader;
+        private readonly TimestampResolition timestampRespolution = TimestampResolition.microsecond;
 
         private bool littleEndian;
 
         private List<KeyValuePair<string, string>> metadata;
-
-
-        /*public PcapFrame.DataLinkTypeEnum CurrentDataLinkType {
-            get { return this.dataLinkType; }
-        }*/
 
         public List<KeyValuePair<string, string>> Metadata {
             get { return this.metadata; }

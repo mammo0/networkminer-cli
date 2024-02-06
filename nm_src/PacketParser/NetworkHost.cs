@@ -19,6 +19,8 @@ namespace PacketParser {
     public class NetworkHost : IComparable, System.Xml.Serialization.IXmlSerializable {
         
         public enum OperatingSystemID { Windows, Linux, UNIX, FreeBSD, NetBSD, Solaris, MacOS, Apple_iOS, Cisco, Android, BlackBerry, PlayStation, Nintendo, ICS_device, ABB, Siemens, Other, Unknown }
+        public enum ExtraDetailType { PublicIP, SnmpParameter, User }
+
         public static Func<string, string, IEnumerable<(string name, string value)>> HostnameExtraDetailsFunc = null;
         private static readonly System.Text.RegularExpressions.Regex NETBIOS_TRAILER_TAG = new System.Text.RegularExpressions.Regex("<[0-9]{2}>$");//matches trailing <nn> from NetBIOS hostname like PC-NAME<20>
 
@@ -96,45 +98,37 @@ namespace PacketParser {
         #endregion
 
         #region Basic Private Data
-        private IPAddress ipAddress;
         private PhysicalAddress macAddress;//the MAC address the host is behind
         //private string macAddressVendor;
-        private PopularityList<string, PhysicalAddress> recentMacAdresses;
-        private System.Collections.Generic.List<string> hostNameList;//DNS, NetBIOS, HTTP-GET-host-value or similar
+        private readonly PopularityList<string, PhysicalAddress> recentMacAdresses;
+        private readonly System.Collections.Generic.List<string> hostNameList;//DNS, NetBIOS, HTTP-GET-host-value or similar
         
 
-        private System.Collections.Generic.List<ushort> openTcpPortList;//I shouldn't really need this since the networkServiceList has almost the same information
+        private readonly System.Collections.Generic.List<ushort> openTcpPortList;//I shouldn't really need this since the networkServiceList has almost the same information
         
 
-        private System.Collections.Generic.SortedList<byte, int> ttlCount;//TTL values from host packets
-        private System.Collections.Generic.SortedList<byte, int> ttlDistanceCount;//the guessed distance to the host
+        private readonly System.Collections.Generic.SortedList<byte, int> ttlCount;//TTL values from host packets
+        private readonly System.Collections.Generic.SortedList<byte, int> ttlDistanceCount;//the guessed distance to the host
 
         //private System.Collections.Generic.SortedList<string, System.Collections.Generic.SortedList<string, double>> operatingSystemCounterList;
-        private SortedList<Fingerprints.IOsFingerprinter, SortedList<string, double>> fingerprinterOsCounterList;
+        private readonly SortedList<Fingerprints.IOsFingerprinter, SortedList<string, double>> fingerprinterOsCounterList;
         private KeyValuePair<double, string> fingerprintedDeviceCategory;
         private KeyValuePair<double, string> fingerprintedDeviceFamily;
-
-        private NetworkPacketList sentPackets, receivedPackets;
-
-        private List<NetworkTcpSession> incomingSessionList, outgoingSessionList;
-        private SortedList<ushort, NetworkServiceMetadata> networkServiceMetadataList;//the key is identified by the TCP port number of the service (on the server)
-        private List<ushort> vlanIdList;
-        private Dictionary<string, string> ja3Hashes;
-        private HashSet<string> ja3sHashes;
+        private readonly List<ushort> vlanIdList;
+        private readonly Dictionary<string, string> ja3Hashes;
+        private readonly HashSet<string> ja3sHashes;
 
         #endregion
 
         #region Extra (detailed) Private Data
-        private List<IPAddress> queriedIpList;
-        private List<string> domainNameList;
-        private List<string> queriedNetBiosNameList;
-        private List<string> queriedDnsNameList;
-        private List<string> httpUserAgentBannerList;
-        private List<string> httpServerBannerList;
-        private List<string> ftpServerBannerList;
-        private List<string> dhcpVendorCodeList;
-        private SortedList<string, string> universalPlugAndPlayFieldList;
-
+        private readonly List<IPAddress> queriedIpList;
+        private readonly List<string> domainNameList;
+        private readonly List<string> queriedNetBiosNameList;
+        private readonly List<string> queriedDnsNameList;
+        private readonly List<string> httpUserAgentBannerList;
+        private readonly List<string> httpServerBannerList;
+        private readonly List<string> ftpServerBannerList;
+        private readonly List<string> dhcpVendorCodeList;
         private List<string> acceptedSmbDialectsList;
         private string preferredSmbDialect;
 
@@ -147,16 +141,14 @@ namespace PacketParser {
             set {
                 this.macAddress=value;
 
-                //PacketParser.Fingerprints.MacCollection.GetMacCollection("").TryGetMacVendor(this.macAddress, out this.macAddressVendor);
                 if (value != null)
                     lock(this.recentMacAdresses)
                         this.recentMacAdresses.Add(value.ToString(), value);
             }
         }
-        //public string MacVendor { get { return this.macAddressVendor; } }
 
-        public IPAddress IPAddress { get { return this.ipAddress; } }
-        //public string IPAddressString { get { return this.ipAddress.ToString(); } }
+        public IPAddress IPAddress { get; }
+
         public string HostName {
             get {
                 StringBuilder sb = new StringBuilder("");
@@ -179,17 +171,17 @@ namespace PacketParser {
             }
         }
         [Browsable(false)]
-        public NetworkPacketList SentPackets { get { return sentPackets; } }
+        public NetworkPacketList SentPackets { get; }
         [Browsable(false)]
-        public NetworkPacketList ReceivedPackets { get { return receivedPackets; } }
+        public NetworkPacketList ReceivedPackets { get; }
         [Browsable(false)]
-        public List<NetworkTcpSession> IncomingSessionList { get { return incomingSessionList; } }
+        public List<NetworkTcpSession> IncomingSessionList { get; }
         [Browsable(false)]
-        public List<NetworkTcpSession> OutgoingSessionList { get { return outgoingSessionList; } }
+        public List<NetworkTcpSession> OutgoingSessionList { get; }
         [Browsable(false)]
-        public SortedList<ushort, NetworkServiceMetadata> NetworkServiceMetadataList { get { return networkServiceMetadataList; } }
+        public SortedList<ushort, NetworkServiceMetadata> NetworkServiceMetadataList { get; }
         [Browsable(false)]
-        public SortedList<string, string> UniversalPlugAndPlayFieldList { get { return this.universalPlugAndPlayFieldList; } set { this.universalPlugAndPlayFieldList=value; } }
+        public SortedList<string, string> UniversalPlugAndPlayFieldList { get; set; }
 
         //public string FaviconKey = null;
         [Browsable(false)]
@@ -215,126 +207,123 @@ namespace PacketParser {
             }
         }
 
-        [Browsable(false)]
-        public System.Collections.Specialized.NameValueCollection HostDetailCollection { 
-            get{
-                
-                System.Collections.Specialized.NameValueCollection details=new System.Collections.Specialized.NameValueCollection();
-                lock (this.vlanIdList) {
-                    if (this.vlanIdList.Count > 0) {
-                        foreach (ushort vlan in this.vlanIdList)
-                            details.Add("VLAN", vlan.ToString());
-                    }
-                }
-                if(this.FaviconPerHost.Count > 1) {
-                    foreach (var icon in this.FaviconPerHost)
-                        details.Add("favicon " + icon.Key, icon.Value);
-                }
-                else if (this.FaviconKey != null) {
-                    details.Add("favicon", this.FaviconKey);
-                }
-                lock (this.queriedIpList) {
-                    if (this.queriedIpList.Count > 0) {
-                        StringBuilder queriedIPs = new StringBuilder();
-                        foreach (IPAddress ip in this.queriedIpList) {
-                            details.Add("Queried IP Addresses", ip.ToString());
-                        }
-                    }
-                }
-                if(this.queriedNetBiosNameList.Count>0) {
-                    StringBuilder queriedNames=new StringBuilder();
-                    lock (this.queriedNetBiosNameList) {
-                        foreach (string name in this.queriedNetBiosNameList) {
-                            details.Add("Queried NetBIOS names", name);
-                        }
-                    }
-                }
-                if(this.queriedDnsNameList.Count>0) {
-                    StringBuilder queriedNames=new StringBuilder();
-                    lock (this.queriedDnsNameList) {
-                        foreach (string name in this.queriedDnsNameList) {
-                            details.Add("Queried DNS names", name);
-                        }
-                    }
-                }
-                lock (this.domainNameList) {
-                    for (int i = 0; i < this.domainNameList.Count; i++)
-                        details.Add("Domain Name " + (i + 1), domainNameList[i]);
-                }
-                lock(this.httpUserAgentBannerList)
-                    for(int i=0; i<this.httpUserAgentBannerList.Count; i++)
-                        details.Add("Web Browser User-Agent "+(i+1), httpUserAgentBannerList[i]);
-                lock (this.httpServerBannerList)
-                    for (int i = 0; i < this.httpServerBannerList.Count; i++)
-                        details.Add("Web Server Banner " + (i + 1), httpServerBannerList[i]);
-                lock(this.ftpServerBannerList)
-                    for(int i=0; i<this.ftpServerBannerList.Count; i++)
-                        details.Add("FTP Server Banner "+(i+1), ftpServerBannerList[i]);
-                lock(this.dhcpVendorCodeList)
-                    for(int i=0; i<this.dhcpVendorCodeList.Count; i++)
-                        details.Add("DHCP Vendor Code "+(i+1), dhcpVendorCodeList[i]);
-                if (this.universalPlugAndPlayFieldList != null)
-                    lock (this.universalPlugAndPlayFieldList) {
-                        foreach (string field in this.universalPlugAndPlayFieldList.Values) {
-                            if (field.Contains(":")) {
-                                details.Add("UPnP field : " + field.Substring(0, field.LastIndexOf(':')), field.Substring(field.LastIndexOf(':') + 1));
-                            }
-                            else
-                                details.Add("UPnP field", field);
-                    }
-                }
-                if (this.acceptedSmbDialectsList != null)
-                    lock (this.acceptedSmbDialectsList) {
-                        foreach (string dialectName in this.acceptedSmbDialectsList)
-                            details.Add("Accepted SMB dialects", dialectName);
-                    }
-                if(this.preferredSmbDialect!=null)
-                    details.Add("Preferred SMB dialect", this.preferredSmbDialect);
+        public System.Collections.Specialized.NameValueCollection GetHostDetailCollection() {
 
-                if (this.DeviceFamily.Length > 0)
-                    details.Add("Device Family", this.DeviceFamily);
-                if (this.DeviceCategory.Length > 0)
-                    details.Add("Device Category", this.DeviceCategory);
-                if(this.ja3Hashes.Count > 0) {
-                    lock (this.ja3Hashes) {
-                        //details.Add("JA3 Hashes", String.Join(",", this.ja3Hashes.Keys));
-                        /*
-                        foreach (var ja3 in this.ja3Hashes.Where(kvp => !string.IsNullOrEmpty(kvp.Value))) {
-                            details.Add("JA3 Fingerprint " + ja3.Key, ja3.Value);
-                        }
-                        */
-                        string[] keys = this.ja3Hashes.Keys.ToArray();
-                        for (int i = 0;  i < keys.Length; i++) {
-                            string fingerprint = this.ja3Hashes[keys[i]];
-                            if (string.IsNullOrEmpty(fingerprint))
-                                details.Add("JA3 Hash " + (i + 1), keys[i]);
-                            else
-                                details.Add("JA3 Hash " + (i + 1), keys[i] + " = " + fingerprint);
-                        }
-                    }
+            System.Collections.Specialized.NameValueCollection details = new System.Collections.Specialized.NameValueCollection();
+            lock (this.vlanIdList) {
+                if (this.vlanIdList.Count > 0) {
+                    foreach (ushort vlan in this.vlanIdList)
+                        details.Add("VLAN", vlan.ToString());
                 }
-                if (this.ja3sHashes.Count > 0) {
-                    lock (this.ja3sHashes) {
-                        string[] hashes = this.ja3sHashes.ToArray();
-                        for (int i = 0; i < hashes.Length; i++) {
-                            details.Add("JA3S Hash " + (i + 1), hashes[i]);
-                        }
-                    }
-                }
-
-                lock (this.ExtraDetailsList)
-                    foreach(KeyValuePair<string, string> keyValue in ExtraDetailsList) {
-                        details.Add(keyValue.Key, keyValue.Value);
-                }
-                return details;
-                
             }
+            if (this.FaviconPerHost.Count > 1) {
+                foreach (var icon in this.FaviconPerHost)
+                    details.Add("favicon " + icon.Key, icon.Value);
+            }
+            else if (this.FaviconKey != null) {
+                details.Add("favicon", this.FaviconKey);
+            }
+            lock (this.queriedIpList) {
+                if (this.queriedIpList.Count > 0) {
+                    StringBuilder queriedIPs = new StringBuilder();
+                    foreach (IPAddress ip in this.queriedIpList) {
+                        details.Add("Queried IP Addresses", ip.ToString());
+                    }
+                }
+            }
+            if (this.queriedNetBiosNameList.Count > 0) {
+                StringBuilder queriedNames = new StringBuilder();
+                lock (this.queriedNetBiosNameList) {
+                    foreach (string name in this.queriedNetBiosNameList) {
+                        details.Add("Queried NetBIOS names", name);
+                    }
+                }
+            }
+            if (this.queriedDnsNameList.Count > 0) {
+                StringBuilder queriedNames = new StringBuilder();
+                lock (this.queriedDnsNameList) {
+                    foreach (string name in this.queriedDnsNameList) {
+                        details.Add("Queried DNS names", name);
+                    }
+                }
+            }
+            lock (this.domainNameList) {
+                for (int i = 0; i < this.domainNameList.Count; i++)
+                    details.Add("Domain Name " + (i + 1), domainNameList[i]);
+            }
+            lock (this.httpUserAgentBannerList)
+                for (int i = 0; i < this.httpUserAgentBannerList.Count; i++)
+                    details.Add("Web Browser User-Agent " + (i + 1), httpUserAgentBannerList[i]);
+            lock (this.httpServerBannerList)
+                for (int i = 0; i < this.httpServerBannerList.Count; i++)
+                    details.Add("Web Server Banner " + (i + 1), httpServerBannerList[i]);
+            lock (this.ftpServerBannerList)
+                for (int i = 0; i < this.ftpServerBannerList.Count; i++)
+                    details.Add("FTP Server Banner " + (i + 1), ftpServerBannerList[i]);
+            lock (this.dhcpVendorCodeList)
+                for (int i = 0; i < this.dhcpVendorCodeList.Count; i++)
+                    details.Add("DHCP Vendor Code " + (i + 1), dhcpVendorCodeList[i]);
+            if (this.UniversalPlugAndPlayFieldList != null)
+                lock (this.UniversalPlugAndPlayFieldList) {
+                    foreach (string field in this.UniversalPlugAndPlayFieldList.Values) {
+                        if (field.Contains(":")) {
+                            details.Add("UPnP field : " + field.Substring(0, field.LastIndexOf(':')), field.Substring(field.LastIndexOf(':') + 1));
+                        }
+                        else
+                            details.Add("UPnP field", field);
+                    }
+                }
+            if (this.acceptedSmbDialectsList != null)
+                lock (this.acceptedSmbDialectsList) {
+                    foreach (string dialectName in this.acceptedSmbDialectsList)
+                        details.Add("Accepted SMB dialects", dialectName);
+                }
+            if (this.preferredSmbDialect != null)
+                details.Add("Preferred SMB dialect", this.preferredSmbDialect);
+
+            if (this.DeviceFamily.Length > 0)
+                details.Add("Device Family", this.DeviceFamily);
+            if (this.DeviceCategory.Length > 0)
+                details.Add("Device Category", this.DeviceCategory);
+            if (this.ja3Hashes.Count > 0) {
+                lock (this.ja3Hashes) {
+                    //details.Add("JA3 Hashes", String.Join(",", this.ja3Hashes.Keys));
+                    /*
+                    foreach (var ja3 in this.ja3Hashes.Where(kvp => !string.IsNullOrEmpty(kvp.Value))) {
+                        details.Add("JA3 Fingerprint " + ja3.Key, ja3.Value);
+                    }
+                    */
+                    string[] keys = this.ja3Hashes.Keys.ToArray();
+                    for (int i = 0; i < keys.Length; i++) {
+                        string fingerprint = this.ja3Hashes[keys[i]];
+                        if (string.IsNullOrEmpty(fingerprint))
+                            details.Add("JA3 Hash " + (i + 1), keys[i]);
+                        else
+                            details.Add("JA3 Hash " + (i + 1), keys[i] + " = " + fingerprint);
+                    }
+                }
+            }
+            if (this.ja3sHashes.Count > 0) {
+                lock (this.ja3sHashes) {
+                    string[] hashes = this.ja3sHashes.ToArray();
+                    for (int i = 0; i < hashes.Length; i++) {
+                        details.Add("JA3S Hash " + (i + 1), hashes[i]);
+                    }
+                }
+            }
+
+            lock (this.ExtraDetailsList)
+                foreach (KeyValuePair<string, string> keyValue in ExtraDetailsList) {
+                    details.Add(keyValue.Key, keyValue.Value);
+                }
+            return details;
+
         }
 
         [Browsable(false)]
         public bool IpIsMulticast {
             get{
-                byte[] ip=this.ipAddress.GetAddressBytes();
+                byte[] ip=this.IPAddress.GetAddressBytes();
                 if(ip.Length==4){//let's start with IPv4
                     //http://en.wikipedia.org/wiki/Multicast_address
                     if(ip[0]>=224 && ip[0]<=239)
@@ -346,8 +335,8 @@ namespace PacketParser {
         [Browsable(false)]
         public bool IpIsBroadcast {//this one isn't 100% correct, since we don't know the subnet mask
             get {
-                if(this.sentPackets.Count==0) {
-                    byte[] ip=this.ipAddress.GetAddressBytes();
+                if(this.SentPackets.Count==0) {
+                    byte[] ip=this.IPAddress.GetAddressBytes();
                     //let's assume we need a subnet mask of 6 bits or more
                     byte mask=0x3f;
                     if((ip[ip.Length-1]&mask)==mask)
@@ -359,7 +348,7 @@ namespace PacketParser {
         [Browsable(false)]
         public bool IpIsReserved {//IANA Reserved IP
             get {
-                return Utils.IpAddressUtil.IsIanaReserved(this.ipAddress);
+                return Utils.IpAddressUtil.IsIanaReserved(this.IPAddress);
             }
         }
 
@@ -536,14 +525,6 @@ namespace PacketParser {
         public IList<Fingerprints.IOsFingerprinter> OsFingerprinters {
             get {
                 return this.fingerprinterOsCounterList.Keys;
-                /*
-
-                List<string> names = new List<string>();
-                foreach (Fingerprints.IOsFingerprinter f in this.fingerprinterOsCounterList.Keys)
-                    names.Add(f.Name);
-                return names;
-                 * */
-                //return this.operatingSystemCounterList.Keys;
             }
         }
 
@@ -554,9 +535,7 @@ namespace PacketParser {
         /// </summary>
         /// <param name="osCounterName">for example "p0f" or "Ettercap"</param>
         /// <returns></returns>
-        //public string GetOsDetails(string osCounterName) {
         public string GetOsDetails(Fingerprints.IOsFingerprinter fingerprinter) {
-            //SortedList<string, double> operatingSystemCount=operatingSystemCounterList[osCounterName];
             lock (fingerprinterOsCounterList) {
                 SortedList<string, double> operatingSystemCount = this.fingerprinterOsCounterList[fingerprinter];
 
@@ -582,11 +561,6 @@ namespace PacketParser {
                         for (int i = osNames.Length - 1; i >= 0; i--) {
                             osString.Append(osNames[i] + " (" + ((double)(percentages[i] / totalOsCount)).ToString("p") + ") ");
                         }
-
-                        /*
-                        foreach(string os in operatingSystemCount.Keys)
-                            osString.Append(os+" ("+((double)(operatingSystemCount[os]/totalOsCount)).ToString("p")+") ");
-                         * */
                         return osString.ToString();
                     }
                 }
@@ -646,7 +620,7 @@ namespace PacketParser {
         private NetworkHost() { throw new NotImplementedException(); }//for serialization purposes
 
         public NetworkHost(IPAddress ipAddress) {
-            this.ipAddress=ipAddress;
+            this.IPAddress=ipAddress;
             this.macAddress=null;
             this.recentMacAdresses = new PopularityList<string, PhysicalAddress>(255);
             this.ttlCount=new SortedList<byte, int>();
@@ -658,15 +632,15 @@ namespace PacketParser {
             this.hostNameList=new List<string>();
             this.domainNameList=new List<string>();
             this.openTcpPortList=new List<ushort>();
-            this.networkServiceMetadataList=new SortedList<ushort, NetworkServiceMetadata>();
+            this.NetworkServiceMetadataList=new SortedList<ushort, NetworkServiceMetadata>();
             this.vlanIdList = new List<ushort>();
             this.ja3Hashes = new Dictionary<string, string>();
             this.ja3sHashes = new HashSet<string>();
 
-            this.sentPackets=new NetworkPacketList();
-            this.receivedPackets=new NetworkPacketList();
-            this.incomingSessionList=new List<NetworkTcpSession>();
-            this.outgoingSessionList=new List<NetworkTcpSession>();
+            this.SentPackets=new NetworkPacketList();
+            this.ReceivedPackets=new NetworkPacketList();
+            this.IncomingSessionList=new List<NetworkTcpSession>();
+            this.OutgoingSessionList=new List<NetworkTcpSession>();
             this.queriedIpList=new List<IPAddress>();
             this.queriedNetBiosNameList=new List<string>();
             this.queriedDnsNameList=new List<string>();
@@ -678,17 +652,23 @@ namespace PacketParser {
 
             this.FaviconPerHost = new System.Collections.Concurrent.ConcurrentDictionary<string, string>();
 
-            this.universalPlugAndPlayFieldList=null;//I could just as well set this to null 'cause it is not often used. I'll initialize it when it is needed.
+            this.UniversalPlugAndPlayFieldList=null;//I could just as well set this to null 'cause it is not often used. I'll initialize it when it is needed.
             this.acceptedSmbDialectsList=null;
             this.preferredSmbDialect=null;
         }
 
         public override int GetHashCode() {
-            return ipAddress.GetHashCode();
+            return IPAddress.GetHashCode();
             //return base.GetHashCode();
+        
         }
+
         public override string ToString() {
-            StringBuilder str = new StringBuilder(ipAddress.ToString());
+            return this.ToString(true);
+        }
+
+        public string ToString(bool includeOS) {
+            StringBuilder str = new StringBuilder(this.IPAddress.ToString());
             lock (this.hostNameList) {
                 foreach (string hostname in this.hostNameList) {
                     str.Append(" [");
@@ -696,40 +676,13 @@ namespace PacketParser {
                     str.Append("]");
                 }
             }
-            //if(this.operatingSystemCounterList.Count>0)
-            if (this.fingerprinterOsCounterList.Count > 0) {
+            if (includeOS && this.fingerprinterOsCounterList.Count > 0) {
                 str.Append(" (");
                 str.Append(this.OS);
                 str.Append(")");
             }
             return str.ToString();
         }
-        /*
-        public SortedList<NetworkHost, NetworkPacketList> GetSentPacketListsPerDestinationHost() {
-            SortedList<NetworkHost, NetworkPacketList> masterList=new SortedList<NetworkHost, NetworkPacketList>();
-            lock (sentPackets) {
-                foreach (NetworkPacket p in sentPackets) {
-                    if (!masterList.ContainsKey(p.DestinationHost)) {
-                        masterList.Add(p.DestinationHost, new NetworkPacketList());
-                    }
-                    masterList[p.DestinationHost].Add(p);
-                }
-            }
-            return masterList;
-        }
-        public SortedList<NetworkHost, NetworkPacketList> GetReceivedPacketListsPerSourceHost() {
-            SortedList<NetworkHost, NetworkPacketList> masterList=new SortedList<NetworkHost, NetworkPacketList>();
-            lock (this.receivedPackets) {
-                foreach (NetworkPacket p in this.receivedPackets) {
-                    if (!masterList.ContainsKey(p.SourceHost)) {
-                        masterList.Add(p.SourceHost, new NetworkPacketList());
-                    }
-                    masterList[p.SourceHost].Add(p);
-                }
-            }
-            return masterList;
-        }
-        */
 
         internal void AddProbableDeviceCategory(string deviceCategory, PacketParser.Fingerprints.IOsFingerprinter fingerprinter, double probability) {
             double p = fingerprinter.Confidence*probability;
@@ -823,15 +776,17 @@ namespace PacketParser {
         /// </summary>
         /// <param name="hostname">DNS address, NetBIOS name or simiar</param>
         internal void AddHostName(string hostname, string packetTypeDescription) {
-            if (NETBIOS_TRAILER_TAG.IsMatch(hostname))
-                hostname = hostname.Substring(0, hostname.Length - 4);
-            lock (this.hostNameList)
-                if (!this.hostNameList.Contains(hostname)) {
-                    this.hostNameList.Add(hostname);
-                    if(HostnameExtraDetailsFunc != null)
-                        foreach ((string name, string value) in HostnameExtraDetailsFunc.Invoke(hostname, packetTypeDescription))
-                            this.AddNumberedExtraDetail(name, value);
-                }
+            if (!string.IsNullOrEmpty(hostname)) {
+                if (NETBIOS_TRAILER_TAG.IsMatch(hostname))
+                    hostname = hostname.Substring(0, hostname.Length - 4);
+                lock (this.hostNameList)
+                    if (!this.hostNameList.Contains(hostname)) {
+                        this.hostNameList.Add(hostname);
+                        if (HostnameExtraDetailsFunc != null)
+                            foreach ((string name, string value) in HostnameExtraDetailsFunc.Invoke(hostname, packetTypeDescription))
+                                this.AddNumberedExtraDetail(name, value);
+                    }
+            }
         }
         internal void AddDomainName(string domainName) {
             lock (this.domainNameList) {
@@ -877,7 +832,23 @@ namespace PacketParser {
             lock(this.dhcpVendorCodeList)
                 if(!this.dhcpVendorCodeList.Contains(vendorCode))
                     this.dhcpVendorCodeList.Add(vendorCode);
+        
         }
+
+        internal void AddNumberedExtraDetail(ExtraDetailType detailType, string value) {
+            if (detailType == ExtraDetailType.PublicIP) {
+                this.AddNumberedExtraDetail("Public IP address", value);
+            }
+            else if (detailType == ExtraDetailType.SnmpParameter) {
+                this.AddNumberedExtraDetail("SNMP parameter", value);
+            }
+            else if (detailType == ExtraDetailType.User) {
+                this.AddNumberedExtraDetail("User", value);
+            }
+            else
+                throw new Exception("Type not supported: " + detailType);
+        }
+
         internal void AddNumberedExtraDetail(string name, string value) {
             lock (this.ExtraDetailsList) {
                 for (int i = 1; i < 100; i++) {

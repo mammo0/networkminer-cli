@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Text;
 
 namespace PacketParser.Packets {
@@ -79,9 +80,63 @@ namespace PacketParser.Packets {
             }
         }
         
+        internal static bool TryParse(Frame parentFrame, int packetStartIndex, int packetEndIndex, bool clientToServer, ushort sourcePort, out SmtpPacket smtpPacket) {
+            if(clientToServer) {
+                if (packetEndIndex - packetStartIndex > 80) {
+                    int index = packetStartIndex;
+                    string line = Utils.ByteConverter.ReadLine(parentFrame.Data, ref index, true);
+                    if (line == null) {
+                        smtpPacket = null;
+                        return false;
+                    }
+                }
+            }
+            else {//server->client
+                int index = packetStartIndex;
+                string firstLine = Utils.ByteConverter.ReadLine(parentFrame.Data, ref index);
+                string line = firstLine;
+                while (!string.IsNullOrEmpty(line)) {
+                    string lowerLine = line.ToLower();
+                    if (lowerLine.Contains("smtp") || lowerLine.Contains("mail")) {
+                        smtpPacket = new SmtpPacket(parentFrame, packetStartIndex, packetEndIndex, clientToServer);
+                        return true;
+                    }
+                    else if (lowerLine.StartsWith("220") && lowerLine.Contains("ftp")) {
+                        smtpPacket = null;
+                        return false;//avoid parsing FTP as SMTP
+                    }
+                    line = Utils.ByteConverter.ReadLine(parentFrame.Data, ref index);
+                }
+                
+                if (firstLine?.StartsWith("220") == true && sourcePort == 21) {
+                    smtpPacket = null;
+                    return false;//avoid parsing FTP as SMTP
+                }
+            }
+            //null terminated strings are not used in SMTP
+            if (parentFrame.Data[packetEndIndex] == 0 && packetEndIndex - packetStartIndex >= 3) {
+                //lets see if we have 7-bit ASCII of len 3 or more, terminated with null
+                for (int i = packetStartIndex; i <= packetEndIndex; i++) {
+                    if (parentFrame.Data[i] == 0) {
+                        if (i >= 3) {
+                            smtpPacket = null;
+                            return false;
+                        }
+                        else
+                            break;
+                    }
+                    else if (parentFrame.Data[i] < 0x20)
+                        break;
+                    else if (parentFrame.Data[i] > 0x7e)
+                        break;
+                }
+            }
+            smtpPacket = new SmtpPacket(parentFrame, packetStartIndex, packetEndIndex, clientToServer);
+            return true;
+        }
 
 
-        internal SmtpPacket(Frame parentFrame, int packetStartIndex, int packetEndIndex, bool clientToServer)
+        private SmtpPacket(Frame parentFrame, int packetStartIndex, int packetEndIndex, bool clientToServer)
             : base(parentFrame, packetStartIndex, packetEndIndex, "SMTP") {
 
             this.clientToServer = clientToServer;
@@ -93,7 +148,7 @@ namespace PacketParser.Packets {
 
                 while(index < packetEndIndex && this.requestCommandAndArgumentList.Count < 1000) {
 
-                    string line = Utils.ByteConverter.ReadLine(parentFrame.Data, ref index);
+                    string line = Utils.ByteConverter.ReadLine(parentFrame.Data, ref index, true);//RFC says use CR LF, but some clients only use LF
                     if (string.IsNullOrEmpty(line))
                         break;
 
@@ -135,6 +190,8 @@ namespace PacketParser.Packets {
                     string line = Utils.ByteConverter.ReadLine(parentFrame.Data, ref index);//I'll only look in the first line
                     if (string.IsNullOrEmpty(line))
                         break;
+                    else if (replyList.Count == 0 && line.StartsWith("220") && line.ToLower().Contains("ftp") && !line.ToLower().Contains("smtp") && !line.ToLower().Contains("mail"))
+                        throw new Exception("Aborting attempt to parse FTP packet as SMTP");
                     string first3bytes=line.Substring(0, 3);
                     if(!Int32.TryParse(first3bytes, out int replyCode))
                         break;
